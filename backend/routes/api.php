@@ -1,5 +1,7 @@
 ﻿<?php
 
+use App\Http\Controllers\Api\AccessRolePermissionsController;
+use App\Http\Controllers\Api\AccessRolesController;
 use App\Http\Controllers\Api\AcademicSessionsController;
 use App\Http\Controllers\Api\AcademicYearsController;
 use App\Http\Controllers\Api\AuthController;
@@ -11,6 +13,7 @@ use App\Http\Controllers\Api\DepartmentsController;
 use App\Http\Controllers\Api\FeePlanItemsController;
 use App\Http\Controllers\Api\FeePlansController;
 use App\Http\Controllers\Api\LookupController;
+use App\Http\Controllers\Api\StaffsController;
 use App\Http\Controllers\Api\UnitsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -62,4 +65,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('fee-plan-items', FeePlanItemsController::class)
         ->parameters(['fee-plan-items' => 'fee_plan_item']);
+
+    Route::get('/staffs/meta', [StaffsController::class, 'meta'])
+        ->middleware('permission:staff.create');
+    Route::apiResource('staffs', StaffsController::class)
+        ->parameters(['staffs' => 'staff']);
+
+    Route::get('/access-roles/{access_role}/permissions/grouped', [AccessRolePermissionsController::class, 'grouped']);
+    Route::put('/access-roles/{access_role}/permissions', [AccessRolePermissionsController::class, 'sync']);
+    Route::apiResource('access-roles', AccessRolesController::class)
+        ->parameters(['access-roles' => 'access_role']);
 });

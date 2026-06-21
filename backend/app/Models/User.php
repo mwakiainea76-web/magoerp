@@ -44,6 +44,7 @@ class User extends Authenticatable
         'city',
         'postal_code',
         'country',
+        'county',
         'profile_picture',
         'is_pwd',
         'disability_type',

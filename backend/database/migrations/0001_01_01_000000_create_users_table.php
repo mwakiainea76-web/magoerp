@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -41,6 +41,7 @@ return new class extends Migration
             $table->string('city')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('country')->default('Kenya');
+            $table->string('county')->nullable();
 
             // Profile
             $table->string('profile_picture')->nullable();

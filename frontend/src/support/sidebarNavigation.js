@@ -12,6 +12,7 @@
   LayoutDashboard,
   School,
   Settings2,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
@@ -21,15 +22,29 @@ export const sidebarNavigationByRole = {
   admin: [
     { label: "Admin Dashboard", to: dashboardPathByRole.admin, icon: LayoutDashboard },
     {
-      label: "Institution",
+      label: "Staff",
+      icon: Users,
+      children: [
+        { label: "Staff Directory", to: "/staffs" },
+        { label: "Add Staff", to: "/staffs/create" },
+      ],
+    },
+    {
+      label: "Department",
       icon: Building2,
       children: [
-        { label: "View Departments", to: "/institution/departments" },
-        { label: "Add Department", to: "/institution/departments/create" },
-        { label: "View Authorities", to: "/institution/certification-authorities" },
-        { label: "Add Authority", to: "/institution/certification-authorities/create" },
-        { label: "View Levels", to: "/institution/certification-levels" },
-        { label: "Add Level", to: "/institution/certification-levels/create" },
+        { label: "View Departments", to: "/departments" },
+        { label: "Add Department", to: "/departments/create" },
+      ],
+    },
+    {
+      label: "Certification Authority",
+      icon: Award,
+      children: [
+        { label: "View Authorities", to: "/certification-authorities" },
+        { label: "Add Authority", to: "/certification-authorities/create" },
+        { label: "View Levels", to: "/certification-levels" },
+        { label: "Add Level", to: "/certification-levels/create" },
       ],
     },
     {
@@ -41,12 +56,18 @@ export const sidebarNavigationByRole = {
       ],
     },
     {
-      label: "Courses & Units",
+      label: "Courses",
       icon: GraduationCap,
       children: [
         { label: "All Courses", to: "/courses" },
         { label: "Course Enrollments", to: "/courses/enrollments" },
         { label: "Add Course", to: "/courses/create" },
+      ],
+    },
+    {
+      label: "Units",
+      icon: BookOpen,
+      children: [
         { label: "All Units", to: "/units" },
         { label: "Add Unit", to: "/units/create" },
       ],
@@ -106,6 +127,14 @@ export const sidebarNavigationByRole = {
       label: "Operations",
       icon: Settings2,
       children: [{ label: "Enrollments", to: "/operations/enrollments" }],
+    },
+    {
+      label: "Access",
+      icon: ShieldCheck,
+      children: [
+        { label: "Roles", to: "/access-roles" },
+        { label: "Add Role", to: "/access-roles/create" },
+      ],
     },
   ],
   trainer: [

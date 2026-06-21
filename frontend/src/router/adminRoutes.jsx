@@ -1,5 +1,8 @@
 ﻿import { Route } from "react-router";
 
+import { AccessRoleFormPage } from "@/pages/access/AccessRoleFormPage";
+import { AccessRolePermissionsPage } from "@/pages/access/AccessRolePermissionsPage";
+import { AccessRolesPage } from "@/pages/access/AccessRolesPage";
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
 import { AcademicSessionFormPage } from "@/pages/academicCalendar/AcademicSessionFormPage";
 import { AcademicSessionsPage } from "@/pages/academicCalendar/AcademicSessionsPage";
@@ -18,6 +21,8 @@ import { DepartmentsPage } from "@/pages/departments/DepartmentsPage";
 import { FeePlanFormPage } from "@/pages/feePlans/FeePlanFormPage";
 import { FeePlanItemsPage } from "@/pages/feePlans/FeePlanItemsPage";
 import { FeePlansPage } from "@/pages/feePlans/FeePlansPage";
+import { StaffFormPage } from "@/pages/staffs/StaffFormPage";
+import { StaffsPage } from "@/pages/staffs/StaffsPage";
 import { UnitFormPage } from "@/pages/units/UnitFormPage";
 import { UnitsPage } from "@/pages/units/UnitsPage";
 
@@ -25,15 +30,15 @@ export function AdminRoutes() {
   return (
     <>
       <Route path="/dashboard" element={<AdminDashboard />} />
-      <Route path="/institution/departments" element={<DepartmentsPage />} />
-      <Route path="/institution/departments/create" element={<DepartmentFormPage />} />
-      <Route path="/institution/departments/:departmentId/edit" element={<DepartmentFormPage />} />
-      <Route path="/institution/certification-authorities" element={<CertificationAuthoritiesPage />} />
-      <Route path="/institution/certification-authorities/create" element={<CertificationAuthorityFormPage />} />
-      <Route path="/institution/certification-authorities/:authorityId/edit" element={<CertificationAuthorityFormPage />} />
-      <Route path="/institution/certification-levels" element={<CertificationLevelsPage />} />
-      <Route path="/institution/certification-levels/create" element={<CertificationLevelFormPage />} />
-      <Route path="/institution/certification-levels/:levelId/edit" element={<CertificationLevelFormPage />} />
+      <Route path="/departments" element={<DepartmentsPage />} />
+      <Route path="/departments/create" element={<DepartmentFormPage />} />
+      <Route path="/departments/:departmentId/edit" element={<DepartmentFormPage />} />
+      <Route path="/certification-authorities" element={<CertificationAuthoritiesPage />} />
+      <Route path="/certification-authorities/create" element={<CertificationAuthorityFormPage />} />
+      <Route path="/certification-authorities/:authorityId/edit" element={<CertificationAuthorityFormPage />} />
+      <Route path="/certification-levels" element={<CertificationLevelsPage />} />
+      <Route path="/certification-levels/create" element={<CertificationLevelFormPage />} />
+      <Route path="/certification-levels/:levelId/edit" element={<CertificationLevelFormPage />} />
       <Route path="/courses" element={<CoursesPage />} />
       <Route path="/courses/create" element={<CourseFormPage />} />
       <Route path="/courses/:courseId/edit" element={<CourseFormPage />} />
@@ -53,6 +58,13 @@ export function AdminRoutes() {
       <Route path="/finance/fee-plans/create" element={<FeePlanFormPage />} />
       <Route path="/finance/fee-plans/:planId/edit" element={<FeePlanFormPage />} />
       <Route path="/finance/fee-plans/items" element={<FeePlanItemsPage />} />
+      <Route path="/staffs" element={<StaffsPage />} />
+      <Route path="/staffs/create" element={<StaffFormPage />} />
+      <Route path="/staffs/:staffId/edit" element={<StaffFormPage />} />
+      <Route path="/access-roles" element={<AccessRolesPage />} />
+      <Route path="/access-roles/create" element={<AccessRoleFormPage />} />
+      <Route path="/access-roles/:roleId/edit" element={<AccessRoleFormPage />} />
+      <Route path="/access-roles/:roleId/permissions" element={<AccessRolePermissionsPage />} />
     </>
   );
 }

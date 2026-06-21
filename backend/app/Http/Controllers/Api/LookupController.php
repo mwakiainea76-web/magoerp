@@ -11,6 +11,7 @@ use App\Models\CourseCurriculum;
 use App\Models\Curriculum;
 use App\Models\Departments;
 use App\Models\FeePlan;
+use App\Models\Role;
 use App\Models\staffs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ class LookupController extends Controller
             'academic-years' => $this->academicYears($request, $search, $limit),
             'academic-sessions' => $this->academicSessions($request, $search, $limit),
             'fee-plans' => $this->feePlans($request, $search, $limit),
+            'roles' => $this->roles($request, $search, $limit),
             default => response()->json([
                 'message' => 'Lookup resource not found.',
             ], 404),
@@ -274,6 +276,28 @@ class LookupController extends Controller
 
         return response()->json([
             'data' => $plans,
+        ]);
+    }
+
+    private function roles(Request $request, string $search, int $limit): JsonResponse
+    {
+        abort_unless($request->user()?->can('staff.view'), 403);
+
+        $roles = Role::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%");
+            })
+            ->orderBy('name')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Role $role) => [
+                'id' => $role->name,
+                'label' => ucfirst($role->name),
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => $roles,
         ]);
     }
 

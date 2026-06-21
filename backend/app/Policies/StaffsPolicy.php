@@ -8,59 +8,38 @@ use Illuminate\Auth\Access\Response;
 
 class StaffsPolicy
 {
-    /**
-     * Determine whether the user can view any models.
-     */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->can('staff.view');
     }
 
-    /**
-     * Determine whether the user can view the model.
-     */
     public function view(User $user, staffs $staffs): bool
     {
-        return false;
+        return $user->can('staff.view');
     }
 
-    /**
-     * Determine whether the user can create models.
-     */
     public function create(User $user): bool
     {
-        return false;
+        return $user->can('staff.create');
     }
 
-    /**
-     * Determine whether the user can update the model.
-     */
     public function update(User $user, staffs $staffs): bool
     {
-        return false;
+        return $user->can('staff.update');
     }
 
-    /**
-     * Determine whether the user can delete the model.
-     */
     public function delete(User $user, staffs $staffs): bool
     {
-        return false;
+        return $user->can('staff.delete');
     }
 
-    /**
-     * Determine whether the user can restore the model.
-     */
     public function restore(User $user, staffs $staffs): bool
     {
-        return false;
+        return $user->can('staff.update');
     }
 
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
     public function forceDelete(User $user, staffs $staffs): bool
     {
-        return false;
+        return $user->can('staff.delete');
     }
 }

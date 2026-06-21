@@ -28,14 +28,10 @@ class staffs extends Model
         'job_title',
         'employment_type',
         'date_joined',
-        'confirmation_date',
         'contract_end_date',
         'basic_salary',
-        'is_teaching_staff',
         'highest_qualification',
         'specialization',
-        'professional_certifications',
-        'work_experience',
         'status',
         'termination_date',
         'termination_reason',
@@ -45,10 +41,8 @@ class staffs extends Model
 
     protected $casts = [
         'date_joined' => 'date',
-        'confirmation_date' => 'date',
         'contract_end_date' => 'date',
         'basic_salary' => 'decimal:2',
-        'is_teaching_staff' => 'boolean',
         'status' => 'boolean',
         'termination_date' => 'date',
     ];

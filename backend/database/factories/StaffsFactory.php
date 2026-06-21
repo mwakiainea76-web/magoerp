@@ -36,14 +36,10 @@ class StaffsFactory extends Factory
             'job_title' => fake()->jobTitle(),
             'employment_type' => fake()->randomElement(['Permanent', 'Contract', 'Part-time', 'Casual']),
             'date_joined' => fake()->dateTimeBetween('-10 years', 'now')->format('Y-m-d'),
-            'confirmation_date' => fake()->optional()->dateTimeBetween('-5 years', 'now')?->format('Y-m-d'),
             'contract_end_date' => null,
             'basic_salary' => fake()->randomFloat(2, 30000, 180000),
-            'is_teaching_staff' => fake()->boolean(),
             'highest_qualification' => fake()->randomElement(['Certificate', 'Diploma', 'Degree', 'Masters']),
             'specialization' => fake()->optional()->word(),
-            'professional_certifications' => fake()->optional()->sentence(),
-            'work_experience' => fake()->optional()->paragraph(),
             'status' => true,
             'termination_date' => null,
             'termination_reason' => null,
@@ -57,7 +53,6 @@ class StaffsFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'job_title' => 'System Administrator',
             'employment_type' => 'Permanent',
-            'is_teaching_staff' => false,
             'status' => true,
         ]);
     }

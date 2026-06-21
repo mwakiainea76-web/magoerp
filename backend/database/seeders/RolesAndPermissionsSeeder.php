@@ -35,6 +35,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'institution.create',
                 'institution.update',
                 'institution.delete',
+                'staff.view',
+                'staff.create',
+                'staff.update',
+                'staff.delete',
             ],
             'trainer' => [
                 'dashboard.view',
