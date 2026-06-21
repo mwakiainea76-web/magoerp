@@ -1,0 +1,132 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+
+use App\Http\Requests\StoreAcademicYearRequest;
+use App\Http\Requests\UpdateAcademicYearRequest;
+use App\Models\AcademicYear;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class AcademicYearsController extends Controller
+{
+    public function index(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
+        $search = trim((string) $request->string('q', ''));
+        $sortBy = (string) $request->string('sort_by', 'created_at');
+        $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
+        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+
+        $sortableColumns = [
+            'code' => 'code',
+            'name' => 'name',
+            'created_at' => 'created_at',
+            'updated_at' => 'updated_at',
+        ];
+
+        $years = AcademicYear::query()
+            ->withCount('sessions')
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery
+                        ->where('code', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy($sortableColumns[$sortBy] ?? 'created_at', $sortDirection)
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return response()->json([
+            'data' => $years->getCollection()->map(fn (AcademicYear $year) => $this->transformYear($year))->values(),
+            'meta' => $this->paginationMeta($years, [
+                'q' => $search,
+                'sort_by' => $sortBy,
+                'sort_direction' => $sortDirection,
+            ]),
+        ]);
+    }
+
+    public function store(StoreAcademicYearRequest $request): JsonResponse
+    {
+        $year = AcademicYear::create([
+            ...$request->validated(),
+            'created_by' => $request->user()->id,
+            'updated_by' => $request->user()->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Academic year created successfully.',
+            'data' => $this->transformYear($year),
+        ], 201);
+    }
+
+    public function show(Request $request, AcademicYear $academic_year): JsonResponse
+    {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
+        $academic_year->loadCount('sessions');
+
+        return response()->json([
+            'data' => $this->transformYear($academic_year),
+        ]);
+    }
+
+    public function update(UpdateAcademicYearRequest $request, AcademicYear $academic_year): JsonResponse
+    {
+        $academic_year->update([
+            ...$request->validated(),
+            'updated_by' => $request->user()->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Academic year updated successfully.',
+            'data' => $this->transformYear($academic_year),
+        ]);
+    }
+
+    public function destroy(Request $request, AcademicYear $academic_year): JsonResponse
+    {
+        abort_unless($request->user()?->can('institution.delete'), 403);
+
+        $academic_year->delete();
+
+        return response()->json([
+            'message' => 'Academic year deleted successfully.',
+        ]);
+    }
+
+    private function transformYear(AcademicYear $year): array
+    {
+        return [
+            'id' => $year->id,
+            'code' => $year->code,
+            'name' => $year->name,
+            'start_date' => $year->start_date?->toDateString(),
+            'end_date' => $year->end_date?->toDateString(),
+            'description' => $year->description,
+            'is_active' => $year->is_active,
+            'sessions_count' => (int) ($year->sessions_count ?? $year->sessions()->count()),
+            'created_at' => $year->created_at,
+            'updated_at' => $year->updated_at,
+        ];
+    }
+
+    private function paginationMeta($paginator, array $filters): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+            'filters' => $filters,
+        ];
+    }
+}
