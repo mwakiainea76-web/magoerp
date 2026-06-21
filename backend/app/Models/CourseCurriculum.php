@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class CourseCurriculum extends Pivot
@@ -34,5 +35,12 @@ class CourseCurriculum extends Pivot
     public function curriculum(): BelongsTo
     {
         return $this->belongsTo(Curriculum::class);
+    }
+
+    public function feePlans(): BelongsToMany
+    {
+        return $this->belongsToMany(FeePlan::class, 'course_curriculum_fee_plan')
+            ->withPivot('academic_session_id')
+            ->withTimestamps();
     }
 }

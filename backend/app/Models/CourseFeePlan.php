@@ -6,37 +6,47 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class FeePlan extends Model
+class CourseFeePlan extends Model
 {
     use HasFactory, HasUuids;
 
+    protected $table = 'course_fee_plans';
+
     protected $fillable = [
-        'code',
-        'name',
-        'description',
-        'is_active',
+        'course_id',
+        'fee_plan_id',
+        'year_level',
+        'session_number',
+        'is_approved',
+        'approved_by',
+        'approved_at',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_approved' => 'boolean',
+        'approved_at' => 'datetime',
     ];
 
     protected $keyType = 'string';
 
     public $incrementing = false;
 
-    public function items(): HasMany
+    public function course(): BelongsTo
     {
-        return $this->hasMany(FeePlanItem::class);
+        return $this->belongsTo(Course::class);
     }
 
-    public function courseAssignments(): HasMany
+    public function feePlan(): BelongsTo
     {
-        return $this->hasMany(CourseFeePlan::class);
+        return $this->belongsTo(FeePlan::class);
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function createdBy(): BelongsTo

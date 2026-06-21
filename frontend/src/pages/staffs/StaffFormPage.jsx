@@ -14,6 +14,9 @@ import { useLookupApi } from "@/hooks/useLookupApi";
 import { bodyTextClassName, textAreaClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
+const relationshipOptions = ["Partner", "Sibling", "Father", "Mother", "Relative", "Guardian"];
+const qualificationOptions = ["PHD", "Masters", "Degree", "Diploma", "Certificate", "Other"];
+
 const staffSchema = yup.object({
   email: yup.string().email("Invalid email").required("Email is required").max(255),
   role: yup.string().required("Role is required"),
@@ -32,7 +35,6 @@ const staffSchema = yup.object({
 
   county: yup.string().required("County is required").max(255),
 
-  payroll_number: yup.string().required("Payroll number is required").max(255),
   department_id: yup.string().required("Department is required").uuid(),
   job_title: yup.string().required("Job title is required").max(255),
   employment_type: yup.string().oneOf(["Permanent", "Contract", "Part-time", "Casual"], "Invalid type").required("Employment type is required"),
@@ -44,7 +46,7 @@ const staffSchema = yup.object({
   nhif_number: yup.string().required("NHIF number is required").max(255),
   nssf_number: yup.string().required("NSSF number is required").max(255),
 
-  highest_qualification: yup.string().required("Highest qualification is required").max(255),
+  highest_qualification: yup.string().oneOf(qualificationOptions, "Invalid qualification").required("Highest qualification is required"),
   specialization: yup.string().required("Specialization is required").max(255),
 
   is_pwd: yup.boolean().required(),
@@ -56,7 +58,7 @@ const staffSchema = yup.object({
   next_of_kin_phone: yup.string().required("Next of kin phone is required").max(50),
   next_of_kin_alt_phone: yup.string().required("Next of kin alt phone is required").max(50),
   next_of_kin_email: yup.string().email("Invalid email").required("Next of kin email is required").max(255),
-  next_of_kin_relationship: yup.string().required("Relationship is required").max(255),
+  next_of_kin_relationship: yup.string().oneOf(relationshipOptions, "Invalid relationship").required("Relationship is required"),
 
   status: yup.boolean().required(),
 });
@@ -77,7 +79,6 @@ function normalizePayload(values) {
     phone_number: values.phone_number.trim(),
     alternative_phone_number: values.alternative_phone_number.trim(),
     county: values.county.trim(),
-    payroll_number: values.payroll_number.trim(),
     department_id: values.department_id || null,
     job_title: values.job_title.trim(),
     employment_type: values.employment_type,
@@ -87,7 +88,7 @@ function normalizePayload(values) {
     kra_pin: values.kra_pin.trim(),
     nhif_number: values.nhif_number.trim(),
     nssf_number: values.nssf_number.trim(),
-    highest_qualification: values.highest_qualification.trim(),
+    highest_qualification: values.highest_qualification,
     specialization: values.specialization.trim(),
 
     is_pwd: values.is_pwd,
@@ -98,7 +99,7 @@ function normalizePayload(values) {
     next_of_kin_phone: values.next_of_kin_phone.trim(),
     next_of_kin_alt_phone: values.next_of_kin_alt_phone.trim(),
     next_of_kin_email: values.next_of_kin_email.trim(),
-    next_of_kin_relationship: values.next_of_kin_relationship.trim(),
+    next_of_kin_relationship: values.next_of_kin_relationship,
     status: values.status,
   };
 }
@@ -149,7 +150,6 @@ export function StaffFormPage() {
       phone_number: "",
       alternative_phone_number: "",
       county: "",
-      payroll_number: "",
       department_id: "",
       job_title: "",
       employment_type: "Permanent",
@@ -211,7 +211,6 @@ export function StaffFormPage() {
               phone_number: s.phone_number ?? "",
               alternative_phone_number: s.alternative_phone_number ?? "",
               county: s.county ?? "",
-              payroll_number: s.payroll_number ?? "",
               department_id: s.department_id ?? "",
               job_title: s.job_title ?? "",
               employment_type: s.employment_type ?? "Permanent",
@@ -421,7 +420,7 @@ export function StaffFormPage() {
               <label htmlFor="gender" className="mb-1 block text-[13px] font-medium text-slate-600">
                 Gender <span className="text-red-400">*</span>
               </label>
-              <select id="gender" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("gender")}>
+              <select id="gender" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("gender")}>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="other">Other</option>
@@ -451,9 +450,7 @@ export function StaffFormPage() {
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 4: Employment Details</h2>
           <div className="grid gap-4 grid-cols-3">
-            <FormInput id="payroll_number" label="Payroll Number" placeholder="e.g. PAY/001/26" required error={errors.payroll_number?.message} {...register("payroll_number")} />
-
-            <Controller
+                        <Controller
               name="department_id"
               control={control}
               render={({ field }) => (
@@ -480,7 +477,7 @@ export function StaffFormPage() {
               <label htmlFor="employment_type" className="mb-1 block text-[13px] font-medium text-slate-600">
                 Employment Type <span className="text-red-400">*</span>
               </label>
-              <select id="employment_type" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("employment_type")}>
+              <select id="employment_type" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("employment_type")}>
                 <option value="Permanent">Permanent</option>
                 <option value="Contract">Contract</option>
                 <option value="Part-time">Part-time</option>
@@ -518,7 +515,18 @@ export function StaffFormPage() {
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 6: Academic & Professional</h2>
           <div className="grid gap-4 grid-cols-3">
-            <FormInput id="highest_qualification" label="Highest Qualification" placeholder="e.g. PhD in Computer Science" required error={errors.highest_qualification?.message} {...register("highest_qualification")} />
+            <div>
+              <label htmlFor="highest_qualification" className="mb-1 block text-[13px] font-medium text-slate-600">
+                Highest Qualification <span className="text-red-400">*</span>
+              </label>
+              <select id="highest_qualification" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("highest_qualification")}>
+                <option value="">Select qualification</option>
+                {qualificationOptions.map((qualification) => (
+                  <option key={qualification} value={qualification}>{qualification}</option>
+                ))}
+              </select>
+              {errors.highest_qualification ? <p className={`mt-1 text-red-600 ${bodyTextClassName}`}>{errors.highest_qualification.message}</p> : null}
+            </div>
             <FormInput id="specialization" label="Specialization" placeholder="e.g. Software Engineering" required error={errors.specialization?.message} {...register("specialization")} />
 
           </div>
@@ -568,7 +576,18 @@ export function StaffFormPage() {
           <div className="grid gap-4 grid-cols-3">
             <FormInput id="next_of_kin_first_name" label="First Name" placeholder="e.g. Jane" required error={errors.next_of_kin_first_name?.message} {...register("next_of_kin_first_name")} />
             <FormInput id="next_of_kin_last_name" label="Last Name" placeholder="e.g. Doe" required error={errors.next_of_kin_last_name?.message} {...register("next_of_kin_last_name")} />
-            <FormInput id="next_of_kin_relationship" label="Relationship" placeholder="e.g. Spouse" required error={errors.next_of_kin_relationship?.message} {...register("next_of_kin_relationship")} />
+            <div>
+              <label htmlFor="next_of_kin_relationship" className="mb-1 block text-[13px] font-medium text-slate-600">
+                Relationship <span className="text-red-400">*</span>
+              </label>
+              <select id="next_of_kin_relationship" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("next_of_kin_relationship")}>
+                <option value="">Select relationship</option>
+                {relationshipOptions.map((relationship) => (
+                  <option key={relationship} value={relationship}>{relationship}</option>
+                ))}
+              </select>
+              {errors.next_of_kin_relationship ? <p className={`mt-1 text-red-600 ${bodyTextClassName}`}>{errors.next_of_kin_relationship.message}</p> : null}
+            </div>
             <FormInput id="next_of_kin_phone" label="Phone Number" placeholder="e.g. +254723456789" required error={errors.next_of_kin_phone?.message} {...register("next_of_kin_phone")} />
             <FormInput id="next_of_kin_alt_phone" label="Alternative Phone" placeholder="e.g. +254733456789" required error={errors.next_of_kin_alt_phone?.message} {...register("next_of_kin_alt_phone")} />
             <FormInput id="next_of_kin_email" label="Email" placeholder="e.g. jane.doe@email.com" required error={errors.next_of_kin_email?.message} {...register("next_of_kin_email")} />

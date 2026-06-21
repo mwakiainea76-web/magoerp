@@ -17,7 +17,6 @@ class staffs extends Model
     protected $fillable = [
         'user_id',
         'employee_number',
-        'payroll_number',
         'first_name',
         'middle_name',
         'last_name',
@@ -76,3 +75,4 @@ class staffs extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 }
+

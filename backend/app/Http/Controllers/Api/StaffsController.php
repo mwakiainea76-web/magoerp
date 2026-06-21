@@ -116,7 +116,6 @@ class StaffsController extends Controller
             $staff = staffs::create([
                 'user_id' => $user->id,
                 'employee_number' => $employeeNumber,
-                'payroll_number' => $request->payroll_number,
                 'first_name' => $request->first_name,
                 'middle_name' => $request->middle_name,
                 'last_name' => $request->last_name,
@@ -197,7 +196,6 @@ class StaffsController extends Controller
             $user->update($userData);
 
             $staff->update([
-                'payroll_number' => $request->payroll_number,
                 'first_name' => $request->first_name,
                 'middle_name' => $request->middle_name,
                 'last_name' => $request->last_name,
@@ -252,7 +250,6 @@ class StaffsController extends Controller
             'role' => $user?->role,
 
             'employee_number' => $staff->employee_number,
-            'payroll_number' => $staff->payroll_number,
 
             'first_name' => $staff->first_name,
             'middle_name' => $staff->middle_name,
@@ -317,3 +314,4 @@ class StaffsController extends Controller
         ];
     }
 }
+

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Link2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
@@ -234,6 +234,13 @@ export function FeePlansPage() {
                   <Td>{formatCurrency(plan.total_amount)}</Td>
                   <Td>
                     <div className="flex justify-end gap-2">
+                      <Link
+                        to={`/finance/fee-plans/${plan.id}/assign`}
+                        className="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        Assign
+                      </Link>
                       <Link
                         to={`/finance/fee-plans/${plan.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"

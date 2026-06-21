@@ -12,6 +12,7 @@ import { LookupSelect } from "@/components/LookupSelect";
 import { useCoursesApi } from "@/hooks/useCoursesApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { bodyTextClassName, labelClassName, inputTextClassName, fieldClassName, textAreaClassName } from "@/lib/styles";
+import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const courseSchema = yup.object({
   code: yup.string().required("Course code is required").max(50, "Max 50 characters"),
@@ -399,8 +400,6 @@ export function CourseFormPage() {
                   <p className={`mt-1 text-red-600 ${bodyTextClassName}`}>{errors.description.message}</p>
                 ) : null}
               </div>
-
-
             </div>
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">

@@ -7,9 +7,11 @@ use App\Http\Controllers\Api\AcademicYearsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
 use App\Http\Controllers\Api\CertificationLevelsController;
+use App\Http\Controllers\Api\CourseFeePlansController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\CurriculaController;
 use App\Http\Controllers\Api\DepartmentsController;
+use App\Http\Controllers\Api\FeePlanCourseAssignmentsController;
 use App\Http\Controllers\Api\FeePlanItemsController;
 use App\Http\Controllers\Api\FeePlansController;
 use App\Http\Controllers\Api\LookupController;
@@ -65,6 +67,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('fee-plan-items', FeePlanItemsController::class)
         ->parameters(['fee-plan-items' => 'fee_plan_item']);
+
+    Route::get('/fee-plans/{fee_plan}/course-assignments', [FeePlanCourseAssignmentsController::class, 'index']);
+    Route::post('/fee-plans/{fee_plan}/course-assignments', [FeePlanCourseAssignmentsController::class, 'store']);
+    Route::put('/fee-plans/{fee_plan}/course-assignments/{course_fee_plan}', [FeePlanCourseAssignmentsController::class, 'update']);
+    Route::delete('/fee-plans/{fee_plan}/course-assignments/{course_fee_plan}', [FeePlanCourseAssignmentsController::class, 'destroy']);
 
     Route::get('/staffs/meta', [StaffsController::class, 'meta'])
         ->middleware('permission:staff.create');

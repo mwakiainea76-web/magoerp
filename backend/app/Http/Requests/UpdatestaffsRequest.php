@@ -35,7 +35,6 @@ class UpdatestaffsRequest extends FormRequest
 
             'county' => ['required', 'string', 'max:255'],
 
-            'payroll_number' => ['required', 'string', 'max:255'],
             'department_id' => ['required', 'uuid', Rule::exists('departments', 'id')->whereNull('deleted_at')],
             'job_title' => ['required', 'string', 'max:255'],
             'employment_type' => ['required', 'string', Rule::in(['Permanent', 'Contract', 'Part-time', 'Casual'])],
@@ -47,7 +46,7 @@ class UpdatestaffsRequest extends FormRequest
             'nhif_number' => ['required', 'string', 'max:255'],
             'nssf_number' => ['required', 'string', 'max:255'],
 
-            'highest_qualification' => ['required', 'string', 'max:255'],
+            'highest_qualification' => ['required', 'string', Rule::in(['PHD', 'Masters', 'Degree', 'Diploma', 'Certificate', 'Other'])],
             'specialization' => ['required', 'string', 'max:255'],
 
 
@@ -60,9 +59,12 @@ class UpdatestaffsRequest extends FormRequest
             'next_of_kin_phone' => ['required', 'string', 'max:50'],
             'next_of_kin_alt_phone' => ['required', 'string', 'max:50'],
             'next_of_kin_email' => ['required', 'email', 'max:255'],
-            'next_of_kin_relationship' => ['required', 'string', 'max:255'],
+            'next_of_kin_relationship' => ['required', 'string', Rule::in(['Partner', 'Sibling', 'Father', 'Mother', 'Relative', 'Guardian'])],
 
             'status' => ['required', 'boolean'],
         ];
     }
 }
+
+
+

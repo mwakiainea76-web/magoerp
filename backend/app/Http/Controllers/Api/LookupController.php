@@ -9,6 +9,7 @@ use App\Models\CertificationAuthority;
 use App\Models\CertificationLevel;
 use App\Models\CourseCurriculum;
 use App\Models\Curriculum;
+use App\Models\Course;
 use App\Models\Departments;
 use App\Models\FeePlan;
 use App\Models\Role;
@@ -27,6 +28,7 @@ class LookupController extends Controller
             'staffs' => $this->staffs($request, $search, $limit),
             'certification-authorities' => $this->certificationAuthorities($request, $search, $limit),
             'certification-levels' => $this->certificationLevels($request, $search, $limit),
+            'courses' => $this->courses($request, $search, $limit),
             'course-curricula' => $this->courseCurricula($request, $search, $limit),
             'curricula' => $this->curricula($request, $search, $limit),
             'departments' => $this->departments($request, $search, $limit),
@@ -298,6 +300,34 @@ class LookupController extends Controller
 
         return response()->json([
             'data' => $roles,
+        ]);
+    }
+
+    private function courses(Request $request, string $search, int $limit): JsonResponse
+    {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
+        $items = Course::query()
+            ->where('is_active', true)
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery
+                        ->where('code', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('initials', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('name')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Course $course) => [
+                'id' => $course->id,
+                'label' => trim($course->code . ' ' . $course->name),
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => $items,
         ]);
     }
 

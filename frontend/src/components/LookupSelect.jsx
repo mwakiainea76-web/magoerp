@@ -122,7 +122,7 @@ export function LookupSelect({
             placeholder={placeholder}
             disabled={disabled}
             autoComplete="off"
-            className={`h-9 w-full border-0 bg-transparent p-0 ${inputTextClassName} text-slate-500 outline-none placeholder:text-[13px] placeholder:text-slate-400`}
+            className={`h-9 w-full border-0 bg-transparent p-0 ${inputTextClassName} text-slate-700 outline-none placeholder:text-[13px] placeholder:text-[#a8b6c7]`}
           />
           {isLoading ? (
             <LoaderCircle className="ml-2 h-4 w-4 shrink-0 animate-spin text-emerald-500" />
@@ -178,3 +178,5 @@ export function LookupSelect({
     </div>
   );
 }
+
+

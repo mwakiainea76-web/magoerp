@@ -18,6 +18,7 @@ import { CurriculumFormPage } from "@/pages/curriculums/CurriculumFormPage";
 import { CurriculumsPage } from "@/pages/curriculums/CurriculumsPage";
 import { DepartmentFormPage } from "@/pages/departments/DepartmentFormPage";
 import { DepartmentsPage } from "@/pages/departments/DepartmentsPage";
+import { FeePlanAssignmentsPage } from "@/pages/feePlans/FeePlanAssignmentsPage";
 import { FeePlanFormPage } from "@/pages/feePlans/FeePlanFormPage";
 import { FeePlanItemsPage } from "@/pages/feePlans/FeePlanItemsPage";
 import { FeePlansPage } from "@/pages/feePlans/FeePlansPage";
@@ -57,6 +58,7 @@ export function AdminRoutes() {
       <Route path="/finance/fee-plans" element={<FeePlansPage />} />
       <Route path="/finance/fee-plans/create" element={<FeePlanFormPage />} />
       <Route path="/finance/fee-plans/:planId/edit" element={<FeePlanFormPage />} />
+      <Route path="/finance/fee-plans/:planId/assign" element={<FeePlanAssignmentsPage />} />
       <Route path="/finance/fee-plans/items" element={<FeePlanItemsPage />} />
       <Route path="/staffs" element={<StaffsPage />} />
       <Route path="/staffs/create" element={<StaffFormPage />} />
