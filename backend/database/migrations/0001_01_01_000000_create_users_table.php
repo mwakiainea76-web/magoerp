@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -33,15 +33,15 @@ return new class extends Migration
             $table->string('national_id')->nullable()->unique();
             $table->string('place_of_birth')->nullable();
             $table->string('religion')->nullable();
-
+                      $table->string('country')->default('Kenya');
+     $table->string('county')->nullable();
             // Contact Information
             $table->string('phone_number')->unique();
             $table->string('alternative_phone_number')->nullable();
             $table->string('address')->nullable();
             $table->string('city')->nullable();
             $table->string('postal_code')->nullable();
-            $table->string('country')->default('Kenya');
-            $table->string('county')->nullable();
+  
 
             // Profile
             $table->string('profile_picture')->nullable();

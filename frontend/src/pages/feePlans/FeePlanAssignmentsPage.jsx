@@ -73,7 +73,11 @@ export function FeePlanAssignmentsPage() {
       await assignmentsApi.update(planId, item.id, {
         is_approved: !item.is_approved,
       });
-      toast.success(item.is_approved ? "Approval revoked." : "Fee plan approved for this course.");
+      toast.success(
+        item.is_approved
+          ? "Approval revoked."
+          : "Fee plan approved for this course.",
+      );
       await loadAssignments();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Failed to update."));
@@ -126,7 +130,9 @@ export function FeePlanAssignmentsPage() {
         </h2>
 
         {asLoading ? (
-          <div className={`text-slate-500 ${bodyTextClassName}`}>Loading course assignments...</div>
+          <div className={`text-slate-500 ${bodyTextClassName}`}>
+            Loading course assignments...
+          </div>
         ) : (
           <div className="space-y-4">
             {assignments.length > 0 ? (
@@ -134,19 +140,48 @@ export function FeePlanAssignmentsPage() {
                 <table className="w-full text-left text-[13px]">
                   <thead className="border-b border-slate-200 bg-slate-50">
                     <tr>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Course</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Year</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Session</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Status</th>
-                      <th className="px-4 py-2.5 text-right font-medium text-slate-600">Actions</th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Course
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Curriculum
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Level
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Year
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Session
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Status
+                      </th>
+                      <th className="px-4 py-2.5 text-right font-medium text-slate-600">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {assignments.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2.5 text-slate-700">{item.course_code} – {item.course_name}</td>
-                        <td className="px-4 py-2.5 text-slate-700">Year {item.year_level}</td>
-                        <td className="px-4 py-2.5 text-slate-700">Session {item.session_number}</td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          {" "}
+                          {item.course_name}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          {item.course_curriculum_name ?? "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          {item.course_level_name ?? "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          Year {item.year_level}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          Session {item.session_number}
+                        </td>
                         <td className="px-4 py-2.5">
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
@@ -155,7 +190,9 @@ export function FeePlanAssignmentsPage() {
                                 : "bg-amber-50 text-amber-700"
                             }`}
                           >
-                            {item.is_approved ? <BadgeCheck className="h-3 w-3" /> : null}
+                            {item.is_approved ? (
+                              <BadgeCheck className="h-3 w-3" />
+                            ) : null}
                             {item.is_approved ? "Approved" : "Pending"}
                           </span>
                         </td>
@@ -184,7 +221,9 @@ export function FeePlanAssignmentsPage() {
                 </table>
               </div>
             ) : (
-              <p className={`text-slate-500 ${bodyTextClassName}`}>No courses assigned yet.</p>
+              <p className={`text-slate-500 ${bodyTextClassName}`}>
+                No courses assigned yet.
+              </p>
             )}
 
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_100px_100px_auto] sm:items-end">
@@ -201,26 +240,34 @@ export function FeePlanAssignmentsPage() {
                 emptyMessage="No courses found"
               />
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Year</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-600">
+                  Year
+                </label>
                 <select
                   value={asYear}
                   onChange={(e) => setAsYear(e.target.value)}
                   className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
                 >
                   {[1, 2, 3, 4, 5, 6].map((y) => (
-                    <option key={y} value={y}>Year {y}</option>
+                    <option key={y} value={y}>
+                      Year {y}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Session</label>
+                <label className="mb-1 block text-[13px] font-medium text-slate-600">
+                  Session
+                </label>
                 <select
                   value={asSession}
                   onChange={(e) => setAsSession(e.target.value)}
                   className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
                 >
                   {[1, 2, 3].map((s) => (
-                    <option key={s} value={s}>Session {s}</option>
+                    <option key={s} value={s}>
+                      Session {s}
+                    </option>
                   ))}
                 </select>
               </div>

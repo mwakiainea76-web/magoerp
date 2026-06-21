@@ -17,7 +17,13 @@ class FeePlanCourseAssignmentsController extends Controller
 
         $items = CourseFeePlan::query()
             ->where('fee_plan_id', $fee_plan->id)
-            ->with('course:id,code,name')
+            ->with(['course' => function ($query) {
+                $query->with('level:id,name')
+                    ->with(['curricula' => function ($q) {
+                        $q->wherePivot('is_active', true)->select('curricula.id', 'curricula.code', 'curricula.name');
+                    }])
+                    ->select('id', 'code', 'name', 'certification_level_id');
+            }])
             ->orderBy('year_level')
             ->orderBy('session_number')
             ->get()
@@ -108,11 +114,15 @@ class FeePlanCourseAssignmentsController extends Controller
 
     private function transform(CourseFeePlan $cfp): array
     {
+        $activeCurriculum = $cfp->course?->curricula?->first();
+
         return [
             'id' => $cfp->id,
             'course_id' => $cfp->course_id,
             'course_code' => $cfp->course?->code,
             'course_name' => $cfp->course?->name,
+            'course_curriculum_name' => $activeCurriculum?->code . ' ' . $activeCurriculum?->name,
+            'course_level_name' => $cfp->course?->level?->name,
             'year_level' => $cfp->year_level,
             'session_number' => $cfp->session_number,
             'is_approved' => $cfp->is_approved,
