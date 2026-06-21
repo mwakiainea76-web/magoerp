@@ -10,12 +10,21 @@ import { useLookupApi } from "@/hooks/useLookupApi";
 import { bodyTextClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
+function formatCurrency(amount) {
+  return `Ksh ${Number(amount || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export function FeePlanAssignmentsPage() {
   const { planId } = useParams();
   const assignmentsApi = useFeePlanCourseAssignmentsApi();
   const lookupApi = useLookupApi();
 
   const [planName, setPlanName] = useState("");
+  const [planTotalAmount, setPlanTotalAmount] = useState(0);
+  const [planTotalItems, setPlanTotalItems] = useState(0);
   const [assignments, setAssignments] = useState([]);
   const [asLoading, setAsLoading] = useState(true);
   const [asSaving, setAsSaving] = useState(false);
@@ -32,9 +41,9 @@ export function FeePlanAssignmentsPage() {
       const response = await assignmentsApi.list(planId);
       const items = response.data ?? [];
       setAssignments(items);
-      if (items.length > 0) {
-        setPlanName(items[0].fee_plan_name ?? "");
-      }
+      setPlanName(response.fee_plan_name ?? "");
+      setPlanTotalAmount(Number(response.fee_plan_total_amount ?? 0));
+      setPlanTotalItems(Number(response.fee_plan_total_items ?? 0));
     } catch {
       // silent
     } finally {
@@ -104,19 +113,19 @@ export function FeePlanAssignmentsPage() {
 
   return (
     <section className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">
-            {planName ? `${planName} — ` : ""}Course Assignments
+            Fee Plan: {planName}
           </h1>
-          <p className="text-[13px] text-slate-500">
-            Link courses to this fee plan by year level and session.
+          <p className="mt-2 text-[14px] text-slate-500">
+            Total Items: {planTotalItems} | Total Amount: {formatCurrency(planTotalAmount)}
           </p>
         </div>
 
         <Link
           to="/finance/fee-plans"
-          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
+          className="inline-flex items-center gap-1.5 pt-2 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to fee plans
@@ -135,97 +144,6 @@ export function FeePlanAssignmentsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {assignments.length > 0 ? (
-              <div className="overflow-hidden rounded-lg border border-slate-200">
-                <table className="w-full text-left text-[13px]">
-                  <thead className="border-b border-slate-200 bg-slate-50">
-                    <tr>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">
-                        Course
-                      </th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">
-                        Curriculum
-                      </th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">
-                        Level
-                      </th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">
-                        Year
-                      </th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">
-                        Session
-                      </th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">
-                        Status
-                      </th>
-                      <th className="px-4 py-2.5 text-right font-medium text-slate-600">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {assignments.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2.5 text-slate-700">
-                          {" "}
-                          {item.course_name}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-700">
-                          {item.course_curriculum_name ?? "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-700">
-                          {item.course_level_name ?? "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-700">
-                          Year {item.year_level}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-700">
-                          Session {item.session_number}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                              item.is_approved
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-amber-50 text-amber-700"
-                            }`}
-                          >
-                            {item.is_approved ? (
-                              <BadgeCheck className="h-3 w-3" />
-                            ) : null}
-                            {item.is_approved ? "Approved" : "Pending"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <div className="flex justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleApprove(item)}
-                              className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-200 px-2.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-50"
-                            >
-                              {item.is_approved ? "Revoke" : "Approve"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteAssignment(item)}
-                              disabled={asDeletingId === item.id}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className={`text-slate-500 ${bodyTextClassName}`}>
-                No courses assigned yet.
-              </p>
-            )}
-
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_100px_100px_auto] sm:items-end">
               <LookupSelect
                 label="Course"
@@ -291,6 +209,97 @@ export function FeePlanAssignmentsPage() {
                 </FormButton>
               </div>
             </div>
+
+            {assignments.length > 0 ? (
+              <div className="overflow-hidden rounded-lg border border-slate-200">
+                <table className="w-full text-left text-[13px]">
+                  <thead className="border-b border-slate-200 bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Course
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Curriculum
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Level
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Year
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Session
+                      </th>
+                      <th className="px-4 py-2.5 font-medium text-slate-600">
+                        Status
+                      </th>
+                      <th className="px-4 py-2.5 text-right font-medium text-slate-600">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {assignments.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-2.5 text-slate-700">
+                          {" "}
+                          {item.course_name}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          {item.course_curriculum_name ?? "Ã¢â‚¬â€"}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          {item.course_level_name ?? "Ã¢â‚¬â€"}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          Year {item.year_level}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700">
+                          Session {item.session_number}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                              item.is_approved
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {item.is_approved ? (
+                              <BadgeCheck className="h-3 w-3" />
+                            ) : null}
+                            {item.is_approved ? "Approved" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleApprove(item)}
+                              className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-200 px-2.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-50"
+                            >
+                              {item.is_approved ? "Revoke" : "Approve"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAssignment(item)}
+                              disabled={asDeletingId === item.id}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className={`text-slate-500 ${bodyTextClassName}`}>
+                No courses assigned yet.
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -32,6 +32,9 @@ class FeePlanCourseAssignmentsController extends Controller
 
         return response()->json([
             'data' => $items,
+            'fee_plan_name' => $fee_plan->name,
+            'fee_plan_code' => $fee_plan->code,
+            'fee_plan_total_amount' => (float) $fee_plan->items()->sum('amount'),
         ]);
     }
 
@@ -70,7 +73,13 @@ class FeePlanCourseAssignmentsController extends Controller
             'updated_by' => $request->user()->id,
         ]);
 
-        $cfp->load('course:id,code,name');
+        $cfp->load(['course' => function ($query) {
+            $query->with('level:id,name')
+                ->with(['curricula' => function ($q) {
+                    $q->wherePivot('is_active', true)->select('curricula.id', 'curricula.code', 'curricula.name');
+                }])
+                ->select('id', 'code', 'name', 'certification_level_id');
+        }]);
 
         return response()->json([
             'message' => 'Course linked to fee plan successfully.',
@@ -93,7 +102,13 @@ class FeePlanCourseAssignmentsController extends Controller
             'updated_by' => $request->user()->id,
         ]);
 
-        $course_fee_plan->load('course:id,code,name');
+        $course_fee_plan->load(['course' => function ($query) {
+            $query->with('level:id,name')
+                ->with(['curricula' => function ($q) {
+                    $q->wherePivot('is_active', true)->select('curricula.id', 'curricula.code', 'curricula.name');
+                }])
+                ->select('id', 'code', 'name', 'certification_level_id');
+        }]);
 
         return response()->json([
             'message' => $validated['is_approved'] ? 'Fee plan approved for this course.' : 'Fee plan approval revoked.',
