@@ -13,6 +13,7 @@ import { CertificationAuthorityFormPage } from "@/pages/certificationAuthorities
 import { CertificationLevelFormPage } from "@/pages/certificationLevels/CertificationLevelFormPage";
 import { CertificationLevelsPage } from "@/pages/certificationLevels/CertificationLevelsPage";
 import { CourseFormPage } from "@/pages/courses/CourseFormPage";
+import { CourseEnrolmentsPage } from "@/pages/courses/CourseEnrolmentsPage";
 import { CoursesPage } from "@/pages/courses/CoursesPage";
 import { CurriculumFormPage } from "@/pages/curriculums/CurriculumFormPage";
 import { CurriculumsPage } from "@/pages/curriculums/CurriculumsPage";
@@ -24,6 +25,8 @@ import { FeePlanItemsPage } from "@/pages/feePlans/FeePlanItemsPage";
 import { FeePlansPage } from "@/pages/feePlans/FeePlansPage";
 import { StaffFormPage } from "@/pages/staffs/StaffFormPage";
 import { StaffsPage } from "@/pages/staffs/StaffsPage";
+import { StudentFormPage } from "@/pages/students/StudentFormPage";
+import { StudentsPage } from "@/pages/students/StudentsPage";
 import { UnitFormPage } from "@/pages/units/UnitFormPage";
 import { UnitsPage } from "@/pages/units/UnitsPage";
 
@@ -43,6 +46,7 @@ export function AdminRoutes() {
       <Route path="/courses" element={<CoursesPage />} />
       <Route path="/courses/create" element={<CourseFormPage />} />
       <Route path="/courses/:courseId/edit" element={<CourseFormPage />} />
+      <Route path="/courses/enrolments" element={<CourseEnrolmentsPage />} />
       <Route path="/curriculums" element={<CurriculumsPage />} />
       <Route path="/curriculums/create" element={<CurriculumFormPage />} />
       <Route path="/curriculums/:curriculumId/edit" element={<CurriculumFormPage />} />
@@ -63,6 +67,9 @@ export function AdminRoutes() {
       <Route path="/staffs" element={<StaffsPage />} />
       <Route path="/staffs/create" element={<StaffFormPage />} />
       <Route path="/staffs/:staffId/edit" element={<StaffFormPage />} />
+      <Route path="/students" element={<StudentsPage />} />
+      <Route path="/students/create" element={<StudentFormPage />} />
+      <Route path="/students/:studentId/edit" element={<StudentFormPage />} />
       <Route path="/access-roles" element={<AccessRolesPage />} />
       <Route path="/access-roles/create" element={<AccessRoleFormPage />} />
       <Route path="/access-roles/:roleId/edit" element={<AccessRoleFormPage />} />

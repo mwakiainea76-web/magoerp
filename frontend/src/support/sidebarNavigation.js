@@ -60,7 +60,7 @@ export const sidebarNavigationByRole = {
       icon: GraduationCap,
       children: [
         { label: "All Courses", to: "/courses" },
-        { label: "Course Enrollments", to: "/courses/enrollments" },
+                    { label: "Course Enrolments", to: "/courses/enrolments" },
         { label: "Add Course", to: "/courses/create" },
       ],
     },

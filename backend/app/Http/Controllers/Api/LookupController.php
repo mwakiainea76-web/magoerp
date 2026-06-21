@@ -14,6 +14,7 @@ use App\Models\Departments;
 use App\Models\FeePlan;
 use App\Models\Role;
 use App\Models\staffs;
+use App\Models\Student;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,7 @@ class LookupController extends Controller
             'academic-sessions' => $this->academicSessions($request, $search, $limit),
             'fee-plans' => $this->feePlans($request, $search, $limit),
             'roles' => $this->roles($request, $search, $limit),
+            'students' => $this->students($request, $search, $limit),
             default => response()->json([
                 'message' => 'Lookup resource not found.',
             ], 404),
@@ -355,6 +357,41 @@ class LookupController extends Controller
 
         return response()->json([
             'data' => $authorities,
+        ]);
+    }
+
+    private function students(Request $request, string $search, int $limit): JsonResponse
+    {
+        abort_unless($request->user()?->can('students.view'), 403);
+
+        $items = Student::query()
+            ->with('user:id,phone_number')
+            ->where('status', true)
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery
+                        ->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('admission_number', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->limit($limit)
+            ->get()
+            ->map(function (Student $student) {
+                $name = trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' '));
+
+                return [
+                    'id' => $student->id,
+                    'label' => trim($student->admission_number . ' ' . $name),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $items,
         ]);
     }
 }

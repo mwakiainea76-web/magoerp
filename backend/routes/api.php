@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AcademicYearsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
 use App\Http\Controllers\Api\CertificationLevelsController;
+use App\Http\Controllers\Api\CourseEnrolmentsController;
 use App\Http\Controllers\Api\CourseFeePlansController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\CurriculaController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Api\FeePlanItemsController;
 use App\Http\Controllers\Api\FeePlansController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\StaffsController;
+use App\Http\Controllers\Api\StudentsController;
 use App\Http\Controllers\Api\UnitsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -77,6 +79,15 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:staff.create');
     Route::apiResource('staffs', StaffsController::class)
         ->parameters(['staffs' => 'staff']);
+
+    Route::get('/students/meta', [StudentsController::class, 'meta'])
+        ->middleware('permission:students.create');
+    Route::apiResource('students', StudentsController::class)
+        ->parameters(['students' => 'student']);
+
+    Route::get('/course-enrolments', [CourseEnrolmentsController::class, 'index']);
+    Route::get('/course-enrolments/{course_enrolment}', [CourseEnrolmentsController::class, 'show']);
+    Route::put('/course-enrolments/{course_enrolment}/status', [CourseEnrolmentsController::class, 'updateStatus']);
 
     Route::get('/access-roles/{access_role}/permissions/grouped', [AccessRolePermissionsController::class, 'grouped']);
     Route::put('/access-roles/{access_role}/permissions', [AccessRolePermissionsController::class, 'sync']);
