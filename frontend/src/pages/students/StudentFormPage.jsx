@@ -1,5 +1,5 @@
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -15,6 +15,7 @@ import { bodyTextClassName, textAreaClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const relationshipOptions = ["Partner", "Sibling", "Father", "Mother", "Relative", "Guardian"];
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const studentSchema = yup.object({
   email: yup.string().email("Invalid email").required("Email is required").max(255),
@@ -33,7 +34,10 @@ const studentSchema = yup.object({
 
   county: yup.string().required("County is required").max(255),
 
-  course_id: yup.string().required("Course is required").uuid(),
+  course_id: yup
+    .string()
+    .required("Course is required")
+    .matches(uuidPattern, "Select a valid course"),
   enrollment_date: yup.date().nullable(),
 
   is_pwd: yup.boolean().required(),
@@ -98,7 +102,7 @@ export function StudentFormPage() {
   const isEdit = Boolean(studentId);
 
   const [selectedCourseOption, setSelectedCourseOption] = useState(null);
-  const [nextAdmissionNumber, setNextAdmissionNumber] = useState("");
+  const [admissionNumber, setAdmissionNumber] = useState("");
   const [pageError, setPageError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -149,6 +153,7 @@ export function StudentFormPage() {
   });
 
   const watchedIsPwd = watch("is_pwd");
+  const watchedCourseId = watch("course_id");
 
   useEffect(() => {
     let isMounted = true;
@@ -165,6 +170,7 @@ export function StudentFormPage() {
 
           if (response?.data) {
             const s = response.data;
+            setAdmissionNumber(s.admission_number ?? "");
             reset({
               email: s.email ?? "",
               first_name: s.first_name ?? "",
@@ -200,11 +206,8 @@ export function StudentFormPage() {
               });
             }
           }
-        } else {
-          const metaResponse = await studentsApi.meta();
-          if (isMounted) {
-            setNextAdmissionNumber(metaResponse?.next_admission_number ?? "STU/---");
-          }
+        } else if (isMounted) {
+          setAdmissionNumber("Select a course");
         }
       } catch (loadError) {
         if (isMounted) {
@@ -224,10 +227,53 @@ export function StudentFormPage() {
     };
   }, [studentId, studentsApi, isEdit, reset]);
 
-  async function fetchCourseOptions(query) {
-    const response = await lookupApi.search("courses", { query, limit: 5 });
-    return response.data ?? [];
-  }
+  useEffect(() => {
+    if (isEdit || !watchedCourseId) {
+      if (!isEdit) {
+        setAdmissionNumber("Select a course");
+      }
+
+      return undefined;
+    }
+
+    let isMounted = true;
+    setAdmissionNumber("Generating...");
+
+    studentsApi
+      .meta({
+        course_id: watchedCourseId,
+      })
+      .then((response) => {
+        if (isMounted) {
+          setAdmissionNumber(response?.next_admission_number ?? "Unavailable");
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setAdmissionNumber("Unavailable");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isEdit, studentsApi, watchedCourseId]);
+
+  const fetchCourseOptions = useCallback(async (query) => {
+    const response = await lookupApi.search("course-curricula", { query, limit: 10 });
+    const uniqueCourses = new Map();
+
+    (response.data ?? []).forEach((option) => {
+      if (!uniqueCourses.has(option.course_id)) {
+        uniqueCourses.set(option.course_id, {
+          ...option,
+          id: option.course_id,
+        });
+      }
+    });
+
+    return Array.from(uniqueCourses.values());
+  }, [lookupApi]);
 
   async function onSubmit(data) {
     setIsSaving(true);
@@ -300,16 +346,14 @@ export function StudentFormPage() {
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 1: Admission Information</h2>
           <div className="grid gap-4 grid-cols-3">
-            {!isEdit ? (
-              <FormInput
-                id="admission_number"
-                label="Admission Number"
-                value={nextAdmissionNumber}
-                disabled
-              />
-            ) : null}
+            <FormInput
+              id="admission_number"
+              label="Admission Number"
+              value={admissionNumber}
+              disabled={isEdit}
+            />
 
-            <div className={isEdit ? "col-span-1" : ""}>
+            <div>
               <Controller
                 name="course_id"
                 control={control}
@@ -319,6 +363,7 @@ export function StudentFormPage() {
                     required
                     value={field.value}
                     selectedOption={selectedCourseOption}
+                    disabled={isEdit}
                     onChange={(nextValue, option) => {
                       field.onChange(nextValue);
                       setSelectedCourseOption(option);

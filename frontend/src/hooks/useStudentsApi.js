@@ -8,8 +8,8 @@ export function useStudentsApi() {
         const response = await authClient.get("/students", { params });
         return response.data;
       },
-      meta: async () => {
-        const response = await authClient.get("/students/meta");
+      meta: async (params = {}) => {
+        const response = await authClient.get("/students/meta", { params });
         return response.data;
       },
       show: async (id) => {

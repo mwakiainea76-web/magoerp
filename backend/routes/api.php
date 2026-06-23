@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\FeePlanItemsController;
 use App\Http\Controllers\Api\FeePlansController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\StaffsController;
+use App\Http\Controllers\Api\StudentDashboardController;
 use App\Http\Controllers\Api\StudentsController;
 use App\Http\Controllers\Api\UnitsController;
 use Illuminate\Http\Request;
@@ -54,6 +55,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/courses/{course}/curricula', [CoursesController::class, 'attachCurriculum']);
     Route::delete('/courses/{course}/curricula', [CoursesController::class, 'detachCurriculum']);
     Route::patch('/courses/{course}/curricula/toggle', [CoursesController::class, 'toggleCurriculum']);
+
+    Route::get('/student/dashboard', StudentDashboardController::class);
 
     Route::apiResource('units', UnitsController::class)
         ->parameters(['units' => 'unit']);

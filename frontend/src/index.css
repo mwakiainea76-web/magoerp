@@ -15,3 +15,26 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.65) #1b263b;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: #1b263b;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.55);
+  border-radius: 9999px;
+  border: 1px solid #1b263b;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(203, 213, 225, 0.75);
+}

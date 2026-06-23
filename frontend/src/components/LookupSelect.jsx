@@ -47,6 +47,7 @@ export function LookupSelect({
 
   useEffect(() => {
     if (!isOpen) {
+      setIsLoading(false);
       return undefined;
     }
 
@@ -90,6 +91,7 @@ export function LookupSelect({
   function handleSelect(option) {
     onChange(option.id, option);
     setQuery(option.label);
+    setIsLoading(false);
     setIsOpen(false);
   }
 

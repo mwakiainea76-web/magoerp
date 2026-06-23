@@ -194,7 +194,7 @@ export function CertificationLevelFormPage() {
         toast.success("Certification level created successfully.");
       }
 
-      navigate("/institution/certification-levels", { replace: true });
+      navigate("/certification-levels", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 
@@ -223,7 +223,7 @@ export function CertificationLevelFormPage() {
         </div>
 
         <Link
-          to="/institution/certification-levels"
+          to="/certification-levels"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -326,7 +326,7 @@ export function CertificationLevelFormPage() {
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
               <Link
-                to="/institution/certification-levels"
+                to="/certification-levels"
                 className="sm:w-auto"
               >
                 <FormButton

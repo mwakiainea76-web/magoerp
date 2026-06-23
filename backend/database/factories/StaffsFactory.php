@@ -25,7 +25,6 @@ class StaffsFactory extends Factory
         return [
             'user_id' => User::factory(),
             'employee_number' => $employeeNumber,
-            'payroll_number' => 'PAY-' . fake()->unique()->numerify('#####'),
             'first_name' => fake()->firstName(),
             'middle_name' => fake()->optional()->firstName(),
             'last_name' => fake()->lastName(),

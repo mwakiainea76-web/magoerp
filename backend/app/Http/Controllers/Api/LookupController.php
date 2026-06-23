@@ -174,9 +174,12 @@ class LookupController extends Controller
                 $q->where(function ($inner) use ($search) {
                     $inner
                         ->whereHas('course', fn ($cq) => $cq
-                            ->where('name', 'like', "%{$search}%"))
+                            ->where('code', 'like', "%{$search}%")
+                            ->orWhere('initials', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%"))
                         ->orWhereHas('curriculum', fn ($cq) => $cq
-                            ->where('name', 'like', "%{$search}%"))
+                            ->where('code', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%"))
                         ->orWhereHas('course.level', fn ($lq) => $lq
                             ->where('name', 'like', "%{$search}%"));
                 });
@@ -186,9 +189,12 @@ class LookupController extends Controller
             ->get()
             ->map(fn (CourseCurriculum $cc) => [
                 'id' => $cc->id,
+                'course_id' => $cc->course_id,
+                'curriculum_id' => $cc->curriculum_id,
                 'label' => collect([
+                    $cc->course?->initials,
                     $cc->course?->name,
-                    $cc->curriculum?->name,
+                    $cc->curriculum?->code,
                     $cc->course?->level?->name,
                 ])->filter()->implode(' - '),
             ])

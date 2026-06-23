@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useMemo } from "react";
 import { ChevronLeft } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -49,7 +49,7 @@ function SidebarChildLink({ child, onNavigate }) {
   );
 }
 
-export function SidebarNavItem({ item, onNavigate }) {
+export function SidebarNavItem({ item, onNavigate, openSection, setOpenSection }) {
   const location = useLocation();
   const Icon = item.icon;
   const hasChildren = item.children?.length > 0;
@@ -57,27 +57,24 @@ export function SidebarNavItem({ item, onNavigate }) {
     () => itemOrChildrenActive(item, location.pathname),
     [item, location.pathname],
   );
-  const [isOpen, setIsOpen] = useState(Boolean(isActive || item.defaultOpen));
-
-  useEffect(() => {
-    if (isActive) {
-      setIsOpen(true);
-    }
-  }, [isActive]);
+  const isOpen = openSection === item.label;
 
   if (!hasChildren) {
     return (
       <div className="border-b border-white/6">
         <NavLink
           to={item.to}
-          onClick={onNavigate}
+          onClick={() => {
+            setOpenSection(null);
+            onNavigate?.();
+          }}
           className={({ isActive: linkActive }) =>
             joinClasses(
-              "flex min-h-12 w-full items-center gap-2.5 px-4 font-normal tracking-[0.005em] transition-colors duration-200",
+              "flex min-h-12 w-full items-center gap-2.5 border-l-[3px] px-4 font-normal tracking-[0.005em] transition-colors duration-200",
               navTextClassName,
               linkActive
-                ? "bg-emerald-500 text-[#f1f6f3]"
-                : "text-[#b3bfd4] hover:bg-white/5 hover:text-[#dfe6f1]",
+                ? "border-emerald-600 bg-emerald-500 text-[#f1f6f3]"
+                : "border-transparent text-[#b3bfd4] hover:bg-white/5 hover:text-[#dfe6f1]",
             )
           }
         >
@@ -94,13 +91,14 @@ export function SidebarNavItem({ item, onNavigate }) {
     <div className="border-b border-white/6">
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => setOpenSection(isOpen ? null : item.label)}
+        aria-expanded={isOpen}
         className={joinClasses(
-          "flex min-h-12 w-full items-center justify-between gap-2.5 px-4 font-normal tracking-[0.005em] transition-colors duration-200",
+          "flex min-h-12 w-full items-center justify-between gap-2.5 border-l-[3px] px-4 font-normal tracking-[0.005em] transition-colors duration-200",
           navTextClassName,
-          isActive
-            ? "bg-transparent text-[#b3bfd4]"
-            : "bg-transparent text-[#aab5ca] hover:bg-white/5 hover:text-[#e3e8f2]",
+          isOpen || isActive
+            ? "border-emerald-600 bg-white/5 text-white"
+            : "border-transparent bg-transparent text-[#aab5ca] hover:bg-white/5 hover:text-[#e3e8f2]",
         )}
       >
         <span className="flex min-w-0 items-center gap-2.5">

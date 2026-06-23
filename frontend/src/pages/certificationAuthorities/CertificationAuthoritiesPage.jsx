@@ -140,12 +140,12 @@ export function CertificationAuthoritiesPage() {
         </div>
 
         <div className="flex gap-3">
-          <Link to="/institution/certification-levels">
+          <Link to="/certification-levels">
             <FormButton variant="secondary" className="sm:px-5">
               View Levels
             </FormButton>
           </Link>
-          <Link to="/institution/certification-authorities/create">
+          <Link to="/certification-authorities/create">
             <FormButton className="sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Authority
@@ -271,7 +271,7 @@ export function CertificationAuthoritiesPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/institution/certification-authorities/${authority.id}/edit`}
+                        to={`/certification-authorities/${authority.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />

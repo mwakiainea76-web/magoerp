@@ -6,42 +6,44 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class AcademicSession extends Model
+class AcademicSessionEnrolment extends Model
 {
     use HasFactory, HasUuids;
 
+    protected $table = 'academic_session_enrolments';
+
     protected $fillable = [
-        'academic_year_id',
-        'code',
-        'name',
-        'start_date',
-        'end_date',
-        'description',
-        'is_active',
+        'student_id',
+        'academic_session_id',
+        'course_enrolment_id',
+        'status',
+        'enrolled_at',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'enrolled_at' => 'datetime',
     ];
 
     protected $keyType = 'string';
 
     public $incrementing = false;
 
-    public function year(): BelongsTo
+    public function student(): BelongsTo
     {
-        return $this->belongsTo(AcademicYear::class, 'academic_year_id');
+        return $this->belongsTo(Student::class);
     }
 
-    public function sessionEnrolments(): HasMany
+    public function academicSession(): BelongsTo
     {
-        return $this->hasMany(AcademicSessionEnrolment::class);
+        return $this->belongsTo(AcademicSession::class);
+    }
+
+    public function courseEnrolment(): BelongsTo
+    {
+        return $this->belongsTo(CourseEnrolment::class);
     }
 
     public function createdBy(): BelongsTo

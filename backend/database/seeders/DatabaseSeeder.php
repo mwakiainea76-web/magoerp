@@ -63,7 +63,6 @@ class DatabaseSeeder extends Seeder
             ['user_id' => $adminUser->id],
             [
                 'employee_number' => $loginId,
-                'payroll_number' => 'PAY-ADMIN-001',
                 'first_name' => 'System',
                 'middle_name' => null,
                 'last_name' => 'Administrator',
@@ -80,8 +79,6 @@ class DatabaseSeeder extends Seeder
                 'is_teaching_staff' => false,
                 'highest_qualification' => 'Degree',
                 'specialization' => 'ICT Administration',
-                'professional_certifications' => 'System Administration, ERP Operations',
-                'work_experience' => 'Core platform administration and staff operations support.',
                 'status' => true,
                 'termination_date' => null,
                 'termination_reason' => null,

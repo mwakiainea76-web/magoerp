@@ -1,6 +1,19 @@
+import { useEffect, useState } from "react";
 import { SidebarNavItem } from "@/components/SidebarNavItem";
+import { useLocation } from "react-router-dom";
 
 export function Sidebar({ role, links, onNavigate, className = "" }) {
+  const location = useLocation();
+  const [openSection, setOpenSection] = useState(null);
+
+  useEffect(() => {
+    const activeSection = links.find((item) =>
+      item.children?.some((child) => child.to === location.pathname),
+    );
+
+    setOpenSection(activeSection?.label ?? null);
+  }, [links, location.pathname]);
+
   return (
     <aside
       className={`flex h-full flex-col overflow-hidden bg-[#1b263b] text-zinc-900 ${className}`.trim()}
@@ -27,7 +40,7 @@ export function Sidebar({ role, links, onNavigate, className = "" }) {
 
       <nav
         aria-label={`${role} navigation`}
-        className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        className="sidebar-nav min-h-0 flex-1 overflow-y-auto overscroll-contain"
       >
         <div>
           {links.map((item) => (
@@ -35,6 +48,8 @@ export function Sidebar({ role, links, onNavigate, className = "" }) {
               key={`${role}-${item.label}`}
               item={item}
               onNavigate={onNavigate}
+              openSection={openSection}
+              setOpenSection={setOpenSection}
             />
           ))}
         </div>

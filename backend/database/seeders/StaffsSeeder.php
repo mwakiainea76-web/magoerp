@@ -35,7 +35,6 @@ class StaffsSeeder extends Seeder
                 'city' => 'Nairobi',
                 'postal_code' => '00100',
                 'country' => 'Kenya',
-                'payroll_number' => 'PAY/001/26',
                 'department_id' => null,
                 'job_title' => 'Senior Lecturer',
                 'employment_type' => 'Permanent',
@@ -78,7 +77,6 @@ class StaffsSeeder extends Seeder
                 'city' => 'Mombasa',
                 'postal_code' => '80100',
                 'country' => 'Kenya',
-                'payroll_number' => 'PAY/002/26',
                 'department_id' => null,
                 'job_title' => 'Department Head',
                 'employment_type' => 'Permanent',
@@ -152,7 +150,6 @@ class StaffsSeeder extends Seeder
             staffs::create([
                 'user_id' => $user->id,
                 'employee_number' => $employeeNumber,
-                'payroll_number' => $data['payroll_number'],
                 'first_name' => $data['first_name'],
                 'middle_name' => $data['middle_name'],
                 'last_name' => $data['last_name'],

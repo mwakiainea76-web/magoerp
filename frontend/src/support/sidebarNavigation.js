@@ -171,7 +171,7 @@ export const sidebarNavigationByRole = {
     },
   ],
   student: [
-    { label: "Dashboard", to: dashboardPathByRole.student, icon: LayoutDashboard },
+    { label: "Home", to: "/", icon: LayoutDashboard },
     {
       label: "Courses & Units",
       icon: BookOpen,

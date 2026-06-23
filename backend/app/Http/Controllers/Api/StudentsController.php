@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
+use App\Models\AcademicYear;
+use App\Models\Course;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class StudentsController extends Controller
 {
@@ -62,22 +66,25 @@ class StudentsController extends Controller
     {
         abort_unless($request->user()?->can('students.create'), 403);
 
-        $count = Student::withTrashed()->count();
-        $year = now()->format('y');
-        $nextNumber = str_pad($count + 1, 3, '0', STR_PAD_LEFT);
+        $validated = $request->validate([
+            'course_id' => ['required', 'uuid', 'exists:courses,id'],
+        ]);
+
+        $course = Course::query()->findOrFail($validated['course_id']);
 
         return response()->json([
-            'next_admission_number' => "STU/{$nextNumber}/{$year}",
+            'next_admission_number' => $this->nextAdmissionNumber($course),
         ]);
     }
 
     public function store(StoreStudentRequest $request): JsonResponse
     {
         $student = DB::transaction(function () use ($request) {
-            $count = Student::withTrashed()->count();
-            $year = now()->format('y');
-            $nextNumber = str_pad($count + 1, 3, '0', STR_PAD_LEFT);
-            $admissionNumber = "STU/{$nextNumber}/{$year}";
+            $course = Course::query()
+                ->lockForUpdate()
+                ->findOrFail($request->course_id);
+            $enrollmentDate = Carbon::parse($request->enrollment_date ?? now());
+            $admissionNumber = $this->nextAdmissionNumber($course);
 
             $user = User::create([
                 'login_id' => $admissionNumber,
@@ -117,8 +124,8 @@ class StudentsController extends Controller
                 'first_name' => $request->first_name,
                 'middle_name' => $request->middle_name,
                 'last_name' => $request->last_name,
-                'course_id' => $request->course_id,
-                'enrollment_date' => $request->enrollment_date ?? now()->format('Y-m-d'),
+                'course_id' => $course->id,
+                'enrollment_date' => $enrollmentDate->toDateString(),
                 'status' => $request->status,
                 'created_by' => $request->user()->id,
                 'updated_by' => $request->user()->id,
@@ -244,6 +251,7 @@ class StudentsController extends Controller
             'course_id' => $student->course_id,
             'course_name' => $course?->name,
             'course_code' => $course?->code,
+            'course_initials' => $course?->initials,
 
             'enrollment_date' => $student->enrollment_date?->format('Y-m-d'),
 
@@ -262,6 +270,41 @@ class StudentsController extends Controller
             'created_at' => $student->created_at,
             'updated_at' => $student->updated_at,
         ];
+    }
+
+    private function nextAdmissionNumber(Course $course): string
+    {
+        $academicYear = AcademicYear::query()
+            ->where('is_active', true)
+            ->orderByDesc('start_date')
+            ->first()
+            ?? AcademicYear::query()->orderByDesc('start_date')->first();
+
+        $students = Student::withTrashed()->where('course_id', $course->id);
+
+        if ($academicYear?->start_date && $academicYear?->end_date) {
+            $students->whereBetween('enrollment_date', [
+                $academicYear->start_date->toDateString(),
+                $academicYear->end_date->toDateString(),
+            ]);
+        } elseif ($academicYear?->start_date) {
+            $students->whereDate('enrollment_date', '>=', $academicYear->start_date->toDateString());
+        } elseif ($academicYear?->end_date) {
+            $students->whereDate('enrollment_date', '<=', $academicYear->end_date->toDateString());
+        } else {
+            $students->whereYear('enrollment_date', now()->year);
+        }
+
+        $initials = Str::upper((string) preg_replace(
+            '/[^A-Za-z0-9]/',
+            '',
+            $course->initials ?: $course->code,
+        ));
+        $initials = $initials !== '' ? $initials : 'STU';
+        $sequence = str_pad((string) ($students->count() + 1), 4, '0', STR_PAD_LEFT);
+        $intakeYear = $academicYear?->start_date?->format('y') ?? now()->format('y');
+
+        return "{$initials}/{$sequence}/{$intakeYear}";
     }
 
     private function paginationMeta($paginator, array $filters): array

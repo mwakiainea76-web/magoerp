@@ -83,6 +83,11 @@ class User extends Authenticatable
         return $this->hasOne(staffs::class, 'user_id');
     }
 
+    public function student(): HasOne
+    {
+        return $this->hasOne(Student::class, 'user_id');
+    }
+
     public function createdStaffs(): HasMany
     {
         return $this->hasMany(staffs::class, 'created_by');

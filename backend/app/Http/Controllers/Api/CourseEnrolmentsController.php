@@ -121,7 +121,7 @@ class CourseEnrolmentsController extends Controller
             'course_id' => $student->course_id,
             'curriculum_id' => $curriculumId,
             'academic_session_id' => $session?->id,
-            'enrolment_date' => now()->format('Y-m-d'),
+            'enrolment_date' => $student->enrollment_date?->toDateString() ?? now()->format('Y-m-d'),
             'status' => 'enrolled',
             'created_by' => $createdBy,
             'updated_by' => $createdBy,
