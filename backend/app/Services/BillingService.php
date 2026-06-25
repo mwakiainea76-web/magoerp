@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AcademicSession;
+use App\Models\AcademicSessionEnrolment;
 use App\Models\CourseEnrolment;
 use App\Models\CourseInvoiceTemplate;
 use App\Models\InvoiceAdjustment;
@@ -19,7 +20,7 @@ use Illuminate\Validation\ValidationException;
 
 class BillingService
 {
-    public function createInvoiceForStudent(Student $student, ?int $createdBy = null, ?AcademicSession $session = null): Invoice
+    public function createInvoiceForStudent(Student $student, ?string $createdBy = null, ?AcademicSession $session = null): Invoice
     {
         return DB::transaction(function () use ($student, $createdBy, $session) {
             $courseEnrolment = CourseEnrolment::query()
@@ -46,8 +47,17 @@ class BillingService
 
             $courseInvoiceTemplate = CourseInvoiceTemplate::query()
                 ->where('course_id', $courseEnrolment->course_id)
-                ->where('academic_session_id', $targetSession->id)
+                ->where('is_approved', true)
+                ->when($this->studentSessionEnrolment($student, $targetSession), function ($query, AcademicSessionEnrolment $enrolment) {
+                    $query->where('year_level', $enrolment->year_of_study)
+                        ->where('session_number', $enrolment->session_number);
+                })
+                ->where(function ($query) use ($targetSession) {
+                    $query->where('academic_session_id', $targetSession->id)
+                        ->orWhereNull('academic_session_id');
+                })
                 ->with('invoiceTemplate.items')
+                ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
                 ->first();
 
             if (!$courseInvoiceTemplate?->invoiceTemplate) {
@@ -60,7 +70,7 @@ class BillingService
                 ->where('student_id', $student->id)
                 ->where('academic_session_id', $targetSession->id)
                 ->where('invoice_type', 'fees')
-                ->whereIn('status', ['issued', 'partial'])
+                ->where('status', '!=', 'cancelled')
                 ->latest()
                 ->first();
 
@@ -79,6 +89,7 @@ class BillingService
                 'amount_due' => 0,
                 'paid_amount' => 0,
                 'balance_due' => 0,
+                'idempotency_key' => "fees:{$student->id}:{$targetSession->id}",
                 'created_by' => $createdBy,
             ]);
 
@@ -130,6 +141,15 @@ class BillingService
 
             return $invoice->fresh();
         });
+    }
+
+    private function studentSessionEnrolment(Student $student, AcademicSession $session): ?AcademicSessionEnrolment
+    {
+        return AcademicSessionEnrolment::query()
+            ->where('student_id', $student->id)
+            ->where('academic_session_id', $session->id)
+            ->latest()
+            ->first();
     }
 
     public function recordPayment(Invoice $invoice, float $amount, string $method, int $createdBy, ?string $reference = null, ?string $paymentDate = null, ?string $notes = null): Payment
@@ -305,7 +325,7 @@ class BillingService
         });
     }
 
-    protected function applyAvailableCredits(Invoice $invoice, ?int $createdBy): void
+    protected function applyAvailableCredits(Invoice $invoice, ?string $createdBy): void
     {
         $remaining = (float) $invoice->balance_due;
         if ($remaining <= 0) return;

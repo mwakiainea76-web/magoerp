@@ -13,7 +13,7 @@ class ExampleTest extends TestCase
 
         $response = $this->postJson('/api/login', [
             'login_id' => 'EMP-ADMIN-001',
-            'password' => 'Admin@12345',
+            'password' => 'password',
         ]);
 
         $response->assertStatus(200)

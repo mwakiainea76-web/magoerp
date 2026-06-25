@@ -17,7 +17,6 @@ class AcademicSessionEnrolment extends Model
     protected $fillable = [
         'student_id',
         'academic_session_id',
-        'course_enrolment_id',
         'year_of_study',
         'session_number',
         'module',
@@ -46,11 +45,6 @@ class AcademicSessionEnrolment extends Model
     public function academicSession(): BelongsTo
     {
         return $this->belongsTo(AcademicSession::class);
-    }
-
-    public function courseEnrolment(): BelongsTo
-    {
-        return $this->belongsTo(CourseEnrolment::class);
     }
 
     public function createdBy(): BelongsTo

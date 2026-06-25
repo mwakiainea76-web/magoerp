@@ -12,6 +12,10 @@ export function useStudentDashboardApi() {
         const response = await authClient.post("/student/register-session");
         return response.data;
       },
+      registerUnits: async (payload) => {
+        const response = await authClient.post("/student/register-units", payload);
+        return response.data;
+      },
     }),
     [],
   );

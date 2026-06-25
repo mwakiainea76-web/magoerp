@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { bodyTextClassName, inputClassName } from "@/lib/styles";
@@ -18,14 +19,27 @@ const DAYS = [
   { value: 6, label: "Sunday" },
 ];
 
+function joinLabel(parts) {
+  return parts.filter(Boolean).join(" - ");
+}
+
+function formatClock(value, fallback) {
+  return value ? String(value).slice(0, 5) : fallback;
+}
+
 export function TimetableCreatePage() {
+  const { timetableId } = useParams();
+  const isEdit = Boolean(timetableId);
+  const navigate = useNavigate();
   const timetableApi = useTimetableApi();
   const courseCurriculaApi = useCourseCurriculaApi();
+  const initialLoadDone = useRef(false);
 
   const [courseCurriculumId, setCourseCurriculumId] = useState("");
   const [selectedCourseCurriculum, setSelectedCourseCurriculum] = useState(null);
   const [unitId, setUnitId] = useState("");
   const [selectedUnit, setSelectedUnit] = useState(null);
+  const [moduleFilter, setModuleFilter] = useState(0);
   const [trainerId, setTrainerId] = useState("");
   const [selectedTrainer, setSelectedTrainer] = useState(null);
   const [roomId, setRoomId] = useState("");
@@ -33,29 +47,30 @@ export function TimetableCreatePage() {
   const [dayOfWeek, setDayOfWeek] = useState(0);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("10:00");
+  const [isLoading, setIsLoading] = useState(isEdit);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-  const courseCurriculumIdRef = useRef(courseCurriculumId);
-  useEffect(() => { courseCurriculumIdRef.current = courseCurriculumId; }, [courseCurriculumId]);
 
   const fetchCurricula = useCallback(async (query) => {
     const res = await courseCurriculaApi.list({ q: query, per_page: 200 });
     return (res.data ?? []).map((cc) => ({
       id: cc.id,
-      label: `${cc.course_code} — ${cc.curriculum_name}`,
+      label: [cc.course_code, cc.course_name, cc.curriculum_code, cc.curriculum_name]
+        .filter(Boolean)
+        .join(" - "),
     }));
-  }, []);
+  }, [courseCurriculaApi]);
 
   const fetchUnits = useCallback(async (query) => {
-    const id = courseCurriculumIdRef.current;
-    if (!id) return [];
-    const res = await timetableApi.availableUnits({ course_curriculum_id: id, q: query });
+    if (!courseCurriculumId) return [];
+    const params = { course_curriculum_id: courseCurriculumId, q: query };
+    if (moduleFilter) params.module = moduleFilter;
+    const res = await timetableApi.availableUnits(params);
     return (res.data ?? []).map((u) => ({
       id: u.id,
-      label: `${u.code} — ${u.name}`,
+      label: [u.code, u.name].filter(Boolean).join(" - "),
     }));
-  }, []);
+  }, [courseCurriculumId, moduleFilter, timetableApi]);
 
   const fetchTrainers = useCallback(async (query) => {
     const res = await timetableApi.staffList();
@@ -64,7 +79,7 @@ export function TimetableCreatePage() {
     return items
       .filter((s) => s.name.toLowerCase().includes(query.toLowerCase()))
       .map((s) => ({ id: s.id, label: `${s.name} (${s.employee_number})` }));
-  }, []);
+  }, [timetableApi]);
 
   const fetchRooms = useCallback(async (query) => {
     const res = await timetableApi.lectureRooms();
@@ -73,13 +88,54 @@ export function TimetableCreatePage() {
     return items
       .filter((r) => r.name.toLowerCase().includes(query.toLowerCase()) || r.code.toLowerCase().includes(query.toLowerCase()))
       .map((r) => ({ id: r.id, label: `${r.name} (${r.code})${r.capacity ? ` - ${r.capacity} seats` : ""}` }));
-  }, []);
+  }, [timetableApi]);
+
+  useEffect(() => {
+    if (!isEdit || initialLoadDone.current) return;
+    let mounted = true;
+    async function load() {
+      try {
+        const res = await timetableApi.show(timetableId);
+        if (!mounted) return;
+        const d = res.data;
+        const courseCurriculumLabel = d.course_curriculum_label
+          || joinLabel([d.course_code || d.course_initials, d.course_name, d.curriculum_code, d.curriculum_name]);
+        const unitLabel = joinLabel([d.unit_code, d.unit_name]);
+        const trainerLabel = d.trainer_name
+          ? `${d.trainer_name}${d.trainer_employee_number ? ` (${d.trainer_employee_number})` : ""}`
+          : "";
+        const roomLabel = d.room_name
+          ? `${d.room_name}${d.room_code ? ` (${d.room_code})` : ""}`
+          : "";
+
+        setCourseCurriculumId(d.course_curriculum_id ?? "");
+        setSelectedCourseCurriculum(d.course_curriculum_id ? { id: d.course_curriculum_id, label: courseCurriculumLabel } : null);
+        setUnitId(d.unit_id ?? "");
+        setSelectedUnit(d.unit_id ? { id: d.unit_id, label: unitLabel } : null);
+        setTrainerId(d.trainer_staff_id ?? "");
+        setSelectedTrainer(d.trainer_staff_id ? { id: d.trainer_staff_id, label: trainerLabel } : null);
+        setRoomId(d.lecture_room_id ?? "");
+        setSelectedRoom(d.lecture_room_id ? { id: d.lecture_room_id, label: roomLabel } : null);
+        setDayOfWeek(d.day_of_week ?? 0);
+        setStartTime(formatClock(d.start_time, "08:00"));
+        setEndTime(formatClock(d.end_time, "10:00"));
+        initialLoadDone.current = true;
+      } catch (e) {
+        if (mounted) setError(getApiErrorMessage(e, "Failed to load timetable entry."));
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+    load();
+    return () => { mounted = false; };
+  }, [isEdit, timetableId, timetableApi]);
 
   function handleCourseCurriculumChange(id, option) {
     setCourseCurriculumId(id ?? "");
     setSelectedCourseCurriculum(option);
     setUnitId("");
     setSelectedUnit(null);
+    setModuleFilter(0);
   }
 
   function handleUnitChange(id, option) {
@@ -101,8 +157,8 @@ export function TimetableCreatePage() {
     event.preventDefault();
     setError("");
 
-    if (!courseCurriculumId || !unitId) {
-      setError("Course curriculum and unit are required.");
+    if (!courseCurriculumId || !unitId || !roomId) {
+      setError("Course curriculum, unit, and lecture room are required.");
       return;
     }
 
@@ -111,34 +167,42 @@ export function TimetableCreatePage() {
       const payload = {
         unit_id: unitId,
         trainer_staff_id: trainerId || null,
-        lecture_room_id: roomId || null,
+        lecture_room_id: roomId,
         day_of_week: dayOfWeek,
         start_time: startTime,
         end_time: endTime,
       };
 
-      await timetableApi.create(payload);
-      toast.success("Timetable entry created.");
-      setUnitId("");
-      setSelectedUnit(null);
-      setTrainerId("");
-      setSelectedTrainer(null);
-      setRoomId("");
-      setSelectedRoom(null);
-      setStartTime("08:00");
-      setEndTime("10:00");
+      if (isEdit) {
+        await timetableApi.update(timetableId, payload);
+        toast.success("Timetable entry updated.");
+      } else {
+        await timetableApi.create(payload);
+        toast.success("Timetable entry created.");
+      }
+      navigate("/timetables");
     } catch (e) {
-      setError(getApiErrorMessage(e, "Failed to create timetable entry."));
+      setError(getApiErrorMessage(e, `Failed to ${isEdit ? "update" : "create"} timetable entry.`));
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  if (isLoading) {
+    return (
+      <section className="space-y-5">
+        <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
+          Loading timetable entry...
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-5">
       <div>
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Add Timetable Entry</h1>
-        <p className="text-[13px] text-slate-500">Schedule a lecture, practical, or tutorial session</p>
+        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">{isEdit ? "Edit Timetable Entry" : "Add Timetable Entry"}</h1>
+        <p className="text-[13px] text-slate-500">{isEdit ? "Update the scheduled session" : "Schedule a lecture, practical, or tutorial session"}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -153,6 +217,21 @@ export function TimetableCreatePage() {
               required
               placeholder="Search course curriculum"
             />
+
+            <div>
+              <label className="mb-1 block text-[13px] font-medium text-slate-600">Module</label>
+              <select
+                value={moduleFilter}
+                onChange={(e) => { setModuleFilter(Number(e.target.value)); setUnitId(""); setSelectedUnit(null); }}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition"
+                disabled={!courseCurriculumId}
+              >
+                <option value={0}>All</option>
+                <option value={1}>Module 1</option>
+                <option value={2}>Module 2</option>
+                <option value={3}>Module 3</option>
+              </select>
+            </div>
 
             <LookupSelect
               label="Unit"
@@ -180,6 +259,7 @@ export function TimetableCreatePage() {
               onChange={handleRoomChange}
               fetchOptions={fetchRooms}
               selectedOption={selectedRoom}
+              required
               placeholder="Search room"
             />
 
@@ -226,7 +306,7 @@ export function TimetableCreatePage() {
 
         <div className="flex justify-end">
           <FormButton type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Timetable Entry"}
+            {isSubmitting ? "Saving..." : isEdit ? "Update Entry" : "Create Timetable Entry"}
           </FormButton>
         </div>
       </form>

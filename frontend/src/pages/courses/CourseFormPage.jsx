@@ -250,7 +250,7 @@ export function CourseFormPage() {
               <div className={`mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{pageError}</div>
             ) : null}
 
-            <div className="grid gap-4 grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               <FormInput
                 id="code"
                 label="Course Code"

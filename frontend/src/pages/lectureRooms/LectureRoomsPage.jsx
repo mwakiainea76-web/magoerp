@@ -185,7 +185,6 @@ export function LectureRoomsPage() {
                 <SortableTh sortKey="code" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Code</SortableTh>
                 <SortableTh sortKey="capacity" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Capacity</SortableTh>
                 <SortableTh sortKey="location" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Location</SortableTh>
-                <Th>Department</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Actions</Th>
               </tr>
@@ -200,7 +199,6 @@ export function LectureRoomsPage() {
                   <Td>{room.code}</Td>
                   <Td>{room.capacity ?? "—"}</Td>
                   <Td>{room.location ?? "—"}</Td>
-                  <Td>{room.department_name ?? "—"}</Td>
                   <Td>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       room.is_active

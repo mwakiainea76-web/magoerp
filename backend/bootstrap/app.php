@@ -87,8 +87,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
             report($exception);
 
-            return response()->json([
-                'message' => 'Server error.',
-            ], 500);
+            $payload = [
+                'message' => config('app.debug') ? $exception->getMessage() : 'Server error.',
+            ];
+
+            if (config('app.debug')) {
+                $payload['exception'] = $exception::class;
+                $payload['file'] = $exception->getFile();
+                $payload['line'] = $exception->getLine();
+                $payload['trace'] = collect($exception->getTrace())->take(20)->values();
+            }
+
+            return response()->json($payload, 500);
         });
     })->create();

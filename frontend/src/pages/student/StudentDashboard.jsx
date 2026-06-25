@@ -23,12 +23,14 @@ const currency = (amount) =>
   }).format(Number(amount || 0))}`;
 
 export function StudentDashboard() {
-  const { dashboard, registerSession } = useStudentDashboardApi();
+  const { dashboard, registerSession, registerUnits } = useStudentDashboardApi();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [registeringUnits, setRegisteringUnits] = useState(false);
+  const [selectedUnitIds, setSelectedUnitIds] = useState([]);
   const [registerErrors, setRegisterErrors] = useState(null);
   const cancelledRef = useRef(false);
 
@@ -52,6 +54,10 @@ export function StudentDashboard() {
     return () => { cancelledRef.current = true; };
   }, []);
 
+  useEffect(() => {
+    setSelectedUnitIds(data?.registered_unit_ids ?? []);
+  }, [data?.registered_unit_ids]);
+
   async function handleRegisterSession(e) {
     e.preventDefault();
     setRegistering(true);
@@ -66,6 +72,41 @@ export function StudentDashboard() {
       setRegisterErrors({ session_registration: msg });
     } finally {
       setRegistering(false);
+    }
+  }
+
+  function handleUnitToggle(unitId) {
+    setSelectedUnitIds((current) =>
+      current.includes(unitId)
+        ? current.filter((id) => id !== unitId)
+        : [...current, unitId],
+    );
+  }
+
+  async function handleRegisterUnits() {
+    const sessionEnrolmentId = data?.last_session_enrolment?.id;
+    if (!sessionEnrolmentId) {
+      toast.error("Register the session before selecting units.");
+      return;
+    }
+
+    if (selectedUnitIds.length === 0) {
+      toast.error("Select at least one unit.");
+      return;
+    }
+
+    setRegisteringUnits(true);
+    try {
+      const res = await registerUnits({
+        academic_session_enrolment_id: sessionEnrolmentId,
+        unit_ids: selectedUnitIds,
+      });
+      toast.success(res.message ?? "Units registered.");
+      await loadDashboard();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to register units."));
+    } finally {
+      setRegisteringUnits(false);
     }
   }
 
@@ -98,7 +139,17 @@ export function StudentDashboard() {
     );
   }
 
-  const { student, course, enrolment, invoice_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance, progress } = data ?? {};
+  const { student, course, enrolment, invoice_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance, progress, available_units = [] } = data ?? {};
+  const hasAvailableUnits = available_units.length > 0;
+  const allVisibleUnitsRegistered = hasAvailableUnits && available_units.every((unit) => unit.registered);
+  const isEnrolledInCurrentSession = Boolean(
+    current_session?.id
+      && last_session_enrolment?.academic_session_id === current_session.id
+      && last_session_enrolment?.session_active,
+  );
+  const currentSessionName = isEnrolledInCurrentSession
+    ? last_session_enrolment.session_name
+    : enrolment?.academic_session?.name;
 
   const statsCards = [
     {
@@ -118,7 +169,7 @@ export function StudentDashboard() {
     {
       label: "Current Module",
       value: course?.code ?? "-",
-      helper: enrolment?.academic_session?.name ?? "No active session yet",
+      helper: currentSessionName ?? "No active session yet",
       icon: GraduationCap,
       tone: "from-sky-500 to-cyan-500",
     },
@@ -149,7 +200,7 @@ export function StudentDashboard() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
               <p className="text-xs uppercase tracking-wide text-slate-300">Course</p>
               <p className="mt-2 text-sm font-semibold">{course?.name ?? "Not assigned"}</p>
@@ -243,6 +294,43 @@ export function StudentDashboard() {
                 ? `${fee_plan.items.length} fee item(s) in your current fee plan.`
                 : "Your fee plan details will appear once assigned."}
             </div>
+
+            <div className="mt-3 space-y-3">
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-sm text-zinc-500">Curriculum</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-900">
+                  {enrolment?.curriculum?.name ?? course?.curriculum?.name ?? "Not assigned"}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-sm text-zinc-500">Current Session</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-900">
+                  {currentSessionName ?? "No session enrollment yet"}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-sm text-zinc-500">Progress</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-900">
+                  {progress?.total_sessions > 0
+                    ? `Year ${progress.current_year} - Module ${progress.current_module}`
+                    : "Not started"}
+                </p>
+                {progress?.total_sessions > 0 ? (
+                  <div className="mt-2">
+                    <div className="flex h-1.5 overflow-hidden rounded-full bg-zinc-200">
+                      <div
+                        className="rounded-full bg-emerald-500 transition-all"
+                        style={{ width: `${(progress.current_module / progress.modules_per_year) * 100}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      Module {progress.current_module} of {progress.modules_per_year}
+                      {progress.total_sessions > 0 ? ` - ${progress.total_sessions} total` : ""}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -253,7 +341,7 @@ export function StudentDashboard() {
                 Study Snapshot
               </h2>
               <div className="flex items-center gap-3">
-                {!enrolment?.academic_session && needs_session_enrolment && current_session && (
+                {!isEnrolledInCurrentSession && current_session && (
                   <button
                     type="button"
                     onClick={() => setShowModal(true)}
@@ -269,13 +357,13 @@ export function StudentDashboard() {
               </div>
             </div>
 
-            {enrolment?.academic_session ? (
+            {isEnrolledInCurrentSession ? (
               <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-5 text-sm">
                 <p className="font-semibold text-emerald-900">
-                  You are registered for <strong>{enrolment.academic_session.name}</strong>
+                  You are registered for <strong>{last_session_enrolment.session_name}</strong>
                 </p>
               </div>
-            ) : needs_session_enrolment && current_session ? (
+            ) : current_session ? (
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm">
                 <p className="font-semibold text-amber-900">
                   {last_session_enrolment?.session_active === false
@@ -290,19 +378,62 @@ export function StudentDashboard() {
             ) : null}
 
             <div className="mt-5 space-y-4 text-sm">
-              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
-                <p className="text-zinc-500">Curriculum</p>
-                <p className="mt-1 font-semibold text-zinc-900">
-                  {enrolment?.curriculum?.name ?? "Not assigned"}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
-                <p className="text-zinc-500">Current Session</p>
-                <p className="mt-1 font-semibold text-zinc-900">
-                  {enrolment?.academic_session?.name ?? "No session enrollment yet"}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+              {isEnrolledInCurrentSession ? (
+                <div className="rounded-2xl border border-zinc-100 bg-zinc-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-zinc-900">Unit Registration</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Tick the units you want to register for this session.
+                      </p>
+                    </div>
+                    {!allVisibleUnitsRegistered ? (
+                      <button
+                        type="button"
+                        onClick={handleRegisterUnits}
+                        disabled={registeringUnits || selectedUnitIds.length === 0}
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {registeringUnits ? "Saving..." : "Register Units"}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {available_units.length > 0 ? (
+                      available_units.map((unit) => (
+                        <label
+                          key={unit.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-3 transition hover:border-emerald-200 hover:bg-emerald-50/50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedUnitIds.includes(unit.id)}
+                            onChange={() => handleUnitToggle(unit.id)}
+                            disabled={unit.registered || allVisibleUnitsRegistered}
+                            className="mt-1 h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-semibold text-zinc-900">
+                              {unit.code} - {unit.name}
+                            </span>
+                            <span className="mt-1 block text-xs text-zinc-500">
+                              {unit.registered ? "Already registered" : "Available for registration"}
+                              {unit.module ? ` - Module ${unit.module}` : ""}
+                            </span>
+                          </span>
+                        </label>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-4 py-4 text-xs text-zinc-500">
+                        No units are available for your current course, curriculum, and module.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="hidden">
                 <p className="text-zinc-500">Progress</p>
                 <p className="mt-1 font-semibold text-zinc-900">
                   {progress?.total_sessions > 0

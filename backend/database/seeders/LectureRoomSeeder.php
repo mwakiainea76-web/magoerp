@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\departments;
 use App\Models\LectureRoom;
 use Illuminate\Database\Seeder;
 
@@ -10,8 +9,6 @@ class LectureRoomSeeder extends Seeder
 {
     public function run(): void
     {
-        $ictDept = departments::where('code', 'ICT')->first();
-
         $rooms = [
             ['name' => 'Lab 1', 'code' => 'LAB-01', 'capacity' => 40, 'location' => 'ICT Block, Ground Floor'],
             ['name' => 'Lab 2', 'code' => 'LAB-02', 'capacity' => 40, 'location' => 'ICT Block, Ground Floor'],
@@ -24,7 +21,6 @@ class LectureRoomSeeder extends Seeder
             LectureRoom::updateOrCreate(
                 ['code' => $room['code']],
                 [
-                    'department_id' => $ictDept?->id,
                     'name' => $room['name'],
                     'capacity' => $room['capacity'],
                     'location' => $room['location'],

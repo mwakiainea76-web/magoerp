@@ -30,8 +30,10 @@ class AcademicTimetablesController extends Controller
 
         $query = AcademicTimetable::query()
             ->with([
-                'unit:id,code,name',
-                'trainer:id,first_name,last_name',
+                'unit:id,code,name,course_curriculum_id',
+                'unit.courseCurriculum.course:id,code,name,initials',
+                'unit.courseCurriculum.curriculum:id,code,name',
+                'trainer:id,first_name,last_name,employee_number',
                 'lectureRoom:id,name,code',
                 'academicSession:id,name',
             ]);
@@ -75,7 +77,7 @@ class AcademicTimetablesController extends Controller
         ]);
 
         $query = AcademicTimetable::query()
-            ->with(['unit:id,code,name', 'trainer:id,first_name,last_name', 'lectureRoom:id,name,code']);
+            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code']);
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
             $query->where('academic_session_id', $sessionId);
@@ -86,7 +88,15 @@ class AcademicTimetablesController extends Controller
             }
         }
         if ($curriculumId = $validated['course_curriculum_id'] ?? null) {
-            $query->whereHas('unit', fn ($q) => $q->where('course_curriculum_id', $curriculumId));
+            $query->whereHas('unit', function ($q) use ($curriculumId, $request) {
+                $q->where('course_curriculum_id', $curriculumId);
+                if ($module = $request->integer('module')) {
+                    $q->where(function ($mq) use ($module) {
+                        $mq->where('modules_taught', $module)
+                            ->orWhereNull('modules_taught');
+                    });
+                }
+            });
         }
         if ($staffId = $validated['staff_id'] ?? null) {
             $query->where('trainer_staff_id', $staffId);
@@ -116,7 +126,7 @@ class AcademicTimetablesController extends Controller
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'required|string|exists:units,id',
             'trainer_staff_id' => 'nullable|string|exists:staffs,id',
-            'lecture_room_id' => 'nullable|string|exists:lecture_rooms,id',
+            'lecture_room_id' => 'required|string|exists:lecture_rooms,id',
             'day_of_week' => 'required|integer|min:0|max:6',
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
@@ -126,10 +136,13 @@ class AcademicTimetablesController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        if (!$validated['academic_session_id']) {
-            $activeSession = AcademicSession::where('is_active', true)->latest('start_date')->first();
-            $validated['academic_session_id'] = $activeSession?->id;
-        }
+        $activeSession = empty($validated['academic_session_id'])
+            ? AcademicSession::where('is_active', true)->latest('start_date')->first()
+            : AcademicSession::where('id', $validated['academic_session_id'])->where('is_active', true)->first();
+
+        abort_unless($activeSession, 422, 'Timetable can only be created for an active academic session.');
+
+        $validated['academic_session_id'] = $activeSession->id;
 
         $this->checkOverlap($validated);
 
@@ -142,7 +155,7 @@ class AcademicTimetablesController extends Controller
             'created_by' => $user?->id,
         ]);
 
-        $timetable->load(['unit:id,code,name', 'trainer:id,first_name,last_name', 'lectureRoom:id,name,code', 'academicSession:id,name']);
+        $timetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code', 'academicSession:id,name']);
 
         return response()->json(['data' => $this->transform($timetable)], 201);
     }
@@ -150,8 +163,10 @@ class AcademicTimetablesController extends Controller
     public function show(AcademicTimetable $academicTimetable): JsonResponse
     {
         $academicTimetable->load([
-            'unit:id,code,name',
-            'trainer:id,first_name,last_name',
+            'unit:id,code,name,course_curriculum_id',
+            'unit.courseCurriculum.course:id,code,name,initials',
+            'unit.courseCurriculum.curriculum:id,code,name',
+            'trainer:id,first_name,last_name,employee_number',
             'lectureRoom:id,name,code',
             'academicSession:id,name',
         ]);
@@ -181,7 +196,7 @@ class AcademicTimetablesController extends Controller
         $validated['updated_by'] = $user?->id;
         $academicTimetable->update($validated);
 
-        $academicTimetable->load(['unit:id,code,name', 'trainer:id,first_name,last_name', 'lectureRoom:id,name,code', 'academicSession:id,name']);
+        $academicTimetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code', 'academicSession:id,name']);
 
         return response()->json(['data' => $this->transform($academicTimetable)]);
     }
@@ -210,20 +225,17 @@ class AcademicTimetablesController extends Controller
 
     public function lectureRooms(Request $request): JsonResponse
     {
-        $query = LectureRoom::query()->where('is_active', true);
+        $rooms = LectureRoom::query()
+            ->where('is_active', true)
+            ->get(['id', 'name', 'code', 'capacity', 'location']);
 
-        if ($departmentId = $request->get('department_id')) {
-            $query->where('department_id', $departmentId);
-        }
-
-        return response()->json(['data' => $query->get(['id', 'name', 'code', 'capacity', 'location'])]);
+        return response()->json(['data' => $rooms]);
     }
 
     public function storeLectureRoom(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'department_id' => 'nullable|string|exists:departments,id',
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:lecture_rooms,name',
             'code' => 'required|string|max:50|unique:lecture_rooms,code',
             'capacity' => 'nullable|integer|min:1',
             'location' => 'nullable|string|max:255',
@@ -244,6 +256,13 @@ class AcademicTimetablesController extends Controller
 
         $query = Unit::query()
             ->where('course_curriculum_id', $validated['course_curriculum_id']);
+
+        if ($module = $request->integer('module')) {
+            $query->where(function ($q) use ($module) {
+                $q->where('modules_taught', $module)
+                    ->orWhereNull('modules_taught');
+            });
+        }
 
         if ($search = trim((string) $request->string('q', ''))) {
             $query->where(function ($q) use ($search) {
@@ -289,7 +308,7 @@ class AcademicTimetablesController extends Controller
         $timetables = AcademicTimetable::query()
             ->whereIn('unit_id', $unitIds)
             ->where('academic_session_id', $sessionEnrolment->academic_session_id)
-            ->with(['unit:id,code,name', 'trainer:id,first_name,last_name', 'lectureRoom:id,name,code'])
+            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code'])
             ->orderBy('day_of_week')
             ->orderBy('start_time')
             ->get();
@@ -306,7 +325,7 @@ class AcademicTimetablesController extends Controller
     {
         $timetables = AcademicTimetable::query()
             ->where('trainer_staff_id', $staff->id)
-            ->with(['unit:id,code,name', 'lectureRoom:id,name,code', 'academicSession:id,name'])
+            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'lectureRoom:id,name,code', 'academicSession:id,name'])
             ->orderBy('day_of_week')
             ->orderBy('start_time')
             ->get();
@@ -321,6 +340,13 @@ class AcademicTimetablesController extends Controller
 
     private function transform($timetable): array
     {
+        $cc = $timetable->unit?->courseCurriculum;
+        $label = $cc
+            ? collect([$cc->course?->code, $cc->course?->name, $cc->curriculum?->code, $cc->curriculum?->name])
+                ->filter()
+                ->implode(' - ')
+            : null;
+
         return [
             'id' => $timetable->id,
             'academic_session_id' => $timetable->academic_session_id,
@@ -328,10 +354,18 @@ class AcademicTimetablesController extends Controller
             'unit_id' => $timetable->unit_id,
             'unit_code' => $timetable->unit?->code,
             'unit_name' => $timetable->unit?->name,
+            'course_curriculum_id' => $timetable->unit?->course_curriculum_id,
+            'course_curriculum_label' => $label,
+            'course_code' => $cc?->course?->code,
+            'course_name' => $cc?->course?->name,
+            'course_initials' => $cc?->course?->initials,
+            'curriculum_code' => $cc?->curriculum?->code,
+            'curriculum_name' => $cc?->curriculum?->name,
             'trainer_staff_id' => $timetable->trainer_staff_id,
             'trainer_name' => $timetable->trainer
                 ? trim($timetable->trainer->first_name . ' ' . $timetable->trainer->last_name)
                 : null,
+            'trainer_employee_number' => $timetable->trainer?->employee_number,
             'lecture_room_id' => $timetable->lecture_room_id,
             'room_name' => $timetable->lectureRoom?->name,
             'room_code' => $timetable->lectureRoom?->code,

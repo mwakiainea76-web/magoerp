@@ -33,6 +33,17 @@ class AcademicYear extends Model
 
     public $incrementing = false;
 
+    protected static function booted(): void
+    {
+        static::saving(function ($model) {
+            if ($model->is_active) {
+                static::where('id', '!=', $model->id)
+                    ->where('is_active', true)
+                    ->update(['is_active' => false]);
+            }
+        });
+    }
+
     public function sessions(): HasMany
     {
         return $this->hasMany(AcademicSession::class);

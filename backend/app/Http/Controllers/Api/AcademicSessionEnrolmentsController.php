@@ -5,10 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
+use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
+use App\Models\Invoice;
+use App\Models\StudentUnitRegistration;
+use App\Models\Unit;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AcademicSessionEnrolmentsController extends Controller
@@ -134,48 +139,49 @@ class AcademicSessionEnrolmentsController extends Controller
         $alreadyEnrolled = AcademicSessionEnrolment::query()
             ->where('student_id', $student->id)
             ->where('academic_session_id', $validated['academic_session_id'])
-            ->exists();
+            ->with('academicSession')
+            ->first();
 
         if ($alreadyEnrolled) {
-            return response()->json(['message' => 'Already enrolled in this session.'], 409);
-        }
+            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $alreadyEnrolled->academicSession);
 
-        $courseEnrolment = CourseEnrolment::query()
-            ->where('student_id', $student->id)
-            ->latest()
-            ->first();
+            return response()->json([
+                'message' => 'Already enrolled in this session.',
+                'data' => $this->transform($alreadyEnrolled),
+                'invoice' => $this->transformInvoice($invoice),
+            ]);
+        }
 
         $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
         $module = $priorCount + 1;
         $yearOfStudy = (int) floor(($module - 1) / 3) + 1;
         $sessionNumber = (($module - 1) % 3) + 1;
 
-        $enrolment = AcademicSessionEnrolment::create([
-            'student_id' => $student->id,
-            'academic_session_id' => $validated['academic_session_id'],
-            'course_enrolment_id' => $courseEnrolment?->id,
-            'year_of_study' => $yearOfStudy,
-            'session_number' => $sessionNumber,
-            'module' => $module,
-            'status' => 'enrolled',
-            'enrolled_at' => now(),
-            'created_by' => $user->id,
-            'updated_by' => $user->id,
-        ]);
-
         $session = AcademicSession::find($validated['academic_session_id']);
 
-        $enrolment->load('academicSession');
+        [$enrolment, $invoice] = DB::transaction(function () use ($student, $validated, $yearOfStudy, $sessionNumber, $module, $user, $session) {
+            $enrolment = AcademicSessionEnrolment::create([
+                'student_id' => $student->id,
+                'academic_session_id' => $validated['academic_session_id'],
+                'year_of_study' => $yearOfStudy,
+                'session_number' => $sessionNumber,
+                'module' => $module,
+                'status' => 'enrolled',
+                'enrolled_at' => now(),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
 
-        try {
-            $this->billingService->createInvoiceForStudent($student, $user->id, $session);
-        } catch (\Exception $e) {
-            // invoice generation is non-blocking
-        }
+            $enrolment->load('academicSession');
+            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $session);
+
+            return [$enrolment, $invoice];
+        });
 
         return response()->json([
             'message' => 'Enrolled in session successfully.',
             'data' => $this->transform($enrolment),
+            'invoice' => $this->transformInvoice($invoice),
         ], 201);
     }
 
@@ -200,10 +206,77 @@ class AcademicSessionEnrolmentsController extends Controller
         $alreadyEnrolled = AcademicSessionEnrolment::query()
             ->where('student_id', $student->id)
             ->where('academic_session_id', $activeSession->id)
-            ->exists();
+            ->with('academicSession')
+            ->first();
 
         if ($alreadyEnrolled) {
-            return response()->json(['message' => 'You are already enrolled in the current session.'], 409);
+            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $activeSession);
+
+            return response()->json([
+                'message' => 'You are already enrolled in the current session.',
+                'data' => $this->transform($alreadyEnrolled),
+                'invoice' => $this->transformInvoice($invoice),
+            ]);
+        }
+
+        $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
+        $module = $priorCount + 1;
+        $yearOfStudy = (int) floor(($module - 1) / 3) + 1;
+        $sessionNumber = (($module - 1) % 3) + 1;
+
+        [$enrolment, $invoice] = DB::transaction(function () use ($student, $activeSession, $yearOfStudy, $sessionNumber, $module, $user) {
+            $enrolment = AcademicSessionEnrolment::create([
+                'student_id' => $student->id,
+                'academic_session_id' => $activeSession->id,
+                'year_of_study' => $yearOfStudy,
+                'session_number' => $sessionNumber,
+                'module' => $module,
+                'status' => 'enrolled',
+                'enrolled_at' => now(),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+
+            $enrolment->load('academicSession');
+            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $activeSession);
+
+            return [$enrolment, $invoice];
+        });
+
+        return response()->json([
+            'message' => 'Session registered successfully.',
+            'data' => $this->transform($enrolment),
+            'invoice' => $this->transformInvoice($invoice),
+        ], 201);
+    }
+
+    public function registerUnits(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $student = $user->student;
+
+        if (!$student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'academic_session_enrolment_id' => 'required|string|exists:academic_session_enrolments,id',
+            'unit_ids' => 'required|array|min:1',
+            'unit_ids.*' => 'required|string|exists:units,id',
+        ]);
+
+        $sessionEnrolment = AcademicSessionEnrolment::query()
+            ->where('id', $validated['academic_session_enrolment_id'])
+            ->where('student_id', $student->id)
+            ->with('academicSession')
+            ->first();
+
+        if (!$sessionEnrolment) {
+            return response()->json(['message' => 'Session enrolment not found for this student.'], 404);
+        }
+
+        if (!$sessionEnrolment->academicSession?->is_active) {
+            return response()->json(['message' => 'You can only register units for an active academic session.'], 422);
         }
 
         $courseEnrolment = CourseEnrolment::query()
@@ -211,36 +284,56 @@ class AcademicSessionEnrolmentsController extends Controller
             ->latest()
             ->first();
 
-        $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
-        $module = $priorCount + 1;
-        $yearOfStudy = (int) floor(($module - 1) / 3) + 1;
-        $sessionNumber = (($module - 1) % 3) + 1;
+        $courseCurriculumIds = CourseCurriculum::query()
+            ->where('course_id', $courseEnrolment?->course_id ?? $student->course_id)
+            ->when($courseEnrolment?->curriculum_id, fn ($query, $curriculumId) => $query->where('curriculum_id', $curriculumId))
+            ->where('is_active', true)
+            ->pluck('id');
 
-        $enrolment = AcademicSessionEnrolment::create([
-            'student_id' => $student->id,
-            'academic_session_id' => $activeSession->id,
-            'course_enrolment_id' => $courseEnrolment?->id,
-            'year_of_study' => $yearOfStudy,
-            'session_number' => $sessionNumber,
-            'module' => $module,
-            'status' => 'enrolled',
-            'enrolled_at' => now(),
-            'created_by' => $user->id,
-            'updated_by' => $user->id,
-        ]);
+        $allowedUnitIds = Unit::query()
+            ->whereIn('course_curriculum_id', $courseCurriculumIds)
+            ->where('is_active', true)
+            ->where(function ($query) use ($sessionEnrolment) {
+                $query->where('modules_taught', $sessionEnrolment->module)
+                    ->orWhereNull('modules_taught');
+            })
+            ->pluck('id');
 
-        $enrolment->load('academicSession');
+        $requestedUnitIds = collect($validated['unit_ids'])->unique()->values();
+        $invalidUnitIds = $requestedUnitIds->diff($allowedUnitIds);
 
-        try {
-            $this->billingService->createInvoiceForStudent($student, $user->id, $activeSession);
-        } catch (\Exception $e) {
-            // invoice generation is non-blocking
+        if ($invalidUnitIds->isNotEmpty()) {
+            return response()->json([
+                'message' => 'One or more selected units do not belong to your current course, curriculum, and module.',
+                'invalid_unit_ids' => $invalidUnitIds->values(),
+            ], 422);
+        }
+
+        $created = 0;
+        foreach ($requestedUnitIds as $unitId) {
+            $registration = StudentUnitRegistration::firstOrCreate(
+                [
+                    'academic_session_id' => $sessionEnrolment->academic_session_id,
+                    'student_id' => $student->id,
+                    'unit_id' => $unitId,
+                ],
+                [
+                    'academic_session_enrolment_id' => $sessionEnrolment->id,
+                ],
+            );
+
+            if ($registration->wasRecentlyCreated) {
+                $created++;
+            }
         }
 
         return response()->json([
-            'message' => 'Session registered successfully.',
-            'data' => $this->transform($enrolment),
-        ], 201);
+            'message' => $created > 0
+                ? "{$created} unit(s) registered successfully."
+                : 'Selected unit(s) were already registered.',
+            'registered_count' => $requestedUnitIds->count(),
+            'created_count' => $created,
+        ]);
     }
 
     public function show(Request $request, AcademicSessionEnrolment $academic_session_enrolment): JsonResponse
@@ -276,6 +369,20 @@ class AcademicSessionEnrolmentsController extends Controller
             'status' => $enrolment->status,
             'enrolled_at' => $enrolment->enrolled_at,
             'created_at' => $enrolment->created_at,
+        ];
+    }
+
+    private function transformInvoice(Invoice $invoice): array
+    {
+        return [
+            'id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'invoice_type' => $invoice->invoice_type,
+            'status' => $invoice->status,
+            'amount_due' => (float) $invoice->amount_due,
+            'paid_amount' => (float) $invoice->paid_amount,
+            'balance_due' => (float) $invoice->balance_due,
+            'due_date' => $invoice->due_date?->format('Y-m-d'),
         ];
     }
 

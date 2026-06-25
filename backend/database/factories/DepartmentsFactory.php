@@ -11,21 +11,11 @@ class DepartmentsFactory extends Factory
 
     public function definition(): array
     {
-        static $i = 0;
-        $departments = [
-            ['code' => 'ICT', 'name' => 'Information Communication Technology'],
-            ['code' => 'HOSP', 'name' => 'Hospitality and Tourism Management'],
-            ['code' => 'ENG', 'name' => 'Engineering'],
-            ['code' => 'BUS', 'name' => 'Business and Management Studies'],
-            ['code' => 'EDU', 'name' => 'Education'],
-        ];
-
-        $dept = $departments[$i % count($departments)];
-        $i++;
+        $code = strtoupper(fake()->unique()->bothify('DEPT###'));
 
         return [
-            'code' => $dept['code'],
-            'name' => $dept['name'],
+            'code' => $code,
+            'name' => "{$code} Department",
             'head_of_department' => null,
             'description' => fake()->sentence(),
         ];

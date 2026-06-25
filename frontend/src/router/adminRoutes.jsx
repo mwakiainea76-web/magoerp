@@ -108,6 +108,7 @@ export function AdminRoutes() {
       <Route path="/assessments/marksheet" element={<MarksheetPage />} />
       <Route path="/timetables" element={<TimetableViewPage />} />
       <Route path="/timetables/create" element={<TimetableCreatePage />} />
+      <Route path="/timetables/:timetableId/edit" element={<TimetableCreatePage />} />
       <Route path="/complaints" element={<AdminComplaintsPage />} />
       <Route path="/complaints/:complaintId" element={<AdminComplaintDetailPage />} />
       <Route path="/hostels" element={<HostelsPage />} />

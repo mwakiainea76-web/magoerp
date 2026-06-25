@@ -10,6 +10,12 @@ return new class extends Migration
     {
         Schema::create('student_unit_registrations', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->foreignUuid('academic_session_id')
+                ->constrained('academic_sessions')
+                ->cascadeOnDelete();
+            $table->foreignUuid('student_id')
+                ->constrained('students')
+                ->cascadeOnDelete();
             $table->foreignUuid('academic_session_enrolment_id')
                 ->constrained('academic_session_enrolments')
                 ->cascadeOnDelete();
@@ -18,7 +24,8 @@ return new class extends Migration
                 ->cascadeOnDelete();
             $table->timestamps();
 
-            $table->unique(['academic_session_enrolment_id', 'unit_id'], 'stu_reg_unique');
+            $table->unique(['academic_session_id', 'student_id', 'unit_id'], 'stu_reg_unique');
+            $table->index(['academic_session_enrolment_id', 'unit_id'], 'stu_reg_enrolment_unit_index');
         });
 
         Schema::create('student_marks', function (Blueprint $table) {
@@ -37,6 +44,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
             $table->string('assessment_type', 50);
             $table->unsignedInteger('assessment_number');
+            $table->unsignedInteger('score');
             $table->unsignedInteger('marks');
             $table->boolean('is_published')->default(false);
             $table->foreignUuid('recorded_by_staff_id')
@@ -45,7 +53,7 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->timestamps();
 
-            $table->unique(['student_id', 'unit_id', 'assessment_type', 'assessment_number'], 'marks_unique_assessment');
+            $table->unique(['academic_session_id', 'student_id', 'unit_id', 'assessment_type', 'assessment_number'], 'marks_unique_assessment');
             $table->index(['academic_session_id', 'recorded_by_staff_id']);
             $table->index(['unit_id', 'academic_session_id']);
             $table->index(['academic_session_enrolment_id']);

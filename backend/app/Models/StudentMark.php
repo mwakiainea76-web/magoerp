@@ -18,6 +18,7 @@ class StudentMark extends Model
         'unit_id',
         'assessment_type',
         'assessment_number',
+        'score',
         'marks',
         'is_published',
         'recorded_by_staff_id',
@@ -25,6 +26,7 @@ class StudentMark extends Model
 
     protected $casts = [
         'assessment_number' => 'integer',
+        'score' => 'integer',
         'marks' => 'integer',
         'is_published' => 'boolean',
     ];
@@ -55,6 +57,6 @@ class StudentMark extends Model
 
     public function recordedBy(): BelongsTo
     {
-        return $this->belongsTo(Staff::class, 'recorded_by_staff_id');
+        return $this->belongsTo(staffs::class, 'recorded_by_staff_id');
     }
 }

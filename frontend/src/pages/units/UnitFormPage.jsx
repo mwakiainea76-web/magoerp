@@ -43,8 +43,7 @@ const unitSchema = yup.object({
   code: yup.string().required("Unit code is required").max(50, "Max 50 characters"),
   name: yup.string().required("Unit name is required").max(255, "Max 255 characters"),
   description: yup.string().nullable().max(2000, "Max 2000 characters"),
-  modules_taught: nullableNumberSchema("Modules taught must be a valid number").integer("Modules taught must be a whole number").min(1, "Min 1 module").max(20, "Max 20 modules"),
-  module: nullableNumberSchema("Module must be a valid number").integer("Module must be a whole number").min(1, "Min 1").max(99, "Max 99"),
+  modules_taught: nullableNumberSchema("Module must be a valid number").integer("Module must be a whole number").min(1, "Min 1").max(99, "Max 99"),
   taught_hours: nullableNumberSchema("Taught hours must be a valid number").integer("Taught hours must be a whole number").min(1, "Min 1 hour").max(500, "Max 500 hours"),
   credit_factor: nullableNumberSchema("Credit factor must be a valid number").positive("Credit factor must be greater than 0"),
   is_active: yup.boolean().required(),
@@ -57,7 +56,6 @@ function normalizePayload(values) {
     name: values.name.trim(),
     description: values.description?.trim() || null,
     modules_taught: values.modules_taught || null,
-    module: values.module || null,
     taught_hours: values.taught_hours || null,
     credit_factor: values.credit_factor || null,
     is_active: Boolean(values.is_active),
@@ -94,15 +92,14 @@ export function UnitFormPage() {
       name: "",
       description: "",
       modules_taught: "",
-      module: "",
       taught_hours: "",
       credit_factor: "",
       is_active: true,
     },
   });
 
-  const moduleValue = useWatch({ control, name: "module" });
-  const resolvedProgress = resolveModule(moduleValue);
+  const modulesTaughtValue = useWatch({ control, name: "modules_taught" });
+  const resolvedProgress = resolveModule(modulesTaughtValue);
 
   useEffect(() => {
     let isMounted = true;
@@ -125,7 +122,6 @@ export function UnitFormPage() {
           name: unit.name ?? "",
           description: unit.description ?? "",
           modules_taught: unit.modules_taught ?? "",
-          module: unit.module ?? "",
           taught_hours: unit.taught_hours ?? "",
           credit_factor: unit.credit_factor ?? "",
           is_active: unit.is_active ?? true,
@@ -215,7 +211,7 @@ export function UnitFormPage() {
               <div className={`mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{pageError}</div>
             ) : null}
 
-            <div className="grid gap-4 grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               <Controller
                   name="course_curriculum_id"
                   control={control}
@@ -259,22 +255,11 @@ export function UnitFormPage() {
                 id="modules_taught"
                 type="number"
                 min={1}
-                max={20}
-                label="Modules Taught"
-                placeholder="e.g. 8"
+                max={99}
+                label="Offered in Module"
+                placeholder="e.g. 5 — leave empty if spans entire study period"
                 error={errors.modules_taught?.message}
                 {...register("modules_taught")}
-              />
-
-              <FormInput
-                id="module"
-                type="number"
-                min={1}
-                max={99}
-                label="Module"
-                placeholder="e.g. 5"
-                error={errors.module?.message}
-                {...register("module")}
               />
               {resolvedProgress && (
                 <p className="-mt-2 text-xs text-slate-500">

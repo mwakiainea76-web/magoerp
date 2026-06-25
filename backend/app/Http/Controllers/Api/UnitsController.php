@@ -123,12 +123,10 @@ class UnitsController extends Controller
 
     private function resolveModuleProgress(array $data): array
     {
-        if (!empty($data['module'])) {
-            $module = (int) $data['module'];
+        if (!empty($data['modules_taught'])) {
+            $module = (int) $data['modules_taught'];
             $data['year_of_study'] = (int) floor(($module - 1) / 3) + 1;
             $data['session_number'] = (($module - 1) % 3) + 1;
-        } elseif (!empty($data['year_of_study']) && !empty($data['session_number'])) {
-            $data['module'] = (($data['year_of_study'] - 1) * 3) + $data['session_number'];
         }
 
         return $data;
@@ -160,7 +158,6 @@ class UnitsController extends Controller
             'modules_taught' => $unit->modules_taught,
             'year_of_study' => $unit->year_of_study,
             'session_number' => $unit->session_number,
-            'module' => $unit->module,
             'taught_hours' => $unit->taught_hours,
             'credit_factor' => $unit->credit_factor,
             'is_active' => $unit->is_active,

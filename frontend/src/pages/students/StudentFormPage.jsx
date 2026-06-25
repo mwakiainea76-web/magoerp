@@ -345,7 +345,7 @@ export function StudentFormPage() {
         {/* Section 1: Admission Information */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 1: Admission Information</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <FormInput
               id="admission_number"
               label="Admission Number"
@@ -391,7 +391,7 @@ export function StudentFormPage() {
         {/* Section 2: Personal Information */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 2: Personal Information</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <FormInput id="email" label="Email" type="email" placeholder="e.g. student@mago.edu" required error={errors.email?.message} {...register("email")} />
             <FormInput id="first_name" label="First Name" placeholder="e.g. John" required error={errors.first_name?.message} {...register("first_name")} />
             <FormInput id="middle_name" label="Middle Name" placeholder="e.g. Michael" required error={errors.middle_name?.message} {...register("middle_name")} />
@@ -437,7 +437,7 @@ export function StudentFormPage() {
             </div>
 
             {watchedIsPwd && (
-              <div className="grid gap-4 grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 <FormInput id="disability_type" label="Disability Type" placeholder="e.g. Visual impairment" required error={errors.disability_type?.message} {...register("disability_type")} />
                 <div className="col-span-2">
                   <label htmlFor="disability_description" className="mb-1 block text-[13px] font-medium text-slate-600">
@@ -462,7 +462,7 @@ export function StudentFormPage() {
         {/* Section 4: Next of Kin */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 4: Next of Kin</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <FormInput id="next_of_kin_first_name" label="First Name" placeholder="e.g. Jane" required error={errors.next_of_kin_first_name?.message} {...register("next_of_kin_first_name")} />
             <FormInput id="next_of_kin_last_name" label="Last Name" placeholder="e.g. Doe" required error={errors.next_of_kin_last_name?.message} {...register("next_of_kin_last_name")} />
             <div>

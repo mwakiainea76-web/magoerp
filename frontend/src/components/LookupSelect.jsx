@@ -1,4 +1,4 @@
-﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, LoaderCircle, Search } from "lucide-react";
 
 function joinClasses(...classes) {
@@ -26,13 +26,15 @@ export function LookupSelect({
   const inputId = useId();
   const containerRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState(selectedOption?.label ?? "");
+  const [query, setQuery] = useState("");
   const [options, setOptions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    setQuery(selectedOption?.label ?? "");
-  }, [selectedOption?.id, selectedOption?.label]);
+    if (!isOpen) {
+      setQuery(selectedOption?.label ?? "");
+    }
+  }, [isOpen, selectedOption]);
 
   useEffect(() => {
     function handleOutsideClick(event) {
@@ -77,15 +79,11 @@ export function LookupSelect({
   }, [fetchOptions, isOpen, query]);
 
   const selectedId = useMemo(() => value ?? "", [value]);
+  const hasValue = selectedId !== "" || query.trim() !== "";
 
   function handleInputChange(event) {
-    const nextValue = event.target.value;
-    setQuery(nextValue);
+    setQuery(event.target.value);
     setIsOpen(true);
-
-    if (selectedId) {
-      onChange("", null);
-    }
   }
 
   function handleSelect(option) {
@@ -107,7 +105,8 @@ export function LookupSelect({
       <div className="relative">
         <div
           className={joinClasses(
-            "flex min-h-9 items-center rounded-lg border bg-white px-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition",
+            "flex min-h-9 items-center rounded-lg border px-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition",
+            hasValue ? "bg-[#eaf2ff]" : "bg-white",
             error
               ? "border-red-300 focus-within:border-red-400 focus-within:ring-4 focus-within:ring-red-100"
               : "border-slate-200 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-100",

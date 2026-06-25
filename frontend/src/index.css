@@ -38,3 +38,13 @@ body {
 .sidebar-nav::-webkit-scrollbar-thumb:hover {
   background: rgba(203, 213, 225, 0.75);
 }
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(:placeholder-shown),
+textarea:not(:placeholder-shown),
+select:has(option:checked:not([value=""])) {
+  background-color: #eaf2ff;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):disabled {
+  background-color: #f8fafc;
+}

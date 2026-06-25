@@ -95,11 +95,9 @@ export function ViewMarksPage() {
               <option value="CAT 1">CAT 1</option>
               <option value="CAT 2">CAT 2</option>
               <option value="CAT 3">CAT 3</option>
-              <option value="ASSIGNMENT 1">Assignment 1</option>
-              <option value="ASSIGNMENT 2">Assignment 2</option>
-              <option value="MAIN EXAM">Main Exam</option>
-              <option value="PRACTICAL">Practical</option>
-              <option value="PROJECT">Project</option>
+              <option value="PRAC 1">PRAC 1</option>
+              <option value="PRAC 2">PRAC 2</option>
+              <option value="PRAC 3">PRAC 3</option>
             </select>
           </div>
           <div>
@@ -137,8 +135,7 @@ export function ViewMarksPage() {
                 <Th>Student</Th>
                 <Th>Unit</Th>
                 <Th>Assessment</Th>
-                <Th>#</Th>
-                <Th className="text-center">Marks</Th>
+                <Th className="text-center">Score</Th>
                 <Th className="text-center">Status</Th>
               </tr>
             </Thead>
@@ -157,9 +154,8 @@ export function ViewMarksPage() {
                       : "—"}
                   </Td>
                   <Td>{mark.unit?.code ?? "—"}</Td>
-                  <Td>{mark.assessment_type}</Td>
-                  <Td>{mark.assessment_number}</Td>
-                  <Td className="text-center font-semibold">{mark.marks}</Td>
+                  <Td>{mark.assessment_type} {mark.assessment_number}</Td>
+                  <Td className="text-center font-semibold">{mark.score ?? mark.marks}</Td>
                   <Td className="text-center">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${

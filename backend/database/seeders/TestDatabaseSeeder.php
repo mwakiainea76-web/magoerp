@@ -27,7 +27,7 @@ class TestDatabaseSeeder extends Seeder
             [
                 'email' => 'admin@magoerp.test',
                 'email_verified_at' => now(),
-                'password' => 'Admin@12345',
+                'password' => bcrypt('password'),
                 'role' => 'admin',
                 'status' => true,
                 'first_name' => 'System',
@@ -59,5 +59,7 @@ class TestDatabaseSeeder extends Seeder
                 'status' => true,
             ]
         );
+
+        $this->call(TimetableFeatureSeeder::class);
     }
 }

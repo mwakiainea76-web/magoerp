@@ -22,24 +22,32 @@ const staffSchema = yup.object({
   role: yup.string().required("Role is required"),
 
   first_name: yup.string().required("First name is required").max(255),
-  middle_name: yup.string().required("Middle name is required").max(255),
+  middle_name: yup.string().nullable().max(255),
   last_name: yup.string().required("Last name is required").max(255),
   gender: yup.string().oneOf(["male", "female", "other"], "Invalid gender").required("Gender is required"),
-  date_of_birth: yup.date().required("Date of birth is required"),
+  date_of_birth: yup
+    .date()
+    .nullable()
+    .transform((value, originalValue) => originalValue === "" ? null : value)
+    .required("Date of birth is required"),
   nationality: yup.string().required("Nationality is required").max(255),
   national_id: yup.string().required("National ID is required").max(255),
   place_of_birth: yup.string().required("Place of birth is required").max(255),
   religion: yup.string().required("Religion is required").max(255),
   phone_number: yup.string().required("Phone number is required").max(50),
-  alternative_phone_number: yup.string().required("Alternative phone is required").max(50),
+  alternative_phone_number: yup.string().nullable().max(50),
 
   county: yup.string().required("County is required").max(255),
 
-  department_id: yup.string().required("Department is required").uuid(),
+  department_id: yup.string().required("Department is required"),
   job_title: yup.string().required("Job title is required").max(255),
   employment_type: yup.string().oneOf(["Permanent", "Contract", "Part-time", "Casual"], "Invalid type").required("Employment type is required"),
-  date_joined: yup.date().required("Date joined is required"),
-  contract_end_date: yup.date().nullable(),
+  date_joined: yup.date()
+    .nullable()
+    .transform((value, originalValue) => originalValue === "" ? null : value),
+  contract_end_date: yup.date()
+    .nullable()
+    .transform((value, originalValue) => originalValue === "" ? null : value),
   basic_salary: yup.number().typeError("Must be a number").required("Basic salary is required").min(0),
 
   kra_pin: yup.string().required("KRA PIN is required").max(255),
@@ -50,8 +58,16 @@ const staffSchema = yup.object({
   specialization: yup.string().required("Specialization is required").max(255),
 
   is_pwd: yup.boolean().required(),
-  disability_type: yup.string().required("Disability type is required").max(255),
-  disability_description: yup.string().required("Disability description is required"),
+  disability_type: yup.string().when("is_pwd", {
+    is: true,
+    then: (schema) => schema.required("Disability type is required").max(255),
+    otherwise: (schema) => schema.nullable().notRequired(),
+  }),
+  disability_description: yup.string().when("is_pwd", {
+    is: true,
+    then: (schema) => schema.required("Disability description is required"),
+    otherwise: (schema) => schema.nullable().notRequired(),
+  }),
 
   next_of_kin_first_name: yup.string().required("Next of kin first name is required").max(255),
   next_of_kin_last_name: yup.string().required("Next of kin last name is required").max(255),
@@ -68,7 +84,7 @@ function normalizePayload(values) {
     email: values.email.trim(),
     role: values.role,
     first_name: values.first_name.trim(),
-    middle_name: values.middle_name.trim(),
+    middle_name: values.middle_name?.trim() || null,
     last_name: values.last_name.trim(),
     gender: values.gender,
     date_of_birth: values.date_of_birth,
@@ -77,12 +93,12 @@ function normalizePayload(values) {
     place_of_birth: values.place_of_birth.trim(),
     religion: values.religion.trim(),
     phone_number: values.phone_number.trim(),
-    alternative_phone_number: values.alternative_phone_number.trim(),
+    alternative_phone_number: values.alternative_phone_number?.trim() || null,
     county: values.county.trim(),
     department_id: values.department_id || null,
     job_title: values.job_title.trim(),
     employment_type: values.employment_type,
-    date_joined: values.date_joined,
+    date_joined: values.date_joined || null,
     contract_end_date: values.contract_end_date,
     basic_salary: values.basic_salary,
     kra_pin: values.kra_pin.trim(),
@@ -92,8 +108,8 @@ function normalizePayload(values) {
     specialization: values.specialization.trim(),
 
     is_pwd: values.is_pwd,
-    disability_type: values.disability_type.trim(),
-    disability_description: values.disability_description.trim(),
+    disability_type: values.is_pwd ? values.disability_type.trim() : null,
+    disability_description: values.is_pwd ? values.disability_description.trim() : null,
     next_of_kin_first_name: values.next_of_kin_first_name.trim(),
     next_of_kin_last_name: values.next_of_kin_last_name.trim(),
     next_of_kin_phone: values.next_of_kin_phone.trim(),
@@ -129,6 +145,7 @@ export function StaffFormPage() {
     control,
     handleSubmit,
     reset,
+    setValue,
     setError,
     clearErrors,
     watch,
@@ -235,6 +252,9 @@ export function StaffFormPage() {
               status: s.status ?? true,
             });
 
+            setValue("kra_pin", s.kra_pin ?? "");
+            setValue("nhif_number", s.nhif_number ?? "");
+            setValue("nssf_number", s.nssf_number ?? "");
             setNextEmployeeNumber(s.employee_number);
 
             if (s.department_id) {
@@ -277,7 +297,7 @@ export function StaffFormPage() {
     return () => {
       isMounted = false;
     };
-  }, [staffId, staffsApi, isEdit, reset]);
+  }, [staffId, staffsApi, isEdit, reset, setValue]);
 
   async function onSubmit(data) {
     setIsSaving(true);
@@ -357,7 +377,7 @@ export function StaffFormPage() {
 
       {pageError ? (
         <div
-          className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}
+          className={`whitespace-pre-wrap break-words rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}
         >
           {pageError}
         </div>
@@ -367,7 +387,7 @@ export function StaffFormPage() {
         {/* Section 1: Account Details */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 1: Account Details</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <FormInput
               id="employee_number_display"
               label="Employee Number"
@@ -411,9 +431,9 @@ export function StaffFormPage() {
         {/* Section 2: Personal Information */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 2: Personal Information</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <FormInput id="first_name" label="First Name" placeholder="e.g. John" required error={errors.first_name?.message} {...register("first_name")} />
-            <FormInput id="middle_name" label="Middle Name" placeholder="e.g. Michael" required error={errors.middle_name?.message} {...register("middle_name")} />
+            <FormInput id="middle_name" label="Middle Name" placeholder="e.g. Michael" error={errors.middle_name?.message} {...register("middle_name")} />
             <FormInput id="last_name" label="Last Name" placeholder="e.g. Doe" required error={errors.last_name?.message} {...register("last_name")} />
 
             <div>
@@ -440,7 +460,7 @@ export function StaffFormPage() {
 
             <FormInput id="phone_number" label="Phone Number" placeholder="e.g. +254712345678" required error={errors.phone_number?.message} {...register("phone_number")} />
 
-            <FormInput id="alternative_phone_number" label="Alternative Phone" placeholder="e.g. +254798765432" required error={errors.alternative_phone_number?.message} {...register("alternative_phone_number")} />
+            <FormInput id="alternative_phone_number" label="Alternative Phone" placeholder="e.g. +254798765432" error={errors.alternative_phone_number?.message} {...register("alternative_phone_number")} />
 
             <FormInput id="county" label="County" placeholder="e.g. Nairobi" required error={errors.county?.message} {...register("county")} />
           </div>
@@ -449,7 +469,7 @@ export function StaffFormPage() {
         {/* Section 3: Employment Details */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 4: Employment Details</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         <Controller
               name="department_id"
               control={control}
@@ -486,7 +506,9 @@ export function StaffFormPage() {
               {errors.employment_type ? <p className={`mt-1 text-red-600 ${bodyTextClassName}`}>{errors.employment_type.message}</p> : null}
             </div>
 
-            <FormInput id="date_joined" type="date" label="Date Joined" required error={errors.date_joined?.message} {...register("date_joined")} />
+            {isEdit ? (
+              <FormInput id="date_joined" type="date" label="Date Joined" required error={errors.date_joined?.message} {...register("date_joined")} />
+            ) : null}
             <FormInput id="contract_end_date" type="date" label="Contract End Date" error={errors.contract_end_date?.message} {...register("contract_end_date")} />
 
             <FormInput id="basic_salary" type="number" step="0.01" label="Basic Salary (KES)" placeholder="e.g. 250000" required error={errors.basic_salary?.message} {...register("basic_salary")} />
@@ -504,7 +526,7 @@ export function StaffFormPage() {
         {/* Section 5: Identification & Benefits */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 5: Identification & Benefits</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <FormInput id="kra_pin" label="KRA PIN" placeholder="e.g. KRA001001" required error={errors.kra_pin?.message} {...register("kra_pin")} />
             <FormInput id="nhif_number" label="NHIF Number" placeholder="e.g. NHIF001001" required error={errors.nhif_number?.message} {...register("nhif_number")} />
             <FormInput id="nssf_number" label="NSSF Number" placeholder="e.g. NSSF001001" required error={errors.nssf_number?.message} {...register("nssf_number")} />
@@ -514,7 +536,7 @@ export function StaffFormPage() {
         {/* Section 6: Academic & Professional */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 6: Academic & Professional</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div>
               <label htmlFor="highest_qualification" className="mb-1 block text-[13px] font-medium text-slate-600">
                 Highest Qualification <span className="text-red-400">*</span>
@@ -548,7 +570,7 @@ export function StaffFormPage() {
             </div>
 
             {isPwd && (
-              <div className="grid gap-4 grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 <FormInput id="disability_type" label="Disability Type" placeholder="e.g. Visual impairment" required error={errors.disability_type?.message} {...register("disability_type")} />
                 <div className="col-span-2">
                   <label htmlFor="disability_description" className="mb-1 block text-[13px] font-medium text-slate-600">
@@ -573,7 +595,7 @@ export function StaffFormPage() {
         {/* Section 8: Next of Kin */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 8: Next of Kin</h2>
-          <div className="grid gap-4 grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <FormInput id="next_of_kin_first_name" label="First Name" placeholder="e.g. Jane" required error={errors.next_of_kin_first_name?.message} {...register("next_of_kin_first_name")} />
             <FormInput id="next_of_kin_last_name" label="Last Name" placeholder="e.g. Doe" required error={errors.next_of_kin_last_name?.message} {...register("next_of_kin_last_name")} />
             <div>

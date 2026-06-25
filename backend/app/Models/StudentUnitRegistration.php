@@ -12,6 +12,8 @@ class StudentUnitRegistration extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
+        'academic_session_id',
+        'student_id',
         'academic_session_enrolment_id',
         'unit_id',
     ];
@@ -23,6 +25,16 @@ class StudentUnitRegistration extends Model
     public function academicSessionEnrolment(): BelongsTo
     {
         return $this->belongsTo(AcademicSessionEnrolment::class);
+    }
+
+    public function academicSession(): BelongsTo
+    {
+        return $this->belongsTo(AcademicSession::class);
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class);
     }
 
     public function unit(): BelongsTo

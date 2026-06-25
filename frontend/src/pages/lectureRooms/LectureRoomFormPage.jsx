@@ -3,10 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { ArrowLeft } from "lucide-react";
 
-import { bodyTextClassName, labelTextClassName, inputClassName, selectClassName } from "@/lib/styles";
+import { bodyTextClassName, labelTextClassName, inputClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useLectureRoomsApi } from "@/hooks/useLectureRoomsApi";
-import { useDepartmentsApi } from "@/hooks/useDepartmentsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 export function LectureRoomFormPage() {
@@ -14,16 +13,13 @@ export function LectureRoomFormPage() {
   const isEdit = Boolean(roomId);
   const navigate = useNavigate();
   const api = useLectureRoomsApi();
-  const departmentsApi = useDepartmentsApi();
 
-  const [departments, setDepartments] = useState([]);
   const [form, setForm] = useState({
     name: "",
     code: "",
     capacity: "",
     location: "",
     description: "",
-    department_id: "",
     is_active: true,
   });
   const [isLoading, setIsLoading] = useState(isEdit);
@@ -34,9 +30,6 @@ export function LectureRoomFormPage() {
     let mounted = true;
     async function load() {
       try {
-        const deptRes = await departmentsApi.list({ per_page: 200 });
-        if (mounted) setDepartments(deptRes.data ?? []);
-
         if (isEdit) {
           const roomRes = await api.show(roomId);
           if (mounted && roomRes.data) {
@@ -47,7 +40,6 @@ export function LectureRoomFormPage() {
               capacity: r.capacity ?? "",
               location: r.location ?? "",
               description: r.description ?? "",
-              department_id: r.department_id ?? "",
               is_active: r.is_active ?? true,
             });
           }
@@ -58,7 +50,7 @@ export function LectureRoomFormPage() {
         if (mounted) setIsLoading(false);
       }
     }
-    load();
+    if (isEdit) load(); else setIsLoading(false);
     return () => { mounted = false; };
   }, [isEdit]);
 
@@ -71,7 +63,6 @@ export function LectureRoomFormPage() {
       ...form,
       capacity: form.capacity ? Number(form.capacity) : null,
       description: form.description || null,
-      department_id: form.department_id || null,
     };
 
     try {
@@ -158,19 +149,6 @@ export function LectureRoomFormPage() {
                 maxLength={255}
                 placeholder="e.g. Block A, Floor 2"
               />
-            </div>
-            <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Department</label>
-              <select
-                value={form.department_id}
-                onChange={(e) => setForm((f) => ({ ...f, department_id: e.target.value }))}
-                className={`${selectClassName} w-full`}
-              >
-                <option value="">No department</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
             </div>
             <div>
               <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Status</label>

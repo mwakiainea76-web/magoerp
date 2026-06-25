@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->parameters(['academic-sessions' => 'academic_session']);
 
     Route::post('/student/register-session', [AcademicSessionEnrolmentsController::class, 'registerCurrentSession']);
+    Route::post('/student/register-units', [AcademicSessionEnrolmentsController::class, 'registerUnits']);
     Route::get('/my/session-enrolments', [AcademicSessionEnrolmentsController::class, 'myEnrolments']);
     Route::get('/my/available-sessions', [AcademicSessionEnrolmentsController::class, 'availableSessions']);
     Route::post('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'store']);
@@ -109,25 +110,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/marks', [StudentMarksController::class, 'index']);
     Route::post('/marks', [StudentMarksController::class, 'store']);
     Route::post('/marks/bulk', [StudentMarksController::class, 'bulkStore']);
-    Route::get('/marks/{student_mark}', [StudentMarksController::class, 'show']);
-    Route::put('/marks/{student_mark}', [StudentMarksController::class, 'update']);
-    Route::post('/marks/{student_mark}/toggle-publish', [StudentMarksController::class, 'togglePublish']);
     Route::post('/marks/publish-assessment', [StudentMarksController::class, 'publishAssessment']);
     Route::get('/marks/available-units', [StudentMarksController::class, 'availableUnits']);
     Route::get('/marks/available-students', [StudentMarksController::class, 'availableStudents']);
     Route::get('/marks/marksheet', [StudentMarksController::class, 'marksheet']);
+    Route::get('/marks/{student_mark}', [StudentMarksController::class, 'show']);
+    Route::put('/marks/{student_mark}', [StudentMarksController::class, 'update']);
+    Route::post('/marks/{student_mark}/toggle-publish', [StudentMarksController::class, 'togglePublish']);
     Route::get('/my/results', [StudentMarksController::class, 'myResults']);
     Route::get('/my/results-sessions', [StudentMarksController::class, 'listSessionsWithMarks']);
 
     Route::get('/my/timetable', [AcademicTimetablesController::class, 'myTimetable']);
     Route::get('/timetables', [AcademicTimetablesController::class, 'index']);
     Route::get('/timetables/week-grid', [AcademicTimetablesController::class, 'weekGrid']);
+    Route::get('/timetables/available-units', [AcademicTimetablesController::class, 'availableUnits']);
+    Route::get('/timetables/staff-list', [AcademicTimetablesController::class, 'staffList']);
     Route::post('/timetables', [AcademicTimetablesController::class, 'store']);
     Route::get('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'show']);
     Route::put('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'update']);
     Route::delete('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'destroy']);
-    Route::get('/timetables/available-units', [AcademicTimetablesController::class, 'availableUnits']);
-    Route::get('/timetables/staff-list', [AcademicTimetablesController::class, 'staffList']);
     Route::apiResource('lecture-rooms', LectureRoomsController::class)
         ->parameters(['lecture-rooms' => 'lecture_room']);
 

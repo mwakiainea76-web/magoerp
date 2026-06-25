@@ -9,8 +9,7 @@ import { useMarksApi } from "@/hooks/useMarksApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const ASSESSMENT_TYPES = [
-  "CAT 1", "CAT 2", "CAT 3", "ASSIGNMENT 1", "ASSIGNMENT 2",
-  "MAIN EXAM", "PRACTICAL", "PROJECT", "QUIZ 1", "QUIZ 2",
+  "CAT 1", "CAT 2", "CAT 3", "PRAC 1", "PRAC 2", "PRAC 3",
 ];
 
 export function PublishMarksPage() {
@@ -62,27 +61,23 @@ export function PublishMarksPage() {
       return;
     }
 
-    const numbers = [...new Set(marks.map((m) => m.assessment_number))];
     const label = publish ? "publish" : "unpublish";
     const confirmed = window.confirm(
-      `${publish ? "Publish" : "Unpublish"} all marks for ${filterType}? (${numbers.length} assessment number(s))`,
+      `${publish ? "Publish" : "Unpublish"} all scores for ${filterType}?`,
     );
     if (!confirmed) return;
 
-    for (const num of numbers) {
-      try {
-        await marksApi.publishAssessment({
-          unit_id: filterUnit,
-          assessment_type: filterType,
-          assessment_number: num,
-          academic_session_id: filterSession,
-          publish,
-        });
-      } catch (e) {
-        toast.error(`Failed to ${label} assessment #${num}`);
-      }
+    try {
+      await marksApi.publishAssessment({
+        unit_id: filterUnit,
+        assessment_type: filterType,
+        academic_session_id: filterSession,
+        publish,
+      });
+    } catch (e) {
+      toast.error(`Failed to ${label} ${filterType}`);
     }
-    toast.success(`All marks ${label}ed.`);
+    toast.success(`All scores ${label}ed.`);
     await loadMarks();
   }
 
@@ -168,7 +163,7 @@ export function PublishMarksPage() {
                 <Th>Student</Th>
                 <Th>Unit</Th>
                 <Th>Assessment</Th>
-                <Th className="text-center">Marks</Th>
+                <Th className="text-center">Score</Th>
                 <Th className="text-center">Published</Th>
                 <Th className="text-right">Action</Th>
               </tr>
@@ -184,8 +179,8 @@ export function PublishMarksPage() {
                       : "—"}
                   </Td>
                   <Td>{mark.unit?.code ?? "—"}</Td>
-                  <Td>{mark.assessment_type} #{mark.assessment_number}</Td>
-                  <Td className="text-center font-semibold">{mark.marks}</Td>
+                  <Td>{mark.assessment_type} {mark.assessment_number}</Td>
+                  <Td className="text-center font-semibold">{mark.score ?? mark.marks}</Td>
                   <Td className="text-center">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${

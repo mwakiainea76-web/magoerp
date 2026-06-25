@@ -20,7 +20,7 @@ class UserSeeder extends Seeder
             ['login_id' => 'TRAINER-001'],
             [
                 'email' => 'trainer@magoerp.test',
-                'password' => 'password123',
+                'password' => bcrypt('password'),
                 'role' => 'trainer',
                 'status' => true,
                 'first_name' => 'James',
@@ -66,7 +66,7 @@ class UserSeeder extends Seeder
                 ['login_id' => $s['adm']],
                 [
                     'email' => strtolower($s['first']) . '@magoerp.test',
-                    'password' => 'password123',
+                    'password' => bcrypt('password'),
                     'role' => 'student',
                     'status' => true,
                     'first_name' => $s['first'],

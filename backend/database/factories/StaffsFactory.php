@@ -55,4 +55,15 @@ class StaffsFactory extends Factory
             'status' => true,
         ]);
     }
+
+    public function trainer(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_id' => User::factory()->trainer(),
+            'job_title' => 'Trainer',
+            'employment_type' => 'Permanent',
+            'status' => true,
+            'is_teaching_staff' => true,
+        ]);
+    }
 }

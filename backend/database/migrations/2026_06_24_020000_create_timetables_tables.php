@@ -10,11 +10,7 @@ return new class extends Migration
     {
         Schema::create('lecture_rooms', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('department_id')
-                ->nullable()
-                ->constrained('departments')
-                ->nullOnDelete();
-            $table->string('name');
+            $table->string('name')->unique();
             $table->string('code')->unique();
             $table->unsignedInteger('capacity')->nullable();
             $table->string('location')->nullable();

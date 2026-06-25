@@ -104,11 +104,26 @@ export function getApiErrorMessage(error, fallbackMessage = "Something went wron
     return fallbackMessage;
   }
 
+  const responseData = error.response.data;
+  const responseMessage = responseData?.message;
+
   if (error.response.status >= 500) {
+    if (typeof responseMessage === "string" && responseMessage.trim() !== "") {
+      const debugParts = [
+        responseMessage,
+        responseData?.exception,
+        responseData?.file && responseData?.line ? `${responseData.file}:${responseData.line}` : null,
+      ].filter(Boolean);
+
+      return debugParts.join("\n");
+    }
+
+    if (responseData && typeof responseData === "object") {
+      return JSON.stringify(responseData, null, 2);
+    }
+
     return fallbackMessage;
   }
-
-  const responseMessage = error.response.data?.message;
 
   if (typeof responseMessage === "string" && responseMessage.trim() !== "") {
     return responseMessage;

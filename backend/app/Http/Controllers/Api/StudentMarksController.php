@@ -16,6 +16,8 @@ use Illuminate\Validation\Rule;
 
 class StudentMarksController extends Controller
 {
+    private const ASSESSMENT_TYPES = ['CAT 1', 'CAT 2', 'CAT 3', 'PRAC 1', 'PRAC 2', 'PRAC 3'];
+
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -40,7 +42,13 @@ class StudentMarksController extends Controller
             $query->where('unit_id', $unitId);
         }
         if ($type = $validated['assessment_type'] ?? null) {
-            $query->where('assessment_type', $type);
+            if (in_array($type, self::ASSESSMENT_TYPES, true)) {
+                [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($type);
+                $query->where('assessment_type', $assessmentType)
+                    ->where('assessment_number', $assessmentNumber);
+            } else {
+                $query->where('assessment_type', $type);
+            }
         }
         if ($studentId = $validated['student_id'] ?? null) {
             $query->where('student_id', $studentId);
@@ -55,12 +63,10 @@ class StudentMarksController extends Controller
     {
         $validated = $request->validate([
             'academic_session_id' => 'required|string|exists:academic_sessions,id',
-            'academic_session_enrolment_id' => 'required|string|exists:academic_session_enrolments,id',
-            'student_id' => 'required|string|exists:students,id',
             'unit_id' => 'required|string|exists:units,id',
-            'assessment_type' => 'required|string|max:50',
-            'assessment_number' => 'required|integer|min:1|max:100',
-            'marks' => 'required|integer|min:0|max:100',
+            'student_admission_number' => 'required|string|exists:students,admission_number',
+            'assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
+            'score' => 'required|integer|min:0|max:100',
         ]);
 
         $user = $request->user();
@@ -69,21 +75,37 @@ class StudentMarksController extends Controller
             $staffId = $user->staff->id;
         }
 
+        $student = Student::where('admission_number', $validated['student_admission_number'])->firstOrFail();
+        $registration = $this->resolveUnitRegistration(
+            $validated['academic_session_id'],
+            $student->id,
+            $validated['unit_id'],
+        );
+        [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($validated['assessment_type']);
+
         $exists = StudentMark::where([
-            'student_id' => $validated['student_id'],
+            'academic_session_id' => $validated['academic_session_id'],
+            'student_id' => $student->id,
             'unit_id' => $validated['unit_id'],
-            'assessment_type' => $validated['assessment_type'],
-            'assessment_number' => $validated['assessment_number'],
+            'assessment_type' => $assessmentType,
+            'assessment_number' => $assessmentNumber,
         ])->exists();
 
         if ($exists) {
             return response()->json([
-                'message' => 'A mark already exists for this student, unit, assessment type, and number.',
+                'message' => 'A score already exists for this student, unit, session, and assessment type.',
             ], 409);
         }
 
         $mark = StudentMark::create([
-            ...$validated,
+            'academic_session_id' => $validated['academic_session_id'],
+            'academic_session_enrolment_id' => $registration->academic_session_enrolment_id,
+            'student_id' => $student->id,
+            'unit_id' => $validated['unit_id'],
+            'assessment_type' => $assessmentType,
+            'assessment_number' => $assessmentNumber,
+            'score' => $validated['score'],
+            'marks' => $validated['score'],
             'recorded_by_staff_id' => $staffId,
         ]);
 
@@ -101,12 +123,10 @@ class StudentMarksController extends Controller
         $validated = $request->validate([
             'marks' => 'required|array|min:1',
             'marks.*.academic_session_id' => 'required|string|exists:academic_sessions,id',
-            'marks.*.academic_session_enrolment_id' => 'required|string|exists:academic_session_enrolments,id',
-            'marks.*.student_id' => 'required|string|exists:students,id',
             'marks.*.unit_id' => 'required|string|exists:units,id',
-            'marks.*.assessment_type' => 'required|string|max:50',
-            'marks.*.assessment_number' => 'required|integer|min:1|max:100',
-            'marks.*.marks' => 'required|integer|min:0|max:100',
+            'marks.*.student_admission_number' => 'required|string|exists:students,admission_number',
+            'marks.*.assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
+            'marks.*.score' => 'required|integer|min:0|max:100',
         ]);
 
         $user = $request->user();
@@ -121,20 +141,47 @@ class StudentMarksController extends Controller
         DB::beginTransaction();
         try {
             foreach ($validated['marks'] as $entry) {
+                $student = Student::where('admission_number', $entry['student_admission_number'])->first();
+                if (!$student) {
+                    $errors[] = "Student {$entry['student_admission_number']} was not found.";
+                    continue;
+                }
+
+                $registration = StudentUnitRegistration::query()
+                    ->where('academic_session_id', $entry['academic_session_id'])
+                    ->where('student_id', $student->id)
+                    ->where('unit_id', $entry['unit_id'])
+                    ->first();
+
+                if (!$registration) {
+                    $errors[] = "Student {$entry['student_admission_number']} is not enrolled for this unit in the selected session.";
+                    continue;
+                }
+
+                [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($entry['assessment_type']);
+
                 $exists = StudentMark::where([
-                    'student_id' => $entry['student_id'],
+                    'academic_session_id' => $entry['academic_session_id'],
+                    'student_id' => $student->id,
                     'unit_id' => $entry['unit_id'],
-                    'assessment_type' => $entry['assessment_type'],
-                    'assessment_number' => $entry['assessment_number'],
+                    'assessment_type' => $assessmentType,
+                    'assessment_number' => $assessmentNumber,
                 ])->exists();
 
                 if ($exists) {
-                    $errors[] = "Mark exists for student {$entry['student_id']} - unit {$entry['unit_id']} - {$entry['assessment_type']} #{$entry['assessment_number']}";
+                    $errors[] = "Score exists for student {$entry['student_admission_number']} - unit {$entry['unit_id']} - {$entry['assessment_type']}";
                     continue;
                 }
 
                 $created[] = StudentMark::create([
-                    ...$entry,
+                    'academic_session_id' => $entry['academic_session_id'],
+                    'academic_session_enrolment_id' => $registration->academic_session_enrolment_id,
+                    'student_id' => $student->id,
+                    'unit_id' => $entry['unit_id'],
+                    'assessment_type' => $assessmentType,
+                    'assessment_number' => $assessmentNumber,
+                    'score' => $entry['score'],
+                    'marks' => $entry['score'],
                     'recorded_by_staff_id' => $staffId,
                 ]);
             }
@@ -168,10 +215,17 @@ class StudentMarksController extends Controller
     {
         $validated = $request->validate([
             'marks' => 'sometimes|integer|min:0|max:100',
+            'score' => 'sometimes|integer|min:0|max:100',
             'assessment_type' => 'sometimes|string|max:50',
             'assessment_number' => 'sometimes|integer|min:1|max:100',
             'is_published' => 'sometimes|boolean',
         ]);
+
+        if (array_key_exists('score', $validated)) {
+            $validated['marks'] = $validated['score'];
+        } elseif (array_key_exists('marks', $validated)) {
+            $validated['score'] = $validated['marks'];
+        }
 
         $studentMark->update($validated);
 
@@ -198,18 +252,22 @@ class StudentMarksController extends Controller
     {
         $validated = $request->validate([
             'unit_id' => 'required|string|exists:units,id',
-            'assessment_type' => 'required|string|max:50',
-            'assessment_number' => 'required|integer|min:1',
+            'assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
+            'assessment_number' => 'nullable|integer|min:1',
             'academic_session_id' => 'required|string|exists:academic_sessions,id',
             'publish' => 'required|boolean',
         ]);
 
-        $count = StudentMark::where([
+        [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($validated['assessment_type']);
+
+        $query = StudentMark::where([
             'unit_id' => $validated['unit_id'],
-            'assessment_type' => $validated['assessment_type'],
-            'assessment_number' => $validated['assessment_number'],
+            'assessment_type' => $assessmentType,
+            'assessment_number' => $assessmentNumber,
             'academic_session_id' => $validated['academic_session_id'],
-        ])->update(['is_published' => $validated['publish']]);
+        ]);
+
+        $count = $query->update(['is_published' => $validated['publish']]);
 
         return response()->json([
             'message' => $validated['publish']
@@ -232,9 +290,8 @@ class StudentMarksController extends Controller
                 ->whereExists(function ($q) use ($validated) {
                     $q->select(DB::raw(1))
                         ->from('student_unit_registrations')
-                        ->join('academic_session_enrolments', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
                         ->whereColumn('student_unit_registrations.unit_id', 'units.id')
-                        ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
+                        ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id']);
                 })
                 ->get(['id', 'code', 'name']);
         } else {
@@ -242,9 +299,8 @@ class StudentMarksController extends Controller
                 ->whereExists(function ($q) use ($validated) {
                     $q->select(DB::raw(1))
                         ->from('student_unit_registrations')
-                        ->join('academic_session_enrolments', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
                         ->whereColumn('student_unit_registrations.unit_id', 'units.id')
-                        ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
+                        ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id']);
                 })
                 ->get(['id', 'code', 'name']);
         }
@@ -261,12 +317,11 @@ class StudentMarksController extends Controller
 
         $students = Student::query()
             ->select('students.id', 'students.admission_number', 'students.first_name', 'students.middle_name', 'students.last_name')
-            ->join('academic_session_enrolments', 'students.id', '=', 'academic_session_enrolments.student_id')
             ->join('student_unit_registrations', function ($j) use ($validated) {
-                $j->on('student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
+                $j->on('student_unit_registrations.student_id', '=', 'students.id')
+                    ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id'])
                     ->where('student_unit_registrations.unit_id', $validated['unit_id']);
             })
-            ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id'])
             ->distinct()
             ->get()
             ->map(fn ($s) => [
@@ -287,12 +342,11 @@ class StudentMarksController extends Controller
 
         $students = Student::query()
             ->select('students.id', 'students.admission_number', 'students.first_name', 'students.middle_name', 'students.last_name')
-            ->join('academic_session_enrolments', 'students.id', '=', 'academic_session_enrolments.student_id')
             ->join('student_unit_registrations', function ($j) use ($validated) {
-                $j->on('student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
+                $j->on('student_unit_registrations.student_id', '=', 'students.id')
+                    ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id'])
                     ->where('student_unit_registrations.unit_id', $validated['unit_id']);
             })
-            ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id'])
             ->distinct()
             ->get();
 
@@ -317,6 +371,7 @@ class StudentMarksController extends Controller
 
                 $numbers = $typeMarks->mapWithKeys(fn ($m) => [
                     "{$type}_{$m->assessment_number}" => [
+                        'score' => $m->score,
                         'marks' => $m->marks,
                         'is_published' => $m->is_published,
                         'id' => $m->id,
@@ -392,6 +447,7 @@ class StudentMarksController extends Controller
                     'type' => $typeMarks->first()->assessment_type,
                     'marks' => $typeMarks->sortBy('assessment_number')->values()->map(fn ($m) => [
                         'number' => $m->assessment_number,
+                        'score' => $m->score,
                         'marks' => $m->marks,
                     ]),
                     'total' => $typeMarks->sum('marks'),
@@ -417,13 +473,30 @@ class StudentMarksController extends Controller
         return response()->json(['data' => $results]);
     }
 
+    private function parseAssessmentType(string $label): array
+    {
+        [$type, $number] = explode(' ', $label, 2);
+
+        return [$type, (int) $number];
+    }
+
+    private function resolveUnitRegistration(string $sessionId, string $studentId, string $unitId): StudentUnitRegistration
+    {
+        $registration = StudentUnitRegistration::query()
+            ->where('academic_session_id', $sessionId)
+            ->where('student_id', $studentId)
+            ->where('unit_id', $unitId)
+            ->first();
+
+        abort_unless($registration, 422, 'This student is not enrolled for the selected unit in the selected academic session.');
+
+        return $registration;
+    }
+
     public function assessmentTypes(): JsonResponse
     {
         return response()->json([
-            'data' => [
-                'CAT 1', 'CAT 2', 'CAT 3', 'ASSIGNMENT 1', 'ASSIGNMENT 2',
-                'MAIN EXAM', 'PRACTICAL', 'PROJECT', 'QUIZ 1', 'QUIZ 2',
-            ],
+            'data' => self::ASSESSMENT_TYPES,
         ]);
     }
 

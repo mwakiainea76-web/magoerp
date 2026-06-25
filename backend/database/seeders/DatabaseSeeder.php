@@ -16,14 +16,13 @@ class DatabaseSeeder extends Seeder
         $this->call(RolesAndPermissionsSeeder::class);
 
         $loginId = 'EMP-ADMIN-001';
-        $password = 'Admin@12345';
 
         $adminUser = User::updateOrCreate(
             ['login_id' => $loginId],
             [
                 'email' => 'admin@magoerp.test',
                 'email_verified_at' => now(),
-                'password' => $password,
+                'password' => bcrypt('password'),
                 'role' => 'admin',
                 'status' => true,
                 'first_name' => 'System',
@@ -86,5 +85,16 @@ class DatabaseSeeder extends Seeder
                 'updated_by' => $adminUser->id,
             ]
         );
+
+        $this->call([
+            DepartmentsSeeder::class,
+            CertificationSeeder::class,
+            AcademicSeeder::class,
+            FinanceSeeder::class,
+            HostelSeeder::class,
+            LectureRoomSeeder::class,
+            UserSeeder::class,
+            TimetableFeatureSeeder::class,
+        ]);
     }
 }

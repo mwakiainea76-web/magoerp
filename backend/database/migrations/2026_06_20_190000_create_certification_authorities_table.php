@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('certification_authorities', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('code', 50)->unique();
-            $table->string('name', 255)->unique();
+            $table->string('name', 191)->unique();
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();

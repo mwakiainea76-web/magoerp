@@ -20,6 +20,7 @@ export const FormInput = forwardRef(function FormInput(
     required = false,
     rightIcon,
     onRightIconClick,
+    placeholder = " ",
     ...props
   },
   ref,
@@ -42,6 +43,7 @@ export const FormInput = forwardRef(function FormInput(
           ref={ref}
           id={id}
           type={type}
+          placeholder={placeholder}
           className={joinClasses(
             baseInputClassName,
             rightIcon ? "pr-10" : "",

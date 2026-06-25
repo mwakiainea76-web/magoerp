@@ -84,7 +84,7 @@ class StaffsController extends Controller
             $user = User::create([
                 'login_id' => $employeeNumber,
                 'email' => $request->email,
-                'password' => bcrypt($request->phone_number),
+                'password' => bcrypt('password'),
                 'role' => $request->role,
                 'first_name' => $request->first_name,
                 'middle_name' => $request->middle_name,

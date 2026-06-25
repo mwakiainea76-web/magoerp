@@ -22,7 +22,7 @@ class UpdatestaffsRequest extends FormRequest
             'role' => ['required', 'string', Rule::in(['admin', 'trainer'])],
 
             'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'string', Rule::in(['male', 'female', 'other'])],
             'date_of_birth' => ['required', 'date'],
@@ -31,11 +31,11 @@ class UpdatestaffsRequest extends FormRequest
             'place_of_birth' => ['required', 'string', 'max:255'],
             'religion' => ['required', 'string', 'max:255'],
             'phone_number' => ['required', 'string', 'max:50'],
-            'alternative_phone_number' => ['required', 'string', 'max:50'],
+            'alternative_phone_number' => ['nullable', 'string', 'max:50'],
 
             'county' => ['required', 'string', 'max:255'],
 
-            'department_id' => ['required', 'uuid', Rule::exists('departments', 'id')->whereNull('deleted_at')],
+            'department_id' => ['required', 'uuid', Rule::exists('departments', 'id')],
             'job_title' => ['required', 'string', 'max:255'],
             'employment_type' => ['required', 'string', Rule::in(['Permanent', 'Contract', 'Part-time', 'Casual'])],
             'date_joined' => ['nullable', 'date'],
@@ -51,8 +51,8 @@ class UpdatestaffsRequest extends FormRequest
 
 
             'is_pwd' => ['required', 'boolean'],
-            'disability_type' => ['required', 'string', 'max:255'],
-            'disability_description' => ['required', 'string'],
+            'disability_type' => ['nullable', 'required_if:is_pwd,true,1', 'string', 'max:255'],
+            'disability_description' => ['nullable', 'required_if:is_pwd,true,1', 'string'],
 
             'next_of_kin_first_name' => ['required', 'string', 'max:255'],
             'next_of_kin_last_name' => ['required', 'string', 'max:255'],
@@ -65,6 +65,3 @@ class UpdatestaffsRequest extends FormRequest
         ];
     }
 }
-
-
-

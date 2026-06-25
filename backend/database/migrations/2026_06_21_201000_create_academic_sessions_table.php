@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -25,6 +26,11 @@ return new class extends Migration
             $table->unique(['academic_year_id', 'name']);
             $table->index(['academic_year_id', 'name']);
         });
+
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE academic_sessions ADD COLUMN active_unique CHAR(1) AS (CASE WHEN is_active = 1 THEN 'Y' ELSE NULL END) PERSISTENT");
+            DB::statement("CREATE UNIQUE INDEX academic_sessions_active_unique ON academic_sessions (active_unique)");
+        }
     }
 
     public function down(): void
