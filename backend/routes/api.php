@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Http\Controllers\Api\AccessRolePermissionsController;
 use App\Http\Controllers\Api\AccessRolesController;
@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\HostelsController;
 use App\Http\Controllers\Api\LectureRoomsController;
 use App\Http\Controllers\Api\InvoiceTemplateItemsController;
 use App\Http\Controllers\Api\InvoiceTemplatesController;
+use App\Http\Controllers\Api\InvoiceAdjustmentsController;
 use App\Http\Controllers\Api\InvoicesController;
 use App\Http\Controllers\Api\LedgerController;
 use App\Http\Controllers\Api\PaymentsController;
@@ -29,15 +30,19 @@ use App\Http\Controllers\Api\StaffsController;
 use App\Http\Controllers\Api\StudentDashboardController;
 use App\Http\Controllers\Api\StudentMarksController;
 use App\Http\Controllers\Api\StudentsController;
+use App\Http\Controllers\Api\SystemConfigurationsController;
 use App\Http\Controllers\Api\UnitsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['api_token_cookie', 'auth:sanctum'])->group(function () {
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return response()->json([
+            
+            'user' => $request->user(),
+        ]);
     });
 
     Route::get('/me', [AuthController::class, 'me']);
@@ -104,6 +109,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
     Route::post('/payments', [PaymentsController::class, 'store']);
     Route::get('/payments', [PaymentsController::class, 'index']);
+    Route::post('/invoices/{invoice}/adjustments', [InvoiceAdjustmentsController::class, 'store']);
     Route::get('/ledger', [LedgerController::class, 'index']);
 
     Route::get('/assessment-types', [StudentMarksController::class, 'assessmentTypes']);
@@ -185,4 +191,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/access-roles/{access_role}/permissions', [AccessRolePermissionsController::class, 'sync']);
     Route::apiResource('access-roles', AccessRolesController::class)
         ->parameters(['access-roles' => 'access_role']);
+
+    Route::get('/system-configurations', [SystemConfigurationsController::class, 'index'])
+        ->middleware('permission:institution.update');
+    Route::put('/system-configurations/{key}', [SystemConfigurationsController::class, 'update'])
+        ->middleware('permission:institution.update');
 });

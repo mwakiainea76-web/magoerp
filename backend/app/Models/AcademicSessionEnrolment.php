@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Student;
+use App\Models\SystemConfiguration;
 
 class AcademicSessionEnrolment extends Model
 {
@@ -66,7 +67,7 @@ class AcademicSessionEnrolment extends Model
             'current_year' => $last?->year_of_study ?? 0,
             'current_module' => $last?->session_number ?? 0,
             'current_module_number' => $last?->module ?? 0,
-            'modules_per_year' => 3,
+            'modules_per_year' => (int) SystemConfiguration::getValue('sessions_per_full_year', 3),
         ];
     }
 }

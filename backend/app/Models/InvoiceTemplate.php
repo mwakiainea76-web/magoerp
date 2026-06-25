@@ -20,6 +20,8 @@ class InvoiceTemplate extends Model
         'name',
         'description',
         'is_active',
+        'is_issued',
+        'billing_period',
         'created_by',
         'updated_by',
     ];
@@ -28,6 +30,7 @@ class InvoiceTemplate extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_issued' => 'boolean',
         ];
     }
 

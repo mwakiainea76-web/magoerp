@@ -14,9 +14,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class StudentsController extends Controller
 {
+    use PaginationMeta;
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('students.view'), 403);
@@ -352,16 +354,5 @@ class StudentsController extends Controller
         return "{$initials}/{$sequence}/{$intakeYear}";
     }
 
-    private function paginationMeta($paginator, array $filters): array
-    {
-        return [
-            'current_page' => $paginator->currentPage(),
-            'last_page' => $paginator->lastPage(),
-            'per_page' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            'from' => $paginator->firstItem(),
-            'to' => $paginator->lastItem(),
-            'filters' => $filters,
-        ];
-    }
+
 }

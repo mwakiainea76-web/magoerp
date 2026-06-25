@@ -20,6 +20,7 @@ class TestDatabaseSeeder extends Seeder
         $this->call(FinanceSeeder::class);
         $this->call(HostelSeeder::class);
         $this->call(LectureRoomSeeder::class);
+        $this->call(SystemConfigurationSeeder::class);
         $this->call(UserSeeder::class);
 
         $adminUser = User::updateOrCreate(

@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\CourseCurriculum;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class CourseCurriculaController extends Controller
 {
+    use PaginationMeta;
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('institution.view'), 403);
@@ -60,7 +62,7 @@ class CourseCurriculaController extends Controller
             ->exists();
 
         if ($exists) {
-            return response()->json(['message' => 'This curriculum is already mapped to this course.'], 409);
+            return response()->json([ 'message' => 'This curriculum is already mapped to this course.'], 409);
         }
 
         $mapping = CourseCurriculum::create([
@@ -100,7 +102,7 @@ class CourseCurriculaController extends Controller
 
         $courseCurriculum->delete();
 
-        return response()->json(['message' => 'Curriculum mapping removed.']);
+        return response()->json([ 'message' => 'Curriculum mapping removed.']);
     }
 
     private function transform(CourseCurriculum $mapping): array
@@ -120,16 +122,4 @@ class CourseCurriculaController extends Controller
         ];
     }
 
-    private function paginationMeta($paginator, array $filters): array
-    {
-        return [
-            'current_page' => $paginator->currentPage(),
-            'last_page' => $paginator->lastPage(),
-            'per_page' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            'from' => $paginator->firstItem(),
-            'to' => $paginator->lastItem(),
-            'filters' => $filters,
-        ];
-    }
 }

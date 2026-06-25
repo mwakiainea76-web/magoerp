@@ -56,7 +56,7 @@ class StudentMarksController extends Controller
 
         $marks = $query->latest()->paginate($request->get('per_page', 50));
 
-        return response()->json($marks);
+        return response()->json(array_merge([], ($marks)->toArray()), 200);
     }
 
     public function store(Request $request): JsonResponse
@@ -115,7 +115,7 @@ class StudentMarksController extends Controller
             'academicSession:id,name',
         ]);
 
-        return response()->json(['data' => $mark], 201);
+        return response()->json([ 'data' => $mark], 201);
     }
 
     public function bulkStore(Request $request): JsonResponse
@@ -188,7 +188,7 @@ class StudentMarksController extends Controller
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Bulk operation failed: ' . $e->getMessage()], 500);
+            return response()->json([ 'message' => 'Bulk operation failed: ' . $e->getMessage()], 500);
         }
 
         return response()->json([
@@ -208,7 +208,7 @@ class StudentMarksController extends Controller
             'recordedBy:id,first_name,last_name',
         ]);
 
-        return response()->json(['data' => $studentMark]);
+        return response()->json([ 'data' => $studentMark]);
     }
 
     public function update(Request $request, StudentMark $studentMark): JsonResponse
@@ -235,7 +235,7 @@ class StudentMarksController extends Controller
             'academicSession:id,name',
         ]);
 
-        return response()->json(['data' => $studentMark]);
+        return response()->json([ 'data' => $studentMark]);
     }
 
     public function togglePublish(StudentMark $studentMark): JsonResponse
@@ -305,7 +305,7 @@ class StudentMarksController extends Controller
                 ->get(['id', 'code', 'name']);
         }
 
-        return response()->json(['data' => $units]);
+        return response()->json([ 'data' => $units]);
     }
 
     public function availableStudents(Request $request): JsonResponse
@@ -330,7 +330,7 @@ class StudentMarksController extends Controller
                 'name' => trim(collect([$s->first_name, $s->middle_name, $s->last_name])->filter()->implode(' ')),
             ]);
 
-        return response()->json(['data' => $students]);
+        return response()->json([ 'data' => $students]);
     }
 
     public function marksheet(Request $request): JsonResponse
@@ -417,7 +417,7 @@ class StudentMarksController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $sessionEnrolment = AcademicSessionEnrolment::query()
@@ -426,7 +426,7 @@ class StudentMarksController extends Controller
             ->first();
 
         if (!$sessionEnrolment) {
-            return response()->json(['data' => []]);
+            return response()->json([ 'data' => []]);
         }
 
         $unitRegistrations = StudentUnitRegistration::query()
@@ -470,7 +470,7 @@ class StudentMarksController extends Controller
             ];
         });
 
-        return response()->json(['data' => $results]);
+        return response()->json([ 'data' => $results]);
     }
 
     private function parseAssessmentType(string $label): array
@@ -506,7 +506,7 @@ class StudentMarksController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $sessionIds = StudentMark::query()
@@ -517,6 +517,6 @@ class StudentMarksController extends Controller
         $sessions = AcademicSession::whereIn('id', $sessionIds)
             ->get(['id', 'name', 'code']);
 
-        return response()->json(['data' => $sessions]);
+        return response()->json([ 'data' => $sessions]);
     }
 }

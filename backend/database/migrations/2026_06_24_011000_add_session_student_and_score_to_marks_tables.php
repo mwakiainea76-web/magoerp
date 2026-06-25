@@ -27,24 +27,22 @@ return new class extends Migration
             }
         });
 
-        DB::table('student_unit_registrations')
-            ->join('academic_session_enrolments', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
-            ->whereNull('student_unit_registrations.academic_session_id')
-            ->orWhereNull('student_unit_registrations.student_id')
-            ->update([
-                'student_unit_registrations.academic_session_id' => DB::raw('academic_session_enrolments.academic_session_id'),
-                'student_unit_registrations.student_id' => DB::raw('academic_session_enrolments.student_id'),
-            ]);
+        DB::statement("
+            UPDATE student_unit_registrations
+            SET academic_session_id = (
+                SELECT academic_session_enrolments.academic_session_id
+                FROM academic_session_enrolments
+                WHERE academic_session_enrolments.id = student_unit_registrations.academic_session_enrolment_id
+            ),
+            student_id = (
+                SELECT academic_session_enrolments.student_id
+                FROM academic_session_enrolments
+                WHERE academic_session_enrolments.id = student_unit_registrations.academic_session_enrolment_id
+            )
+            WHERE academic_session_id IS NULL OR student_id IS NULL
+        ");
 
-        Schema::table('student_unit_registrations', function (Blueprint $table) {
-            if (Schema::hasColumn('student_unit_registrations', 'academic_session_id')) {
-                $table->uuid('academic_session_id')->nullable(false)->change();
-            }
 
-            if (Schema::hasColumn('student_unit_registrations', 'student_id')) {
-                $table->uuid('student_id')->nullable(false)->change();
-            }
-        });
 
         Schema::table('student_marks', function (Blueprint $table) {
             if (!Schema::hasColumn('student_marks', 'score')) {
@@ -55,12 +53,6 @@ return new class extends Migration
         DB::table('student_marks')
             ->whereNull('score')
             ->update(['score' => DB::raw('marks')]);
-
-        Schema::table('student_marks', function (Blueprint $table) {
-            if (Schema::hasColumn('student_marks', 'score')) {
-                $table->unsignedInteger('score')->nullable(false)->change();
-            }
-        });
     }
 
     public function down(): void
@@ -68,16 +60,6 @@ return new class extends Migration
         Schema::table('student_marks', function (Blueprint $table) {
             if (Schema::hasColumn('student_marks', 'score')) {
                 $table->dropColumn('score');
-            }
-        });
-
-        Schema::table('student_unit_registrations', function (Blueprint $table) {
-            if (Schema::hasColumn('student_unit_registrations', 'student_id')) {
-                $table->dropConstrainedForeignId('student_id');
-            }
-
-            if (Schema::hasColumn('student_unit_registrations', 'academic_session_id')) {
-                $table->dropConstrainedForeignId('academic_session_id');
             }
         });
     }

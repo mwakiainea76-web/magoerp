@@ -15,7 +15,7 @@ class ComplaintsController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $complaints = Complaint::query()
@@ -25,7 +25,7 @@ class ComplaintsController extends Controller
             ->get()
             ->map(fn ($c) => $this->transform($c));
 
-        return response()->json(['data' => $complaints]);
+        return response()->json([ 'data' => $complaints]);
     }
 
     public function store(Request $request): JsonResponse
@@ -34,7 +34,7 @@ class ComplaintsController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $validated = $request->validate([
@@ -48,7 +48,7 @@ class ComplaintsController extends Controller
             'description' => $validated['description'],
         ]);
 
-        return response()->json(['data' => $this->transform($complaint)], 201);
+        return response()->json([ 'data' => $this->transform($complaint)], 201);
     }
 
     public function adminIndex(Request $request): JsonResponse
@@ -72,7 +72,7 @@ class ComplaintsController extends Controller
 
         $complaints->getCollection()->transform(fn ($c) => $this->transform($c));
 
-        return response()->json($complaints);
+        return response()->json(array_merge([], ($complaints)->toArray()), 200);
     }
 
     public function show(Complaint $complaint): JsonResponse
@@ -82,7 +82,7 @@ class ComplaintsController extends Controller
             'escalatedTo:id,first_name,last_name,employee_number',
         ]);
 
-        return response()->json(['data' => $this->transform($complaint)]);
+        return response()->json([ 'data' => $this->transform($complaint)]);
     }
 
     public function escalate(Request $request, Complaint $complaint): JsonResponse
@@ -101,7 +101,7 @@ class ComplaintsController extends Controller
 
         $complaint->load(['student:id,first_name,middle_name,last_name,admission_number', 'escalatedTo:id,first_name,last_name']);
 
-        return response()->json(['data' => $this->transform($complaint)]);
+        return response()->json([ 'data' => $this->transform($complaint)]);
     }
 
     public function resolve(Request $request, Complaint $complaint): JsonResponse
@@ -118,7 +118,7 @@ class ComplaintsController extends Controller
 
         $complaint->load(['student:id,first_name,middle_name,last_name,admission_number', 'escalatedTo:id,first_name,last_name']);
 
-        return response()->json(['data' => $this->transform($complaint)]);
+        return response()->json([ 'data' => $this->transform($complaint)]);
     }
 
     public function review(Request $request, Complaint $complaint): JsonResponse
@@ -134,7 +134,7 @@ class ComplaintsController extends Controller
 
         $complaint->load(['student:id,first_name,middle_name,last_name,admission_number', 'escalatedTo:id,first_name,last_name']);
 
-        return response()->json(['data' => $this->transform($complaint)]);
+        return response()->json([ 'data' => $this->transform($complaint)]);
     }
 
     public function staffList(Request $request): JsonResponse

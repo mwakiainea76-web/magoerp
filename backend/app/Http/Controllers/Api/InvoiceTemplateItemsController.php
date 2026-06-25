@@ -5,13 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInvoiceTemplateItemRequest;
 use App\Http\Requests\UpdateInvoiceTemplateItemRequest;
-use App\Models\InvoiceItem;
+use App\Models\CourseInvoiceTemplate;
+use App\Models\InvoiceTemplate;
 use App\Models\InvoiceTemplateItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class InvoiceTemplateItemsController extends Controller
 {
+    use PaginationMeta;
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
@@ -65,8 +68,18 @@ class InvoiceTemplateItemsController extends Controller
 
     public function store(StoreInvoiceTemplateItemRequest $request): JsonResponse
     {
+        $validated = $request->validated();
+        $template = InvoiceTemplate::find($validated['invoice_template_id']);
+
+        if ($this->isTemplateLocked($template)) {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'This invoice template has already been assigned or issued. Its components cannot be modified.',
+            ], 422);
+        }
+
         $item = InvoiceTemplateItem::create([
-            ...$request->validated(),
+            ...$validated,
             'created_by' => $request->user()->id,
             'updated_by' => $request->user()->id,
         ]);
@@ -92,20 +105,16 @@ class InvoiceTemplateItemsController extends Controller
 
     public function update(UpdateInvoiceTemplateItemRequest $request, InvoiceTemplateItem $invoice_template_item): JsonResponse
     {
-        $validated = $request->validated();
-        $newAmount = (float) $validated['amount'];
-        $currentAmount = (float) $invoice_template_item->amount;
-        $isAmountChanged = abs($newAmount - $currentAmount) > 0.00001;
-        $isUsedInInvoice = InvoiceItem::where('invoice_template_item_id', $invoice_template_item->id)->exists();
+        $invoice_template_item->load('invoiceTemplate');
 
-        if ($isUsedInInvoice && $isAmountChanged) {
+        if ($this->isTemplateLocked($invoice_template_item->invoiceTemplate)) {
             return response()->json([
-                'message' => 'This fee component has already been assigned to an invoice. Its amount cannot be changed.',
-                'errors' => [
-                    'amount' => ['This fee component has already been assigned to an invoice. Its amount cannot be changed.'],
-                ],
+                'status_code' => 422,
+                'message' => 'This invoice template has already been assigned or issued. Its components cannot be modified.',
             ], 422);
         }
+
+        $validated = $request->validated();
 
         $invoice_template_item->update([
             ...$validated,
@@ -124,11 +133,12 @@ class InvoiceTemplateItemsController extends Controller
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
 
-        $isUsedInInvoice = InvoiceItem::where('invoice_template_item_id', $invoice_template_item->id)->exists();
+        $invoice_template_item->load('invoiceTemplate');
 
-        if ($isUsedInInvoice) {
+        if ($this->isTemplateLocked($invoice_template_item->invoiceTemplate)) {
             return response()->json([
-                'message' => 'This fee component has already been assigned to an invoice. It cannot be deleted.',
+                'status_code' => 422,
+                'message' => 'This invoice template has already been assigned or issued. Its components cannot be deleted.',
             ], 422);
         }
 
@@ -141,6 +151,9 @@ class InvoiceTemplateItemsController extends Controller
 
     private function transform(InvoiceTemplateItem $item): array
     {
+        $isAssigned = $this->isTemplateAssigned($item->invoiceTemplate);
+        $isLocked = $this->isTemplateLocked($item->invoiceTemplate);
+
         return [
             'id' => $item->id,
             'invoice_template_id' => $item->invoice_template_id,
@@ -150,22 +163,35 @@ class InvoiceTemplateItemsController extends Controller
             'amount' => (float) $item->amount,
             'description' => $item->description,
             'is_active' => $item->is_active,
-            'is_amount_locked' => InvoiceItem::where('invoice_template_item_id', $item->id)->exists(),
+            'is_issued' => $item->invoiceTemplate?->is_issued ?? false,
+            'is_assigned' => $isAssigned,
+            'is_locked' => $isLocked,
+            'lock_reason' => $isLocked ? (($item->invoiceTemplate?->is_issued ?? false) ? 'Issued' : 'Assigned to course') : null,
             'created_at' => $item->created_at,
             'updated_at' => $item->updated_at,
         ];
     }
 
-    private function paginationMeta($paginator, array $filters): array
+    private function isTemplateAssigned(?InvoiceTemplate $template): bool
     {
-        return [
-            'current_page' => $paginator->currentPage(),
-            'last_page' => $paginator->lastPage(),
-            'per_page' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            'from' => $paginator->firstItem(),
-            'to' => $paginator->lastItem(),
-            'filters' => $filters,
-        ];
+        if (!$template) {
+            return false;
+        }
+
+        return CourseInvoiceTemplate::query()
+            ->where('invoice_template_id', $template->id)
+            ->exists();
     }
+
+    private function isTemplateLocked(?InvoiceTemplate $template): bool
+    {
+        if (!$template) {
+            return false;
+        }
+
+        return (bool) $template->is_issued || $this->isTemplateAssigned($template);
+    }
+
+
 }
+

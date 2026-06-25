@@ -101,10 +101,12 @@ class Invoice extends Model
     public function recalculateTotals(): static
     {
         $itemsTotal = (float) $this->items()->sum('total_amount');
-        $adjustmentsTotal = (float) $this->adjustments()->sum('amount');
+        $creditTypes = ['discount', 'waiver', 'bursary', 'helb', 'reversal'];
+        $debitAdjustmentsTotal = (float) $this->adjustments()->whereNotIn('type', $creditTypes)->sum('amount');
+        $creditAdjustmentsTotal = (float) $this->adjustments()->whereIn('type', $creditTypes)->sum('amount');
         $paidAmount = (float) $this->paymentAllocations()->sum('amount');
 
-        $amountDue = $itemsTotal + $adjustmentsTotal;
+        $amountDue = max(0, $itemsTotal + $debitAdjustmentsTotal - $creditAdjustmentsTotal);
         $balanceDue = $amountDue - $paidAmount;
 
         $this->forceFill([
@@ -119,3 +121,4 @@ class Invoice extends Model
         return $this;
     }
 }
+

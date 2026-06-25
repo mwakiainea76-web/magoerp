@@ -27,7 +27,7 @@ class HostelsController extends Controller
             ->get()
             ->map(fn ($h) => $this->transformHostel($h));
 
-        return response()->json(['data' => $hostels]);
+        return response()->json([ 'data' => $hostels]);
     }
 
     public function store(Request $request): JsonResponse
@@ -43,14 +43,14 @@ class HostelsController extends Controller
 
         $hostel = Hostel::create($validated);
 
-        return response()->json(['data' => $this->transformHostel($hostel)], 201);
+        return response()->json([ 'data' => $this->transformHostel($hostel)], 201);
     }
 
     public function show(Hostel $hostel): JsonResponse
     {
         $hostel->load(['rooms.beds' => fn ($q) => $q->orderBy('bed_number')]);
 
-        return response()->json(['data' => $this->transformHostel($hostel, true)]);
+        return response()->json([ 'data' => $this->transformHostel($hostel, true)]);
     }
 
     public function update(Request $request, Hostel $hostel): JsonResponse
@@ -67,13 +67,13 @@ class HostelsController extends Controller
 
         $hostel->update($validated);
 
-        return response()->json(['data' => $this->transformHostel($hostel)]);
+        return response()->json([ 'data' => $this->transformHostel($hostel)]);
     }
 
     public function destroy(Hostel $hostel): JsonResponse
     {
         if ($hostel->allocations()->exists()) {
-            return response()->json(['message' => 'Cannot delete hostel with existing allocations.'], 409);
+            return response()->json([ 'message' => 'Cannot delete hostel with existing allocations.'], 409);
         }
 
         DB::transaction(function () use ($hostel) {
@@ -84,7 +84,7 @@ class HostelsController extends Controller
             $hostel->forceDelete();
         });
 
-        return response()->json(['message' => 'Hostel deleted.']);
+        return response()->json([ 'message' => 'Hostel deleted.']);
     }
 
     // --- Room Management ---
@@ -107,7 +107,7 @@ class HostelsController extends Controller
 
         $room->load('beds');
 
-        return response()->json(['data' => $room], 201);
+        return response()->json([ 'data' => $room], 201);
     }
 
     public function updateRoom(Request $request, HostelRoom $hostelRoom): JsonResponse
@@ -129,7 +129,7 @@ class HostelsController extends Controller
 
         $hostelRoom->load('beds');
 
-        return response()->json(['data' => $hostelRoom]);
+        return response()->json([ 'data' => $hostelRoom]);
     }
 
     public function roomsByHostel(Hostel $hostel): JsonResponse
@@ -139,7 +139,7 @@ class HostelsController extends Controller
             ->orderBy('name')
             ->get();
 
-        return response()->json(['data' => $rooms]);
+        return response()->json([ 'data' => $rooms]);
     }
 
     public function bedsByRoom(HostelRoom $hostelRoom): JsonResponse
@@ -160,7 +160,7 @@ class HostelsController extends Controller
                 ];
             });
 
-        return response()->json(['data' => $beds]);
+        return response()->json([ 'data' => $beds]);
     }
 
     // --- Allocation Management ---
@@ -190,7 +190,7 @@ class HostelsController extends Controller
 
         $allocations->getCollection()->transform(fn ($a) => $this->transformAllocation($a));
 
-        return response()->json($allocations);
+        return response()->json(array_merge([], ($allocations)->toArray()), 200);
     }
 
     public function storeAllocation(Request $request): JsonResponse
@@ -214,7 +214,7 @@ class HostelsController extends Controller
             ->exists();
 
         if ($occupied) {
-            return response()->json(['message' => 'This bed is already allocated for this session.'], 409);
+            return response()->json([ 'message' => 'This bed is already allocated for this session.'], 409);
         }
 
         // Check if student already has allocation
@@ -223,7 +223,7 @@ class HostelsController extends Controller
             ->exists();
 
         if ($already) {
-            return response()->json(['message' => 'Student already has a hostel allocation for this session.'], 409);
+            return response()->json([ 'message' => 'Student already has a hostel allocation for this session.'], 409);
         }
 
         $user = $request->user();
@@ -243,7 +243,7 @@ class HostelsController extends Controller
 
         $allocation->load(['student', 'academicSession', 'hostel', 'room', 'bed']);
 
-        return response()->json(['data' => $this->transformAllocation($allocation)], 201);
+        return response()->json([ 'data' => $this->transformAllocation($allocation)], 201);
     }
 
     public function vacateAllocation(Request $request, HostelAllocation $hostelAllocation): JsonResponse
@@ -253,7 +253,7 @@ class HostelsController extends Controller
             'updated_by' => $request->user()?->id,
         ]);
 
-        return response()->json(['message' => 'Allocation vacated.']);
+        return response()->json([ 'message' => 'Allocation vacated.']);
     }
 
     public function myAllocation(Request $request): JsonResponse
@@ -262,7 +262,7 @@ class HostelsController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $allocation = HostelAllocation::query()
@@ -272,7 +272,7 @@ class HostelsController extends Controller
             ->latest()
             ->first();
 
-        return response()->json(['data' => $allocation ? $this->transformAllocation($allocation) : null]);
+        return response()->json([ 'data' => $allocation ? $this->transformAllocation($allocation) : null]);
     }
 
     public function availableHostels(Request $request): JsonResponse
@@ -281,13 +281,13 @@ class HostelsController extends Controller
         $student = $user?->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $activeSession = AcademicSession::where('is_active', true)->latest('start_date')->first();
 
         if (!$activeSession) {
-            return response()->json(['data' => []]);
+            return response()->json([ 'data' => []]);
         }
 
         $enrolment = AcademicSessionEnrolment::where('student_id', $student->id)
@@ -295,7 +295,7 @@ class HostelsController extends Controller
             ->first();
 
         if (!$enrolment) {
-            return response()->json(['data' => []]);
+            return response()->json([ 'data' => []]);
         }
 
         // Check existing allocation
@@ -304,7 +304,7 @@ class HostelsController extends Controller
             ->exists();
 
         if ($existing) {
-            return response()->json(['data' => []]);
+            return response()->json([ 'data' => []]);
         }
 
         $hostels = Hostel::where('is_active', true)
@@ -341,7 +341,7 @@ class HostelsController extends Controller
             ->filter(fn ($h) => $h['available_beds_count'] > 0)
             ->values();
 
-        return response()->json(['data' => $hostels]);
+        return response()->json([ 'data' => $hostels]);
     }
 
     public function selfBook(Request $request): JsonResponse
@@ -350,7 +350,7 @@ class HostelsController extends Controller
         $student = $user?->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $validated = $request->validate([
@@ -362,7 +362,7 @@ class HostelsController extends Controller
         $activeSession = AcademicSession::where('is_active', true)->latest('start_date')->first();
 
         if (!$activeSession) {
-            return response()->json(['message' => 'No active academic session.'], 422);
+            return response()->json([ 'message' => 'No active academic session.'], 422);
         }
 
         $enrolment = AcademicSessionEnrolment::where('student_id', $student->id)
@@ -370,7 +370,7 @@ class HostelsController extends Controller
             ->first();
 
         if (!$enrolment) {
-            return response()->json(['message' => 'You are not enrolled in the current session.'], 422);
+            return response()->json([ 'message' => 'You are not enrolled in the current session.'], 422);
         }
 
         $existingAllocation = HostelAllocation::where('student_id', $student->id)
@@ -379,7 +379,7 @@ class HostelsController extends Controller
             ->exists();
 
         if ($existingAllocation) {
-            return response()->json(['message' => 'You already have a hostel allocation for this session.'], 409);
+            return response()->json([ 'message' => 'You already have a hostel allocation for this session.'], 409);
         }
 
         $existingHostelInvoice = Invoice::where('student_id', $student->id)
@@ -389,13 +389,13 @@ class HostelsController extends Controller
             ->exists();
 
         if ($existingHostelInvoice) {
-            return response()->json(['message' => 'You already have a pending hostel invoice for this session.'], 409);
+            return response()->json([ 'message' => 'You already have a pending hostel invoice for this session.'], 409);
         }
 
         if ($hostel->gender && $hostel->gender !== 'mixed') {
             $studentGender = $user?->gender;
             if ($studentGender && $studentGender !== $hostel->gender) {
-                return response()->json(['message' => "This hostel is for {$hostel->gender} students only."], 422);
+                return response()->json([ 'message' => "This hostel is for {$hostel->gender} students only."], 422);
             }
         }
 
@@ -410,7 +410,7 @@ class HostelsController extends Controller
             ->first();
 
         if (!$availableBed) {
-            return response()->json(['message' => 'No available beds in this hostel.'], 422);
+            return response()->json([ 'message' => 'No available beds in this hostel.'], 422);
         }
 
         $room = $availableBed->room;
@@ -464,7 +464,7 @@ class HostelsController extends Controller
         $student = $user?->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
         $activeSession = AcademicSession::where('is_active', true)->latest('start_date')->first();
@@ -472,7 +472,7 @@ class HostelsController extends Controller
 
         if (!$activeSession) {
             $eligibility['message'] = 'No active academic session.';
-            return response()->json(['data' => $eligibility]);
+            return response()->json([ 'data' => $eligibility]);
         }
 
         $enrolment = AcademicSessionEnrolment::where('student_id', $student->id)
@@ -481,7 +481,7 @@ class HostelsController extends Controller
 
         if (!$enrolment) {
             $eligibility['message'] = 'You are not enrolled in the current academic session.';
-            return response()->json(['data' => $eligibility]);
+            return response()->json([ 'data' => $eligibility]);
         }
 
         $existingAllocation = HostelAllocation::where('student_id', $student->id)
@@ -499,7 +499,7 @@ class HostelsController extends Controller
                 'bed_label' => $existingAllocation->bed?->label,
                 'status' => $existingAllocation->status,
             ];
-            return response()->json(['data' => $eligibility]);
+            return response()->json([ 'data' => $eligibility]);
         }
 
         $totalBalance = LedgerTransaction::where('student_id', $student->id)
@@ -511,7 +511,7 @@ class HostelsController extends Controller
         $eligibility['message'] = 'You are eligible to book a hostel.';
         $eligibility['account_balance'] = (float) ($totalBalance ?? 0);
 
-        return response()->json(['data' => $eligibility]);
+        return response()->json([ 'data' => $eligibility]);
     }
 
     // --- Helpers ---

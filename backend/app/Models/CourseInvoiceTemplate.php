@@ -20,6 +20,7 @@ class CourseInvoiceTemplate extends Model
         'academic_session_id',
         'year_level',
         'session_number',
+        'billing_period',
         'is_approved',
         'approved_by',
         'approved_at',

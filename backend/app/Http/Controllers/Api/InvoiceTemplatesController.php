@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInvoiceTemplateRequest;
 use App\Http\Requests\UpdateInvoiceTemplateRequest;
+use App\Models\CourseInvoiceTemplate;
 use App\Models\InvoiceTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class InvoiceTemplatesController extends Controller
 {
+    use PaginationMeta;
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
@@ -82,6 +85,13 @@ class InvoiceTemplatesController extends Controller
 
     public function update(UpdateInvoiceTemplateRequest $request, InvoiceTemplate $invoice_template): JsonResponse
     {
+        if ($this->isLocked($invoice_template)) {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'This invoice template has already been assigned or issued. It cannot be modified.',
+            ], 422);
+        }
+
         $invoice_template->update([
             ...$request->validated(),
             'updated_by' => $request->user()->id,
@@ -99,6 +109,13 @@ class InvoiceTemplatesController extends Controller
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
 
+        if ($this->isLocked($invoice_template)) {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'This invoice template has already been assigned or issued. It cannot be deleted.',
+            ], 422);
+        }
+
         $invoice_template->delete();
 
         return response()->json([
@@ -108,12 +125,20 @@ class InvoiceTemplatesController extends Controller
 
     private function transform(InvoiceTemplate $template): array
     {
+        $isAssigned = $this->isAssigned($template);
+        $isLocked = $isAssigned || (bool) $template->is_issued;
+
         return [
             'id' => $template->id,
             'code' => $template->code,
             'name' => $template->name,
             'description' => $template->description,
             'is_active' => $template->is_active,
+            'is_issued' => $template->is_issued,
+            'is_assigned' => $isAssigned,
+            'billing_period' => $template->billing_period,
+            'is_locked' => $isLocked,
+            'lock_reason' => $isLocked ? ($template->is_issued ? 'Issued' : 'Assigned to course') : null,
             'items_count' => (int) ($template->items_count ?? $template->items()->count()),
             'total_amount' => (float) $template->items()->sum('amount'),
             'created_at' => $template->created_at,
@@ -121,16 +146,19 @@ class InvoiceTemplatesController extends Controller
         ];
     }
 
-    private function paginationMeta($paginator, array $filters): array
+    private function isAssigned(InvoiceTemplate $template): bool
     {
-        return [
-            'current_page' => $paginator->currentPage(),
-            'last_page' => $paginator->lastPage(),
-            'per_page' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            'from' => $paginator->firstItem(),
-            'to' => $paginator->lastItem(),
-            'filters' => $filters,
-        ];
+        return CourseInvoiceTemplate::query()
+            ->where('invoice_template_id', $template->id)
+            ->exists();
     }
+
+    private function isLocked(InvoiceTemplate $template): bool
+    {
+        return (bool) $template->is_issued || $this->isAssigned($template);
+    }
+
+
 }
+
+

@@ -24,6 +24,7 @@ class StudentDashboardController extends Controller
         $student = $user->student;
         if (!$student) {
             return response()->json([
+                'status_code' => 404,
                 'message' => 'Student profile not found.',
             ], 404);
         }
@@ -60,10 +61,18 @@ class StudentDashboardController extends Controller
         $invoiceTemplateItems = [];
         $totalFee = 0;
 
-        if ($course) {
+        if ($course && $currentSession && $currentSessionEnrolment) {
             $courseInvoiceTemplate = CourseInvoiceTemplate::query()
                 ->where('course_id', $course->id)
-                ->with('invoiceTemplate.items')
+                ->where('is_approved', true)
+                ->where('year_level', $currentSessionEnrolment->year_of_study)
+                ->where('session_number', $currentSessionEnrolment->session_number)
+                ->where(function ($query) use ($currentSession) {
+                    $query->where('academic_session_id', $currentSession->id)
+                        ->orWhereNull('academic_session_id');
+                })
+                ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                ->orderByRaw('academic_session_id = ? desc', [$currentSession->id])
                 ->first();
 
             if ($courseInvoiceTemplate?->invoiceTemplate) {
@@ -78,20 +87,21 @@ class StudentDashboardController extends Controller
             }
         }
 
-        $outstandingBalance = (float) Invoice::query()
+        $invoiceBaseQuery = Invoice::query()
             ->where('student_id', $student->id)
+            ->where('status', '!=', 'cancelled');
+
+        $outstandingBalance = (float) (clone $invoiceBaseQuery)
             ->where('balance_due', '>', 0)
             ->sum('balance_due');
 
-        $totalPaid = (float) Invoice::query()
-            ->where('student_id', $student->id)
+        $totalPaid = (float) (clone $invoiceBaseQuery)
             ->sum('paid_amount');
 
-        $nextDueDate = Invoice::query()
-            ->where('student_id', $student->id)
+        $nextDueInvoice = (clone $invoiceBaseQuery)
             ->where('balance_due', '>', 0)
             ->orderBy('due_date')
-            ->value('due_date');
+            ->first(['due_date']);
 
         $availableUnits = collect();
         $registeredUnitIds = collect();
@@ -128,6 +138,7 @@ class StudentDashboardController extends Controller
         }
 
         return response()->json([
+            'status_code' => 200,
             'data' => [
                 'student' => [
                     'id' => $student->id,
@@ -139,7 +150,7 @@ class StudentDashboardController extends Controller
                 'finance' => [
                     'outstanding_balance' => $outstandingBalance,
                     'total_paid' => $totalPaid,
-                    'next_due_date' => $nextDueDate?->format('Y-m-d'),
+                    'next_due_date' => $nextDueInvoice?->due_date?->format('Y-m-d'),
                 ],
                 'course' => $course ? [
                     'id' => $course->id,
@@ -201,3 +212,4 @@ class StudentDashboardController extends Controller
         ]);
     }
 }
+

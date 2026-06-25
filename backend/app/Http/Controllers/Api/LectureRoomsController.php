@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\LectureRoom;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class LectureRoomsController extends Controller
 {
+    use PaginationMeta;
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('institution.view'), 403);
@@ -124,7 +126,7 @@ class LectureRoomsController extends Controller
 
         $lectureRoom->delete();
 
-        return response()->json(['message' => 'Lecture room deleted.']);
+        return response()->json([ 'message' => 'Lecture room deleted.']);
     }
 
     private function transform(LectureRoom $room): array
@@ -142,16 +144,5 @@ class LectureRoomsController extends Controller
         ];
     }
 
-    private function paginationMeta($paginator, array $filters): array
-    {
-        return [
-            'current_page' => $paginator->currentPage(),
-            'last_page' => $paginator->lastPage(),
-            'per_page' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            'from' => $paginator->firstItem(),
-            'to' => $paginator->lastItem(),
-            'filters' => $filters,
-        ];
-    }
+
 }

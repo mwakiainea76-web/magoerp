@@ -39,18 +39,25 @@ class BillingService
                 ]);
             }
 
+            $enrolment = $this->studentSessionEnrolment($student, $targetSession);
+
             $courseInvoiceTemplate = CourseInvoiceTemplate::query()
                 ->where('course_id', $student->course_id)
                 ->where('is_approved', true)
-                ->when($this->studentSessionEnrolment($student, $targetSession), function ($query, AcademicSessionEnrolment $enrolment) {
+                ->when($enrolment, function ($query, AcademicSessionEnrolment $enrolment) {
                     $query->where('year_level', $enrolment->year_of_study)
-                        ->where('session_number', $enrolment->session_number);
+                        ->where(function ($q) use ($enrolment) {
+                            $q->where(function ($q2) use ($enrolment) {
+                                $q2->where('billing_period', 'session')
+                                    ->where('session_number', $enrolment->session_number);
+                            })->orWhere('billing_period', 'annual');
+                        });
                 })
                 ->where(function ($query) use ($targetSession) {
                     $query->where('academic_session_id', $targetSession->id)
                         ->orWhereNull('academic_session_id');
                 })
-                ->with('invoiceTemplate.items')
+                ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
                 ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
                 ->first();
 
@@ -60,13 +67,32 @@ class BillingService
                 ]);
             }
 
-            $existingInvoice = Invoice::query()
-                ->where('student_id', $student->id)
-                ->where('academic_session_id', $targetSession->id)
-                ->where('invoice_type', 'fees')
-                ->where('status', '!=', 'cancelled')
-                ->latest()
-                ->first();
+            if ($courseInvoiceTemplate->invoiceTemplate->items->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'invoice_template' => 'The assigned invoice template has no active fee components.',
+                ]);
+            }
+
+            if ($courseInvoiceTemplate->billing_period === 'annual') {
+                $yearOfStudy = $enrolment?->year_of_study ?? 1;
+                $idempotencyKey = "fees:{$student->id}:year{$yearOfStudy}:annual";
+
+                $existingInvoice = Invoice::query()
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->where('status', '!=', 'cancelled')
+                    ->latest()
+                    ->first();
+            } else {
+                $idempotencyKey = "fees:{$student->id}:{$targetSession->id}";
+
+                $existingInvoice = Invoice::query()
+                    ->where('student_id', $student->id)
+                    ->where('academic_session_id', $targetSession->id)
+                    ->where('invoice_type', 'fees')
+                    ->where('status', '!=', 'cancelled')
+                    ->latest()
+                    ->first();
+            }
 
             if ($existingInvoice) {
                 return $existingInvoice;
@@ -83,7 +109,7 @@ class BillingService
                 'amount_due' => 0,
                 'paid_amount' => 0,
                 'balance_due' => 0,
-                'idempotency_key' => "fees:{$student->id}:{$targetSession->id}",
+                'idempotency_key' => $idempotencyKey,
                 'created_by' => $createdBy,
             ]);
 
@@ -114,6 +140,10 @@ class BillingService
                         'snapshot_taken_at' => now()->toDateTimeString(),
                     ],
                 ]);
+            }
+
+            if (!$courseInvoiceTemplate->invoiceTemplate->is_issued) {
+                $courseInvoiceTemplate->invoiceTemplate->update(['is_issued' => true]);
             }
 
             $invoice->recalculateTotals();
@@ -152,7 +182,13 @@ class BillingService
             throw ValidationException::withMessages(['amount' => 'Amount must be greater than zero.']);
         }
 
+        if ($invoice->status === 'cancelled') {
+            throw ValidationException::withMessages(['invoice' => 'Payment cannot be recorded against a cancelled invoice.']);
+        }
+
         return DB::transaction(function () use ($invoice, $amount, $method, $createdBy, $reference, $paymentDate, $notes) {
+            $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
+
             $payment = Payment::create([
                 'invoice_id' => $invoice->id,
                 'student_id' => $invoice->student_id,
@@ -165,34 +201,22 @@ class BillingService
                 'notes' => $notes,
             ]);
 
-            $remaining = $amount;
+            $allocationAmount = min($amount, (float) $invoice->balance_due);
 
-            $outstandingInvoices = Invoice::query()
-                ->where('student_id', $invoice->student_id)
-                ->where('balance_due', '>', 0)
-                ->orderBy('issue_date')
-                ->orderBy('id')
-                ->get();
-
-            foreach ($outstandingInvoices as $inv) {
-                if ($remaining <= 0) break;
-
-                $allocationAmount = min($remaining, (float) $inv->balance_due);
-                if ($allocationAmount <= 0) continue;
-
+            if ($allocationAmount > 0) {
                 PaymentAllocation::create([
                     'payment_id' => $payment->id,
-                    'invoice_id' => $inv->id,
+                    'invoice_id' => $invoice->id,
                     'amount' => $allocationAmount,
                     'allocated_at' => now()->toDateString(),
                 ]);
 
-                $inv->recalculateTotals();
+                $invoice->recalculateTotals();
 
                 LedgerTransaction::create([
-                    'student_id' => $inv->student_id,
-                    'invoice_id' => $inv->id,
-                    'academic_session_id' => $inv->academic_session_id,
+                    'student_id' => $invoice->student_id,
+                    'invoice_id' => $invoice->id,
+                    'academic_session_id' => $invoice->academic_session_id,
                     'type' => 'payment',
                     'debit' => 0,
                     'credit' => $allocationAmount,
@@ -201,8 +225,6 @@ class BillingService
                     'transaction_date' => now()->toDateString(),
                     'created_by' => $createdBy,
                 ]);
-
-                $remaining -= $allocationAmount;
             }
 
             return $payment;
@@ -271,7 +293,7 @@ class BillingService
                 'paid_amount' => 0,
                 'balance_due' => 0,
                 'notes' => "Hostel Accommodation - {$hostel->name} ({$hostel->code})",
-                'idempotency_key' => "student-hostel-booking:{$student->id}:{$hostel->id}",
+                'idempotency_key' => "student-hostel-booking:{$student->id}:{$hostel->id}:{$targetSession->id}",
                 'created_by' => $createdBy,
             ]);
 
@@ -360,3 +382,4 @@ class BillingService
         }
     }
 }
+

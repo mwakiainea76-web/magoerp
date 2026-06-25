@@ -7,6 +7,7 @@ use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\CourseCurriculum;
 use App\Models\Invoice;
+use App\Models\SystemConfiguration;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
 use App\Services\BillingService;
@@ -14,9 +15,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class AcademicSessionEnrolmentsController extends Controller
 {
+    use PaginationMeta;
     public function __construct(
         protected BillingService $billingService,
     ) {}
@@ -70,7 +73,7 @@ class AcademicSessionEnrolmentsController extends Controller
         $student = $request->user()->student;
 
         if (!$student) {
-            return response()->json(['data' => []]);
+            return response()->json([ 'status_code' => 200, 'data' => []], 200);
         }
 
         $enrolments = AcademicSessionEnrolment::query()
@@ -91,7 +94,7 @@ class AcademicSessionEnrolmentsController extends Controller
         $student = $request->user()->student;
 
         if (!$student) {
-            return response()->json(['data' => []]);
+            return response()->json([ 'status_code' => 200, 'data' => []], 200);
         }
 
         $alreadyEnrolledSessionIds = AcademicSessionEnrolment::query()
@@ -124,7 +127,7 @@ class AcademicSessionEnrolmentsController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'status_code' => 404, 'message' => 'Student profile not found.'], 404);
         }
 
         $validated = $request->validate([
@@ -145,6 +148,7 @@ class AcademicSessionEnrolmentsController extends Controller
             $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $alreadyEnrolled->academicSession);
 
             return response()->json([
+                'status_code' => 200,
                 'message' => 'Already enrolled in this session.',
                 'data' => $this->transform($alreadyEnrolled),
                 'invoice' => $this->transformInvoice($invoice),
@@ -153,8 +157,9 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
         $module = $priorCount + 1;
-        $yearOfStudy = (int) floor(($module - 1) / 3) + 1;
-        $sessionNumber = (($module - 1) % 3) + 1;
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_full_year', 3);
+        $yearOfStudy = (int) floor(($module - 1) / $sessionsPerYear) + 1;
+        $sessionNumber = (($module - 1) % $sessionsPerYear) + 1;
 
         $session = AcademicSession::find($validated['academic_session_id']);
 
@@ -178,6 +183,7 @@ class AcademicSessionEnrolmentsController extends Controller
         });
 
         return response()->json([
+            'status_code' => 201,
             'message' => 'Enrolled in session successfully.',
             'data' => $this->transform($enrolment),
             'invoice' => $this->transformInvoice($invoice),
@@ -190,7 +196,7 @@ class AcademicSessionEnrolmentsController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'status_code' => 404, 'message' => 'Student profile not found.'], 404);
         }
 
         $activeSession = AcademicSession::query()
@@ -199,7 +205,7 @@ class AcademicSessionEnrolmentsController extends Controller
             ->first();
 
         if (!$activeSession) {
-            return response()->json(['message' => 'No active academic session available.'], 404);
+            return response()->json([ 'status_code' => 404, 'message' => 'No active academic session available.'], 404);
         }
 
         $alreadyEnrolled = AcademicSessionEnrolment::query()
@@ -212,6 +218,7 @@ class AcademicSessionEnrolmentsController extends Controller
             $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $activeSession);
 
             return response()->json([
+                'status_code' => 200,
                 'message' => 'You are already enrolled in the current session.',
                 'data' => $this->transform($alreadyEnrolled),
                 'invoice' => $this->transformInvoice($invoice),
@@ -220,8 +227,9 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
         $module = $priorCount + 1;
-        $yearOfStudy = (int) floor(($module - 1) / 3) + 1;
-        $sessionNumber = (($module - 1) % 3) + 1;
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_full_year', 3);
+        $yearOfStudy = (int) floor(($module - 1) / $sessionsPerYear) + 1;
+        $sessionNumber = (($module - 1) % $sessionsPerYear) + 1;
 
         [$enrolment, $invoice] = DB::transaction(function () use ($student, $activeSession, $yearOfStudy, $sessionNumber, $module, $user) {
             $enrolment = AcademicSessionEnrolment::create([
@@ -243,6 +251,7 @@ class AcademicSessionEnrolmentsController extends Controller
         });
 
         return response()->json([
+            'status_code' => 201,
             'message' => 'Session registered successfully.',
             'data' => $this->transform($enrolment),
             'invoice' => $this->transformInvoice($invoice),
@@ -255,7 +264,7 @@ class AcademicSessionEnrolmentsController extends Controller
         $student = $user->student;
 
         if (!$student) {
-            return response()->json(['message' => 'Student profile not found.'], 404);
+            return response()->json([ 'status_code' => 404, 'message' => 'Student profile not found.'], 404);
         }
 
         $validated = $request->validate([
@@ -271,11 +280,11 @@ class AcademicSessionEnrolmentsController extends Controller
             ->first();
 
         if (!$sessionEnrolment) {
-            return response()->json(['message' => 'Session enrolment not found for this student.'], 404);
+            return response()->json([ 'status_code' => 404, 'message' => 'Session enrolment not found for this student.'], 404);
         }
 
         if (!$sessionEnrolment->academicSession?->is_active) {
-            return response()->json(['message' => 'You can only register units for an active academic session.'], 422);
+            return response()->json([ 'status_code' => 422, 'message' => 'You can only register units for an active academic session.'], 422);
         }
         $courseCurriculumIds = CourseCurriculum::query()
             ->where('course_id', $student->course_id)
@@ -296,6 +305,7 @@ class AcademicSessionEnrolmentsController extends Controller
 
         if ($invalidUnitIds->isNotEmpty()) {
             return response()->json([
+                'status_code' => 422,
                 'message' => 'One or more selected units do not belong to your current course, curriculum, and module.',
                 'invalid_unit_ids' => $invalidUnitIds->values(),
             ], 422);
@@ -320,6 +330,7 @@ class AcademicSessionEnrolmentsController extends Controller
         }
 
         return response()->json([
+            'status_code' => 200,
             'message' => $created > 0
                 ? "{$created} unit(s) registered successfully."
                 : 'Selected unit(s) were already registered.',
@@ -378,16 +389,5 @@ class AcademicSessionEnrolmentsController extends Controller
         ];
     }
 
-    private function paginationMeta($paginator, array $filters): array
-    {
-        return [
-            'current_page' => $paginator->currentPage(),
-            'last_page' => $paginator->lastPage(),
-            'per_page' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            'from' => $paginator->firstItem(),
-            'to' => $paginator->lastItem(),
-            'filters' => $filters,
-        ];
-    }
 }
+

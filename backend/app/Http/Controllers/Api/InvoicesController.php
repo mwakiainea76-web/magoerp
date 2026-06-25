@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Models\Invoice;
 use App\Models\Student;
 use App\Services\BillingService;
@@ -12,17 +13,32 @@ use Illuminate\Validation\ValidationException;
 
 class InvoicesController extends Controller
 {
+    use PaginationMeta;
+
     public function __construct(
         protected BillingService $billingService
     ) {}
 
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
         $search = trim((string) $request->string('q', ''));
         $status = (string) $request->string('status', 'all');
         $sortBy = (string) $request->string('sort_by', 'created_at');
         $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+
+        $sortableColumns = [
+            'invoice_number' => 'invoice_number',
+            'invoice_type' => 'invoice_type',
+            'status' => 'status',
+            'issue_date' => 'issue_date',
+            'due_date' => 'due_date',
+            'amount_due' => 'amount_due',
+            'balance_due' => 'balance_due',
+            'created_at' => 'created_at',
+        ];
 
         $invoices = Invoice::query()
             ->with(['student', 'academicSession'])
@@ -30,35 +46,44 @@ class InvoicesController extends Controller
                 $q->where('invoice_number', 'like', "%{$search}%")
                     ->orWhereHas('student', function ($sq) use ($search) {
                         $sq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('middle_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%")
                             ->orWhere('admission_number', 'like', "%{$search}%");
                     });
             })
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
-            ->orderBy($sortBy, $sortDirection)
+            ->orderBy($sortableColumns[$sortBy] ?? 'created_at', $sortDirection)
             ->paginate($perPage)
             ->withQueryString();
 
         return response()->json([
+            'status_code' => 200,
             'data' => $invoices->getCollection()->map(fn (Invoice $i) => $this->transform($i))->values(),
             'meta' => $this->paginationMeta($invoices, [
                 'q' => $search,
                 'status' => $status,
+                'sort_by' => $sortBy,
+                'sort_direction' => $sortDirection,
             ]),
-        ]);
+        ], 200);
     }
 
-    public function show(Invoice $invoice): JsonResponse
+    public function show(Request $request, Invoice $invoice): JsonResponse
     {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
         $invoice->load(['student', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerTransactions']);
 
         return response()->json([
+            'status_code' => 200,
             'data' => $this->transformFull($invoice),
-        ]);
+        ], 200);
     }
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('finance.create'), 403);
+
         $validated = $request->validate([
             'student_id' => ['required', 'string', 'exists:students,id'],
         ]);
@@ -69,14 +94,16 @@ class InvoicesController extends Controller
             $invoice = $this->billingService->createInvoiceForStudent($student, $request->user()?->id);
         } catch (ValidationException $e) {
             return response()->json([
+                'status_code' => 422,
                 'message' => 'Failed to create invoice.',
                 'errors' => $e->errors(),
             ], 422);
         }
 
-        $invoice->load(['student', 'items']);
+        $invoice->load(['student', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerTransactions']);
 
         return response()->json([
+            'status_code' => 201,
             'message' => 'Invoice created successfully.',
             'data' => $this->transformFull($invoice),
         ], 201);
@@ -86,18 +113,18 @@ class InvoicesController extends Controller
     {
         $student = $request->user()->student;
         if (!$student) {
-            return response()->json(['data' => []]);
+            return response()->json(['status_code' => 200, 'data' => []], 200);
         }
 
         $invoices = Invoice::query()
             ->where('student_id', $student->id)
-            ->with(['items', 'adjustments', 'paymentAllocations.payment', 'ledgerTransactions'])
+            ->with(['student', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerTransactions'])
             ->latest()
             ->get()
             ->map(fn (Invoice $i) => $this->transformFull($i))
             ->values();
 
-        return response()->json(['data' => $invoices]);
+        return response()->json(['status_code' => 200, 'data' => $invoices], 200);
     }
 
     public function financeSummary(Request $request): JsonResponse
@@ -105,32 +132,35 @@ class InvoicesController extends Controller
         $student = $request->user()->student;
         if (!$student) {
             return response()->json([
+                'status_code' => 200,
                 'outstanding_balance' => 0,
                 'total_paid' => 0,
                 'next_due_date' => null,
-            ]);
+            ], 200);
         }
 
-        $outstanding = (float) Invoice::query()
+        $baseQuery = Invoice::query()
             ->where('student_id', $student->id)
+            ->where('status', '!=', 'cancelled');
+
+        $outstanding = (float) (clone $baseQuery)
             ->where('balance_due', '>', 0)
             ->sum('balance_due');
 
-        $totalPaid = (float) Invoice::query()
-            ->where('student_id', $student->id)
+        $totalPaid = (float) (clone $baseQuery)
             ->sum('paid_amount');
 
-        $nextDue = Invoice::query()
-            ->where('student_id', $student->id)
+        $nextDueInvoice = (clone $baseQuery)
             ->where('balance_due', '>', 0)
             ->orderBy('due_date')
-            ->value('due_date');
+            ->first(['due_date']);
 
         return response()->json([
+            'status_code' => 200,
             'outstanding_balance' => $outstanding,
             'total_paid' => $totalPaid,
-            'next_due_date' => $nextDue?->format('Y-m-d'),
-        ]);
+            'next_due_date' => $nextDueInvoice?->due_date?->format('Y-m-d'),
+        ], 200);
     }
 
     private function transform(Invoice $invoice): array
@@ -182,18 +212,7 @@ class InvoicesController extends Controller
 
     private function studentName($student): string
     {
-        if (!$student) return '—';
+        if (!$student) return '-';
         return trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' '));
-    }
-
-    private function paginationMeta($paginator, array $filters): array
-    {
-        return [
-            'current_page' => $paginator->currentPage(),
-            'last_page' => $paginator->lastPage(),
-            'per_page' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            'filters' => $filters,
-        ];
     }
 }

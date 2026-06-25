@@ -8,6 +8,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Http\Middleware\AuthenticateApiTokenCookie;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'api_token_cookie' => AuthenticateApiTokenCookie::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -35,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
+                
                 'message' => 'Unauthenticated.',
             ], 401);
         });
@@ -45,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
+                
                 'message' => 'You are not authorized to perform this action.',
             ], 403);
         });
@@ -55,6 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
+                
                 'message' => 'Resource not found.',
             ], 404);
         });
@@ -65,6 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
+                
                 'message' => 'This action is not available.',
             ], 405);
         });
@@ -75,6 +81,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
+                
                 'message' => $exception->getMessage(),
                 'errors' => $exception->errors(),
             ], 422);

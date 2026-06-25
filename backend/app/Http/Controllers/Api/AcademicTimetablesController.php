@@ -64,7 +64,7 @@ class AcademicTimetablesController extends Controller
                 ->map(fn ($t) => $this->transform($t));
         }
 
-        return response()->json(['data' => $grouped]);
+        return response()->json([ 'data' => $grouped]);
     }
 
     public function weekGrid(Request $request): JsonResponse
@@ -157,7 +157,7 @@ class AcademicTimetablesController extends Controller
 
         $timetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code', 'academicSession:id,name']);
 
-        return response()->json(['data' => $this->transform($timetable)], 201);
+        return response()->json([ 'data' => $this->transform($timetable)], 201);
     }
 
     public function show(AcademicTimetable $academicTimetable): JsonResponse
@@ -171,7 +171,7 @@ class AcademicTimetablesController extends Controller
             'academicSession:id,name',
         ]);
 
-        return response()->json(['data' => $this->transform($academicTimetable)]);
+        return response()->json([ 'data' => $this->transform($academicTimetable)]);
     }
 
     public function update(Request $request, AcademicTimetable $academicTimetable): JsonResponse
@@ -198,14 +198,14 @@ class AcademicTimetablesController extends Controller
 
         $academicTimetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code', 'academicSession:id,name']);
 
-        return response()->json(['data' => $this->transform($academicTimetable)]);
+        return response()->json([ 'data' => $this->transform($academicTimetable)]);
     }
 
     public function destroy(AcademicTimetable $academicTimetable): JsonResponse
     {
         $academicTimetable->delete();
 
-        return response()->json(['message' => 'Timetable entry deleted.']);
+        return response()->json([ 'message' => 'Timetable entry deleted.']);
     }
 
     public function myTimetable(Request $request): JsonResponse
@@ -220,7 +220,7 @@ class AcademicTimetablesController extends Controller
             return $this->staffTimetable($user->staff);
         }
 
-        return response()->json(['data' => [], 'message' => 'No timetable available.']);
+        return response()->json([ 'data' => [], 'message' => 'No timetable available.']);
     }
 
     public function lectureRooms(Request $request): JsonResponse
@@ -229,7 +229,7 @@ class AcademicTimetablesController extends Controller
             ->where('is_active', true)
             ->get(['id', 'name', 'code', 'capacity', 'location']);
 
-        return response()->json(['data' => $rooms]);
+        return response()->json([ 'data' => $rooms]);
     }
 
     public function storeLectureRoom(Request $request): JsonResponse
@@ -245,7 +245,7 @@ class AcademicTimetablesController extends Controller
 
         $room = LectureRoom::create($validated);
 
-        return response()->json(['data' => $room], 201);
+        return response()->json([ 'data' => $room], 201);
     }
 
     public function availableUnits(Request $request): JsonResponse
@@ -273,7 +273,7 @@ class AcademicTimetablesController extends Controller
 
         $units = $query->get(['id', 'code', 'name']);
 
-        return response()->json(['data' => $units]);
+        return response()->json([ 'data' => $units]);
     }
 
     public function staffList(Request $request): JsonResponse
@@ -298,7 +298,7 @@ class AcademicTimetablesController extends Controller
             ->first();
 
         if (!$sessionEnrolment) {
-            return response()->json(['data' => ['days' => self::DAYS, 'grid' => []]]);
+            return response()->json([ 'data' => ['days' => self::DAYS, 'grid' => []]]);
         }
 
         $unitIds = DB::table('student_unit_registrations')
@@ -318,7 +318,7 @@ class AcademicTimetablesController extends Controller
             $grid[$day] = $timetables->where('day_of_week', $index)->values()->map(fn ($t) => $this->transform($t));
         }
 
-        return response()->json(['data' => ['days' => self::DAYS, 'grid' => $grid]]);
+        return response()->json([ 'data' => ['days' => self::DAYS, 'grid' => $grid]]);
     }
 
     private function staffTimetable($staff): JsonResponse
@@ -335,7 +335,7 @@ class AcademicTimetablesController extends Controller
             $grid[$day] = $timetables->where('day_of_week', $index)->values()->map(fn ($t) => $this->transform($t));
         }
 
-        return response()->json(['data' => ['days' => self::DAYS, 'grid' => $grid]]);
+        return response()->json([ 'data' => ['days' => self::DAYS, 'grid' => $grid]]);
     }
 
     private function transform($timetable): array

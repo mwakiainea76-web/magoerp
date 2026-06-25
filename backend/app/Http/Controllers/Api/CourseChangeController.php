@@ -35,11 +35,11 @@ class CourseChangeController extends Controller
             ->first();
 
         if (!$student) {
-            return response()->json(['message' => 'Student not found.'], 404);
+            return response()->json([ 'message' => 'Student not found.'], 404);
         }
 
         if (!$student->status) {
-            return response()->json(['message' => 'Student is inactive.'], 422);
+            return response()->json([ 'message' => 'Student is inactive.'], 422);
         }
 
         $activeEnrolment = $student->courseEnrolments->first();
@@ -93,7 +93,7 @@ class CourseChangeController extends Controller
             ->groupBy('course_name')
             ->toArray();
 
-        return response()->json(['data' => $activeMappings]);
+        return response()->json([ 'data' => $activeMappings]);
     }
 
     public function store(Request $request): JsonResponse
@@ -275,7 +275,7 @@ class CourseChangeController extends Controller
                 'changed_at' => $log->changed_at?->format('Y-m-d H:i:s'),
             ]);
 
-        return response()->json(['data' => $logs]);
+        return response()->json([ 'data' => $logs]);
     }
 
     public function allTransfers(Request $request): JsonResponse

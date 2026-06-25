@@ -95,6 +95,7 @@ class DatabaseSeeder extends Seeder
             LectureRoomSeeder::class,
             UserSeeder::class,
             TimetableFeatureSeeder::class,
+            SystemConfigurationSeeder::class,
         ]);
     }
 }
