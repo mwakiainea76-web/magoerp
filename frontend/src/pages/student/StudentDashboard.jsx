@@ -1,44 +1,87 @@
-import { useEffect, useState } from "react";
-import { Badge, Card, Table } from "flowbite-react";
-import { BookOpen, Coins, GraduationCap, School, User } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Link } from "react-router-dom";
+import {
+  BookMarked,
+  BookOpen,
+  CreditCard,
+  GraduationCap,
+  LogIn,
+  ShieldCheck,
+  Wallet,
+  X,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
 import { useStudentDashboardApi } from "@/hooks/useStudentDashboardApi";
+import { getApiErrorMessage } from "@/lib/api/authClient";
+
+const currency = (amount) =>
+  `Ksh ${new Intl.NumberFormat("en-KE", {
+    style: "decimal",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(amount || 0))}`;
 
 export function StudentDashboard() {
-  const { dashboard } = useStudentDashboardApi();
+  const { dashboard, registerSession } = useStudentDashboardApi();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [registerErrors, setRegisterErrors] = useState(null);
+  const cancelledRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function loadDashboard() {
+    cancelledRef.current = false;
     setLoading(true);
     setError(null);
 
-    dashboard()
-      .then((res) => {
-        if (!cancelled) setData(res.data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err?.response?.data?.message ?? "Failed to load dashboard.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    try {
+      const res = await dashboard();
+      if (!cancelledRef.current) setData(res.data);
+    } catch (err) {
+      if (!cancelledRef.current) setError(err?.response?.data?.message ?? "Failed to load dashboard.");
+    } finally {
+      if (!cancelledRef.current) setLoading(false);
+    }
+  }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [dashboard]);
+  useEffect(() => {
+    loadDashboard();
+    return () => { cancelledRef.current = true; };
+  }, []);
+
+  async function handleRegisterSession(e) {
+    e.preventDefault();
+    setRegistering(true);
+    setRegisterErrors(null);
+    try {
+      await registerSession();
+      toast.success("Session registered successfully.");
+      setShowModal(false);
+      loadDashboard();
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? "Failed to register session.";
+      setRegisterErrors({ session_registration: msg });
+    } finally {
+      setRegistering(false);
+    }
+  }
 
   if (loading) {
     return (
       <section className="space-y-5">
         <div className="h-52 animate-pulse rounded-3xl bg-slate-200" />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="h-44 animate-pulse rounded-3xl bg-slate-200" />
-          <div className="h-44 animate-pulse rounded-3xl bg-slate-200" />
-          <div className="h-44 animate-pulse rounded-3xl bg-slate-200" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="h-36 animate-pulse rounded-3xl bg-slate-200" />
+          <div className="h-36 animate-pulse rounded-3xl bg-slate-200" />
+          <div className="h-36 animate-pulse rounded-3xl bg-slate-200" />
+          <div className="h-36 animate-pulse rounded-3xl bg-slate-200" />
+        </div>
+        <div className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
+          <div className="h-96 animate-pulse rounded-3xl bg-slate-200" />
+          <div className="h-64 animate-pulse rounded-3xl bg-slate-200" />
         </div>
       </section>
     );
@@ -47,214 +90,280 @@ export function StudentDashboard() {
   if (error) {
     return (
       <section className="flex min-h-[40vh] items-center justify-center">
-        <Card className="max-w-md rounded-3xl border border-red-200 bg-red-50 p-8 text-center shadow-sm">
+        <div className="max-w-md rounded-3xl border border-red-200 bg-red-50 p-8 text-center shadow-sm">
           <p className="text-lg font-semibold text-red-700">Something went wrong</p>
           <p className="mt-2 text-sm text-red-500">{error}</p>
-        </Card>
+        </div>
       </section>
     );
   }
 
-  const { student, course, enrolment, fee_plan } = data ?? {};
+  const { student, course, enrolment, invoice_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance } = data ?? {};
+
+  const statsCards = [
+    {
+      label: "Outstanding Balance",
+      value: currency(finance?.outstanding_balance ?? 0),
+      helper: finance?.next_due_date ? `Next due ${finance.next_due_date}` : "No invoice due date available",
+      icon: Wallet,
+      tone: "from-emerald-500 to-emerald-600",
+    },
+    {
+      label: "Total Paid",
+      value: currency(finance?.total_paid ?? 0),
+      helper: "Payments recorded on your account",
+      icon: CreditCard,
+      tone: "from-slate-700 to-slate-800",
+    },
+    {
+      label: "Current Module",
+      value: course?.code ?? "-",
+      helper: enrolment?.academic_session?.name ?? "No active session yet",
+      icon: GraduationCap,
+      tone: "from-sky-500 to-cyan-500",
+    },
+    {
+      label: "Fee Discount",
+      value: "0%",
+      helper: "Current approved discount",
+      icon: ShieldCheck,
+      tone: "from-amber-500 to-orange-500",
+    },
+  ];
 
   return (
-    <section className="space-y-5">
-      <Card className="overflow-hidden border-0 bg-[linear-gradient(135deg,_#0f172a_0%,_#0f766e_55%,_#ecfeff_180%)] text-white shadow-lg">
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
-          <div className="space-y-4">
-            <Badge color="info" className="w-fit">
-              Student workspace
-            </Badge>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold sm:text-4xl">
-                Welcome back, {student?.name ?? "Student"}
-              </h1>
-              <p className="max-w-2xl text-sm text-cyan-50/90 sm:text-base">
-                {student?.admission_number
-                  ? `Admission No: ${student.admission_number}`
-                  : "Track your academic progress, fees, and upcoming work."}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-sm text-cyan-50/80">Enrolled Course</p>
-              <p className="mt-2 truncate text-2xl font-semibold">
-                {course?.code ?? "—"}
-              </p>
-              <p className="mt-1 truncate text-sm text-cyan-100">
-                {course?.name ?? "Not assigned"}
-              </p>
-            </div>
-            <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-sm text-cyan-50/80">Current Session</p>
-              <p className="mt-2 truncate text-2xl font-semibold">
-                {enrolment?.academic_session?.name ?? "—"}
-              </p>
-              <p className="mt-1 text-sm text-cyan-100">
-                {enrolment?.enrolment_date ?? "Not enrolled"}
-              </p>
-            </div>
-            <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-              <p className="text-sm text-cyan-50/80">Fee Plan Total</p>
-              <p className="mt-2 text-2xl font-semibold">
-                {fee_plan ? `Ksh ${fee_plan.total_amount?.toLocaleString()}` : "—"}
-              </p>
-              <p className="mt-1 text-sm text-cyan-100">
-                {fee_plan?.items?.length ?? 0} item{fee_plan?.items?.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="rounded-3xl border border-slate-200/80 shadow-sm">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-cyan-100 p-3 text-cyan-700">
-                <GraduationCap className="size-5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Course</p>
-                <h3 className="text-xl font-semibold text-slate-950">
-                  {course?.code ?? "N/A"}
-                </h3>
-              </div>
-            </div>
-            <div className="space-y-1.5 text-sm text-slate-600">
-              <p><span className="font-medium text-slate-500">Name:</span> {course?.name ?? "—"}</p>
-              <p><span className="font-medium text-slate-500">Level:</span> {course?.level ?? "—"}</p>
-              <p><span className="font-medium text-slate-500">Duration:</span> {course?.duration ? `${course.duration} year${course.duration > 1 ? "s" : ""}` : "—"}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="rounded-3xl border border-slate-200/80 shadow-sm">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
-                <BookOpen className="size-5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Enrolment</p>
-                <h3 className="text-xl font-semibold text-slate-950">Current Status</h3>
-              </div>
-            </div>
-            <div className="space-y-1.5 text-sm text-slate-600">
-              <p>
-                <span className="font-medium text-slate-500">Status:</span>{" "}
-                {enrolment ? (
-                  <Badge color={enrolment.status === "enrolled" ? "success" : "warning"} size="xs" className="inline">
-                    {enrolment.status}
-                  </Badge>
-                ) : "—"}
-              </p>
-              <p><span className="font-medium text-slate-500">Curriculum:</span> {enrolment?.curriculum?.name ?? "—"}</p>
-              <p><span className="font-medium text-slate-500">Enrolled:</span> {enrolment?.enrolment_date ?? "—"}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="rounded-3xl border border-slate-200/80 shadow-sm">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700">
-                <Coins className="size-5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Fee Plan</p>
-                <h3 className="text-xl font-semibold text-slate-950">
-                  {fee_plan?.code ?? "N/A"}
-                </h3>
-              </div>
-            </div>
-            <div className="space-y-1.5 text-sm text-slate-600">
-              <p><span className="font-medium text-slate-500">Plan:</span> {fee_plan?.name ?? "—"}</p>
-              <p>
-                <span className="font-medium text-slate-500">Status:</span>{" "}
-                {fee_plan ? (
-                  <Badge color={fee_plan.is_approved ? "success" : "warning"} size="xs" className="inline">
-                    {fee_plan.is_approved ? "Approved" : "Pending"}
-                  </Badge>
-                ) : "—"}
-              </p>
-              <p><span className="font-medium text-slate-500">Total:</span> {fee_plan ? `Ksh ${fee_plan.total_amount?.toLocaleString()}` : "—"}</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {fee_plan?.items?.length > 0 && (
-        <Card className="rounded-3xl border border-slate-200/80 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
-              <School className="size-5" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">Fee Breakdown</p>
-              <h3 className="text-xl font-semibold text-slate-950">
-                {fee_plan.name}
-                <span className="ml-2 text-sm font-normal text-slate-400">
-                  Yr {fee_plan.year_level} · Sem {fee_plan.session_number}
-                </span>
-              </h3>
-            </div>
-          </div>
-          <div className="mt-4 overflow-x-auto">
-            <Table>
-              <Table.Head>
-                <Table.HeadCell>Item</Table.HeadCell>
-                <Table.HeadCell>Description</Table.HeadCell>
-                <Table.HeadCell className="text-right">Amount (Ksh)</Table.HeadCell>
-              </Table.Head>
-              <Table.Body className="divide-y">
-                {fee_plan.items.map((item) => (
-                  <Table.Row key={item.id} className="bg-white">
-                    <Table.Cell className="font-medium text-slate-700">{item.name}</Table.Cell>
-                    <Table.Cell className="text-slate-500">{item.description ?? "—"}</Table.Cell>
-                    <Table.Cell className="text-right font-semibold text-slate-700">
-                      {item.amount?.toLocaleString()}
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          </div>
-          <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
-            <p className="text-lg font-bold text-slate-800">
-              Total: Ksh {fee_plan.total_amount?.toLocaleString()}
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <div className="relative overflow-hidden rounded-[2rem] bg-[#1b263b] px-8 py-10 text-white shadow-xl">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.25),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.08),_transparent_25%)]" />
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-300">
+              Student Portal
+            </p>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight">
+              Welcome back, {student?.name ?? "Student"}.
+            </h1>
+            <p className="mt-3 max-w-xl text-sm text-slate-300">
+              Keep track of your course progress, current session,
+              billing status, and learning units from one place.
             </p>
           </div>
-        </Card>
-      )}
 
-      <Card className="rounded-3xl border border-slate-200/80 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
-            <User className="size-5" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Profile</p>
-            <h3 className="text-xl font-semibold text-slate-950">Personal Information</h3>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <p className="font-medium text-slate-500">Full Name</p>
-            <p className="text-slate-700">{student?.name ?? "—"}</p>
-          </div>
-          <div>
-            <p className="font-medium text-slate-500">Admission Number</p>
-            <p className="text-slate-700">{student?.admission_number ?? "—"}</p>
-          </div>
-          <div>
-            <p className="font-medium text-slate-500">Course</p>
-            <p className="text-slate-700">{course?.name ?? "—"}</p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+              <p className="text-xs uppercase tracking-wide text-slate-300">Course</p>
+              <p className="mt-2 text-sm font-semibold">{course?.name ?? "Not assigned"}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+              <p className="text-xs uppercase tracking-wide text-slate-300">Level</p>
+              <p className="mt-2 text-sm font-semibold">{course?.level ?? "Not assigned"}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+              <p className="text-xs uppercase tracking-wide text-slate-300">Reg. No</p>
+              <p className="mt-2 text-sm font-semibold">{student?.admission_number ?? "-"}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+              <p className="text-xs uppercase tracking-wide text-slate-300">Status</p>
+              <p className="mt-2 text-sm font-semibold capitalize">{enrolment?.status ?? "-"}</p>
+            </div>
           </div>
         </div>
-      </Card>
-    </section>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {statsCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={card.label}
+              className="rounded-[1.75rem] border border-zinc-100 bg-white p-6 shadow-sm"
+            >
+              <div
+                className={`inline-flex rounded-2xl bg-gradient-to-br ${card.tone} p-3 text-white shadow-lg`}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <p className="mt-5 text-sm font-medium text-zinc-500">{card.label}</p>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">{card.value}</p>
+              <p className="mt-2 text-sm text-zinc-400">{card.helper}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.9fr]">
+        <div className="rounded-[1.75rem] border border-zinc-100 bg-white p-7 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-zinc-900">
+                Course Details
+              </h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                Your enrolled course and curriculum information.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <Link
+                to="/"
+                className="text-sm font-medium text-emerald-700 transition hover:text-emerald-800"
+              >
+                View Course
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="space-y-3">
+              {course ? (
+                <>
+                  <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Code</p>
+                    <p className="mt-1 text-sm font-semibold text-zinc-900">{course.code}</p>
+                  </div>
+                  <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Name</p>
+                    <p className="mt-1 text-sm font-semibold text-zinc-900">{course.name}</p>
+                  </div>
+                  <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Duration</p>
+                    <p className="mt-1 text-sm font-semibold text-zinc-900">
+                      {course.duration ? `${course.duration} year${course.duration > 1 ? "s" : ""}` : "-"}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl bg-zinc-50 px-4 py-4 text-sm text-zinc-500">
+                  No course information available.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-zinc-50 px-4 py-3 text-xs text-zinc-500">
+              {fee_plan?.items?.length
+                ? `${fee_plan.items.length} fee item(s) in your current fee plan.`
+                : "Your fee plan details will appear once assigned."}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="rounded-[1.75rem] border border-zinc-100 bg-white p-7 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-zinc-900">
+                Study Snapshot
+              </h2>
+              <div className="flex items-center gap-3">
+                {!enrolment?.academic_session && needs_session_enrolment && current_session && (
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <LogIn className="h-3.5 w-3.5" />
+                    Register Session
+                  </button>
+                )}
+                <div className="rounded-2xl bg-sky-50 p-3 text-sky-600">
+                  <BookMarked className="h-5 w-5" />
+                </div>
+              </div>
+            </div>
+
+            {enrolment?.academic_session ? (
+              <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-5 text-sm">
+                <p className="font-semibold text-emerald-900">
+                  You are registered for <strong>{enrolment.academic_session.name}</strong>
+                </p>
+              </div>
+            ) : needs_session_enrolment && current_session ? (
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm">
+                <p className="font-semibold text-amber-900">
+                  {last_session_enrolment?.session_active === false
+                    ? `Your last session (${last_session_enrolment.session_name}) is no longer active.`
+                    : "You haven't registered for any session yet."}
+                </p>
+                <p className="mt-2 text-amber-800">
+                  The active session <strong>{current_session.name}</strong> is available.
+                  Click <strong>Register Session</strong> above to enrol.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-5 space-y-4 text-sm">
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-zinc-500">Curriculum</p>
+                <p className="mt-1 font-semibold text-zinc-900">
+                  {enrolment?.curriculum?.name ?? "Not assigned"}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-zinc-500">Current Session</p>
+                <p className="mt-1 font-semibold text-zinc-900">
+                  {enrolment?.academic_session?.name ?? "No session enrollment yet"}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-zinc-500">Year of Study</p>
+                <p className="mt-1 font-semibold text-zinc-900">
+                  {course?.duration ? `Year 1` : "-"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-zinc-900">Register Current Session</h3>
+                <p className="mt-1 text-sm text-zinc-500">Register yourself for the active academic session.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="rounded-xl p-2 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterSession} className="space-y-5 pt-5">
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Admission Number</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-900">{student?.admission_number ?? "-"}</p>
+              </div>
+              <div className="rounded-2xl bg-zinc-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Active Session</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-900">{current_session?.name ?? "No active session available"}</p>
+              </div>
+
+              {registerErrors?.session_registration ? (
+                <p className="text-sm text-red-600">{registerErrors.session_registration}</p>
+              ) : null}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="rounded-xl bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={registering || !current_session}
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {registering ? "Registering..." : "Register Session"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

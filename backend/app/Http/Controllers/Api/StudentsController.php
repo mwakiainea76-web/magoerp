@@ -218,6 +218,51 @@ class StudentsController extends Controller
         ]);
     }
 
+    public function admissionLetter(Request $request, Student $student): JsonResponse
+    {
+        abort_unless($request->user()?->can('students.view'), 403);
+
+        $student->load(['user', 'course.department', 'course.level', 'course.authority']);
+
+        $enrolment = CourseEnrolment::query()
+            ->with(['curriculum', 'academicSession'])
+            ->where('student_id', $student->id)
+            ->latest()
+            ->first();
+
+        $user = $student->user;
+        $course = $student->course;
+
+        return response()->json([
+            'data' => [
+                'institution_name' => config('app.name'),
+                'reference_number' => $student->admission_number,
+                'date' => now()->format('F d, Y'),
+
+                'student_name' => trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' ')),
+                'admission_number' => $student->admission_number,
+                'email' => $user?->email,
+                'phone' => $user?->phone_number,
+                'admission_date' => $student->enrollment_date?->format('F d, Y'),
+                'gender' => $user?->gender,
+                'nationality' => $user?->nationality,
+
+                'course_name' => $course?->name,
+                'course_code' => $course?->code,
+                'department_name' => $course?->department?->name,
+                'certification_level' => $course?->level?->name,
+                'certification_authority' => $course?->authority?->name,
+                'curriculum_name' => $enrolment?->curriculum?->name,
+                'academic_session' => $enrolment?->academicSession?->name,
+                'enrolment_status' => $enrolment?->status,
+                'duration' => $course?->duration,
+
+                'portal_url' => url('/'),
+                'login_id' => $user?->login_id,
+            ],
+        ]);
+    }
+
     private function transformStudent(Student $student): array
     {
         $user = $student->user;

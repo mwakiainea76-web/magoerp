@@ -18,6 +18,8 @@ export const FormInput = forwardRef(function FormInput(
     inputClassName = "",
     type = "text",
     required = false,
+    rightIcon,
+    onRightIconClick,
     ...props
   },
   ref,
@@ -35,18 +37,31 @@ export const FormInput = forwardRef(function FormInput(
         </label>
       ) : null}
 
-      <input
-        ref={ref}
-        id={id}
-        type={type}
-        className={joinClasses(
-          baseInputClassName,
-          inputStateClassName,
-          inputClassName,
-        )}
-        aria-invalid={error ? "true" : "false"}
-        {...props}
-      />
+      <div className="relative">
+        <input
+          ref={ref}
+          id={id}
+          type={type}
+          className={joinClasses(
+            baseInputClassName,
+            rightIcon ? "pr-10" : "",
+            inputStateClassName,
+            inputClassName,
+          )}
+          aria-invalid={error ? "true" : "false"}
+          {...props}
+        />
+        {rightIcon ? (
+          <button
+            type="button"
+            onClick={onRightIconClick}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            tabIndex={-1}
+          >
+            {rightIcon}
+          </button>
+        ) : null}
+      </div>
 
       {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
     </div>

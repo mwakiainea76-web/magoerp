@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import * as yup from "yup";
+import { Eye, EyeOff } from "lucide-react";
 
 import logo from "@/assets/logo.PNG";
 import { FormButton } from "@/components/FormButton";
@@ -24,6 +25,7 @@ export function LoginPage() {
   const { login } = useAuthApi();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -97,11 +99,13 @@ export function LoginPage() {
 
             <FormInput
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               label="Password"
               placeholder="Enter your password"
               required
               error={errors.password?.message}
+              rightIcon={showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              onRightIconClick={() => setShowPassword((prev) => !prev)}
               {...register("password")}
             />
 

@@ -11,7 +11,7 @@ use App\Models\CourseCurriculum;
 use App\Models\Curriculum;
 use App\Models\Course;
 use App\Models\Departments;
-use App\Models\FeePlan;
+use App\Models\InvoiceTemplate;
 use App\Models\Role;
 use App\Models\staffs;
 use App\Models\Student;
@@ -35,7 +35,7 @@ class LookupController extends Controller
             'departments' => $this->departments($request, $search, $limit),
             'academic-years' => $this->academicYears($request, $search, $limit),
             'academic-sessions' => $this->academicSessions($request, $search, $limit),
-            'fee-plans' => $this->feePlans($request, $search, $limit),
+            'invoice-templates' => $this->invoiceTemplates($request, $search, $limit),
             'roles' => $this->roles($request, $search, $limit),
             'students' => $this->students($request, $search, $limit),
             default => response()->json([
@@ -262,11 +262,11 @@ class LookupController extends Controller
         ]);
     }
 
-    private function feePlans(Request $request, string $search, int $limit): JsonResponse
+    private function invoiceTemplates(Request $request, string $search, int $limit): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $plans = FeePlan::query()
+        $templates = InvoiceTemplate::query()
             ->where('is_active', true)
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
@@ -278,14 +278,14 @@ class LookupController extends Controller
             ->orderBy('name')
             ->limit($limit)
             ->get()
-            ->map(fn (FeePlan $plan) => [
-                'id' => $plan->id,
-                'label' => trim($plan->code . ' ' . $plan->name),
+            ->map(fn (InvoiceTemplate $template) => [
+                'id' => $template->id,
+                'label' => trim($template->code . ' ' . $template->name),
             ])
             ->values();
 
         return response()->json([
-            'data' => $plans,
+            'data' => $templates,
         ]);
     }
 

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\CourseEnrolment;
-use App\Models\CourseFeePlan;
+use App\Models\CourseInvoiceTemplate;
+use App\Models\Invoice;
+use App\Models\LedgerTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,7 +28,6 @@ class StudentDashboardController extends Controller
         $course = $student->course;
         $courseEnrolment = CourseEnrolment::query()
             ->where('student_id', $student->id)
-            ->with('academicSession')
             ->latest()
             ->first();
 
@@ -35,35 +36,53 @@ class StudentDashboardController extends Controller
             ->latest('start_date')
             ->first();
 
-        $hasSessionEnrolment = false;
-        if ($currentSession && $student) {
-            $hasSessionEnrolment = AcademicSessionEnrolment::query()
-                ->where('student_id', $student->id)
-                ->where('academic_session_id', $currentSession->id)
-                ->exists();
+        $lastSessionEnrolment = AcademicSessionEnrolment::query()
+            ->where('student_id', $student->id)
+            ->with('academicSession')
+            ->latest()
+            ->first();
+
+        $needsSessionEnrolment = true;
+        if ($lastSessionEnrolment?->academicSession) {
+            $needsSessionEnrolment = !$lastSessionEnrolment->academicSession->is_active;
         }
 
-        $courseFeePlan = null;
-        $feePlanItems = [];
+        $courseInvoiceTemplate = null;
+        $invoiceTemplateItems = [];
         $totalFee = 0;
 
         if ($course) {
-            $courseFeePlan = CourseFeePlan::query()
+            $courseInvoiceTemplate = CourseInvoiceTemplate::query()
                 ->where('course_id', $course->id)
-                ->with('feePlan.items')
+                ->with('invoiceTemplate.items')
                 ->first();
 
-            if ($courseFeePlan?->feePlan) {
-                $feePlanItems = $courseFeePlan->feePlan->items->map(fn ($item) => [
+            if ($courseInvoiceTemplate?->invoiceTemplate) {
+                $invoiceTemplateItems = $courseInvoiceTemplate->invoiceTemplate->items->map(fn ($item) => [
                     'id' => $item->id,
                     'name' => $item->name,
                     'amount' => (float) $item->amount,
                     'description' => $item->description,
                 ])->values()->all();
 
-                $totalFee = $courseFeePlan->feePlan->items->sum('amount');
+                $totalFee = $courseInvoiceTemplate->invoiceTemplate->items->sum('amount');
             }
         }
+
+        $outstandingBalance = (float) Invoice::query()
+            ->where('student_id', $student->id)
+            ->where('balance_due', '>', 0)
+            ->sum('balance_due');
+
+        $totalPaid = (float) Invoice::query()
+            ->where('student_id', $student->id)
+            ->sum('paid_amount');
+
+        $nextDueDate = Invoice::query()
+            ->where('student_id', $student->id)
+            ->where('balance_due', '>', 0)
+            ->orderBy('due_date')
+            ->value('due_date');
 
         return response()->json([
             'data' => [
@@ -73,6 +92,11 @@ class StudentDashboardController extends Controller
                     'first_name' => $student->first_name,
                     'last_name' => $student->last_name,
                     'name' => trim($student->first_name . ' ' . $student->last_name),
+                ],
+                'finance' => [
+                    'outstanding_balance' => $outstandingBalance,
+                    'total_paid' => $totalPaid,
+                    'next_due_date' => $nextDueDate?->format('Y-m-d'),
                 ],
                 'course' => $course ? [
                     'id' => $course->id,
@@ -85,9 +109,9 @@ class StudentDashboardController extends Controller
                     'id' => $courseEnrolment->id,
                     'status' => $courseEnrolment->status,
                     'enrolment_date' => $courseEnrolment->enrolment_date,
-                    'academic_session' => $courseEnrolment->academicSession ? [
-                        'id' => $courseEnrolment->academicSession->id,
-                        'name' => $courseEnrolment->academicSession->name,
+                    'academic_session' => $lastSessionEnrolment?->academicSession ? [
+                        'id' => $lastSessionEnrolment->academicSession->id,
+                        'name' => $lastSessionEnrolment->academicSession->name,
                     ] : null,
                     'curriculum' => $courseEnrolment->curriculum ? [
                         'id' => $courseEnrolment->curriculum->id,
@@ -99,16 +123,22 @@ class StudentDashboardController extends Controller
                     'id' => $currentSession->id,
                     'name' => $currentSession->name,
                 ] : null,
-                'needs_session_enrolment' => !$hasSessionEnrolment,
+                'needs_session_enrolment' => $needsSessionEnrolment,
+                'last_session_enrolment' => $lastSessionEnrolment ? [
+                    'id' => $lastSessionEnrolment->id,
+                    'session_name' => $lastSessionEnrolment->academicSession?->name,
+                    'session_active' => $lastSessionEnrolment->academicSession?->is_active ?? false,
+                    'enrolled_at' => $lastSessionEnrolment->enrolled_at,
+                ] : null,
 
-                'fee_plan' => $courseFeePlan ? [
-                    'id' => $courseFeePlan->id,
-                    'code' => $courseFeePlan->feePlan->code,
-                    'name' => $courseFeePlan->feePlan->name,
-                    'year_level' => $courseFeePlan->year_level,
-                    'session_number' => $courseFeePlan->session_number,
-                    'is_approved' => $courseFeePlan->is_approved,
-                    'items' => $feePlanItems,
+                'invoice_template' => $courseInvoiceTemplate ? [
+                    'id' => $courseInvoiceTemplate->id,
+                    'code' => $courseInvoiceTemplate->invoiceTemplate->code,
+                    'name' => $courseInvoiceTemplate->invoiceTemplate->name,
+                    'year_level' => $courseInvoiceTemplate->year_level,
+                    'session_number' => $courseInvoiceTemplate->session_number,
+                    'is_approved' => $courseInvoiceTemplate->is_approved,
+                    'items' => $invoiceTemplateItems,
                     'total_amount' => $totalFee,
                 ] : null,
             ],

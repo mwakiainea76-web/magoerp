@@ -9,6 +9,7 @@ use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
 use App\Models\Student;
+use App\Models\StudentStatusLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -76,23 +77,77 @@ class CourseEnrolmentsController extends Controller
 
     public function updateStatus(UpdateCourseEnrolmentStatusRequest $request, CourseEnrolment $course_enrolment): JsonResponse
     {
+        $oldStatus = $course_enrolment->status;
+
         $data = [
             'status' => $request->status,
             'remarks' => $request->remarks,
             'updated_by' => $request->user()->id,
         ];
 
-        // If transferring to a new course, update the course_id
         if ($request->filled('course_id') && $request->status === 'transferred') {
             $data['course_id'] = $request->course_id;
         }
 
         $course_enrolment->update($data);
+
+        StudentStatusLog::create([
+            'student_id' => $course_enrolment->student_id,
+            'course_enrolment_id' => $course_enrolment->id,
+            'from_status' => $oldStatus,
+            'to_status' => $request->status,
+            'reason' => $request->remarks,
+            'effective_date' => now()->toDateString(),
+            'recorded_by' => $request->user()->id,
+        ]);
+
         $course_enrolment->load(['student', 'course', 'curriculum', 'academicSession']);
 
         return response()->json([
             'message' => 'Enrolment status updated successfully.',
             'data' => $this->transform($course_enrolment),
+        ]);
+    }
+
+    public function statusLogs(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('enrolments.view'), 403);
+
+        $search = trim((string) $request->string('q', ''));
+        $status = (string) $request->string('status', '');
+        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+
+        $logs = StudentStatusLog::query()
+            ->with(['student', 'recordedBy'])
+            ->when($search !== '', function ($q) use ($search) {
+                $q->whereHas('student', function ($sq) use ($search) {
+                    $sq->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('admission_number', 'like', "%{$search}%");
+                });
+            })
+            ->when($status !== '', fn ($q) => $q->where('to_status', $status))
+            ->latest('effective_date')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return response()->json([
+            'data' => $logs->getCollection()->map(fn (StudentStatusLog $log) => [
+                'id' => $log->id,
+                'student_name' => trim(collect([$log->student?->first_name, $log->student?->middle_name, $log->student?->last_name])->filter()->implode(' ')),
+                'admission_number' => $log->student?->admission_number,
+                'from_status' => $log->from_status,
+                'to_status' => $log->to_status,
+                'reason' => $log->reason,
+                'effective_date' => $log->effective_date?->format('Y-m-d'),
+                'recorded_by' => trim(collect([$log->recordedBy?->first_name, $log->recordedBy?->middle_name, $log->recordedBy?->last_name])->filter()->implode(' ')),
+                'created_at' => $log->created_at,
+            ])->values(),
+            'meta' => $this->paginationMeta($logs, [
+                'q' => $search,
+                'status' => $status,
+            ]),
         ]);
     }
 

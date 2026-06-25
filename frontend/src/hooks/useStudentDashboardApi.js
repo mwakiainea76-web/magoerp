@@ -8,6 +8,10 @@ export function useStudentDashboardApi() {
         const response = await authClient.get("/student/dashboard");
         return response.data;
       },
+      registerSession: async () => {
+        const response = await authClient.post("/student/register-session");
+        return response.data;
+      },
     }),
     [],
   );

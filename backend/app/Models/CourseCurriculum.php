@@ -37,9 +37,9 @@ class CourseCurriculum extends Pivot
         return $this->belongsTo(Curriculum::class);
     }
 
-    public function feePlans(): BelongsToMany
+    public function invoiceTemplates(): BelongsToMany
     {
-        return $this->belongsToMany(FeePlan::class, 'course_curriculum_fee_plan')
+        return $this->belongsToMany(InvoiceTemplate::class, 'course_curriculum_invoice_template')
             ->withPivot('academic_session_id')
             ->withTimestamps();
     }

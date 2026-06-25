@@ -53,6 +53,7 @@ export const sidebarNavigationByRole = {
       children: [
         { label: "All Curriculums", to: "/curriculums" },
         { label: "Add Curriculum", to: "/curriculums/create" },
+        { label: "Course Mappings", to: "/curriculums/mappings" },
       ],
     },
     {
@@ -89,6 +90,7 @@ export const sidebarNavigationByRole = {
       children: [
         { label: "View Timetables", to: "/timetables" },
         { label: "Add Timetable", to: "/timetables/create" },
+        { label: "Lecture Rooms", to: "/lecture-rooms" },
       ],
     },
     {
@@ -111,6 +113,8 @@ export const sidebarNavigationByRole = {
       children: [
         { label: "Student Registry", to: "/students" },
         { label: "Admissions", to: "/students/create" },
+        { label: "Course Change", to: "/students/course-change" },
+        { label: "Transfer History", to: "/students/transfers" },
       ],
     },
     {
@@ -119,14 +123,33 @@ export const sidebarNavigationByRole = {
       children: [
         { label: "Invoices", to: "/finance/invoices" },
         { label: "Financial Ledger", to: "/finance/ledger" },
-        { label: "Fee Plans", to: "/finance/fee-plans" },
-        { label: "Add Fee Plan", to: "/finance/fee-plans/create" },
+        { label: "Invoice Templates", to: "/finance/invoice-templates" },
+        { label: "Add Template", to: "/finance/invoice-templates/create" },
+      ],
+    },
+    {
+      label: "Hostels",
+      icon: Building2,
+      children: [
+        { label: "Manage Hostels", to: "/hostels" },
+        { label: "Add Hostel", to: "/hostels/create" },
+        { label: "Allocations", to: "/hostel-allocations" },
       ],
     },
     {
       label: "Operations",
       icon: Settings2,
-      children: [{ label: "Enrollments", to: "/operations/enrollments" }],
+      children: [
+        { label: "Enrollments", to: "/operations/enrollments" },
+        { label: "Status Logs", to: "/operations/status-logs" },
+      ],
+    },
+    {
+      label: "Complaints",
+      icon: ArrowRightLeft,
+      children: [
+        { label: "View Complaints", to: "/complaints" },
+      ],
     },
     {
       label: "Access",
@@ -171,7 +194,7 @@ export const sidebarNavigationByRole = {
     },
   ],
   student: [
-    { label: "Home", to: "/", icon: LayoutDashboard },
+    { label: "Dashboard", to: "/", icon: LayoutDashboard },
     {
       label: "Courses & Units",
       icon: BookOpen,
@@ -196,6 +219,19 @@ export const sidebarNavigationByRole = {
       label: "Finance",
       icon: Coins,
       children: [{ label: "Fee Statements", to: "/finance/statements" }],
+    },
+    {
+      label: "Complaints",
+      icon: ArrowRightLeft,
+      children: [
+        { label: "My Complaints", to: "/complaints" },
+        { label: "Submit Complaint", to: "/complaints/create" },
+      ],
+    },
+    {
+      label: "Hostel",
+      icon: Building2,
+      children: [{ label: "My Hostel", to: "/hostel" }],
     },
     {
       label: "Institution",

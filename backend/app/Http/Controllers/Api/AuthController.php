@@ -17,7 +17,13 @@ class AuthController extends Controller
 
         $user = User::where('login_id', $credentials['login_id'])->first();
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+        if (! $user) {
+            return response()->json([
+                'message' => 'Your account with this username is not registered.',
+            ], 422);
+        }
+
+        if (! Hash::check($credentials['password'], $user->password)) {
             return response()->json([
                 'message' => 'Invalid login credentials.',
             ], 422);

@@ -50,6 +50,11 @@ class Student extends Model
         return $this->hasMany(AcademicSessionEnrolment::class);
     }
 
+    public function courseEnrolments(): HasMany
+    {
+        return $this->hasMany(CourseEnrolment::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

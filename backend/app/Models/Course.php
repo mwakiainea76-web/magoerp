@@ -57,9 +57,9 @@ class Course extends Model
             ->withTimestamps();
     }
 
-    public function feePlans(): HasMany
+    public function invoiceTemplates(): HasMany
     {
-        return $this->hasMany(CourseFeePlan::class);
+        return $this->hasMany(CourseInvoiceTemplate::class, 'course_id');
     }
 
     public function createdBy(): BelongsTo

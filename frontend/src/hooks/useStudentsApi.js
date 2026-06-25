@@ -28,6 +28,10 @@ export function useStudentsApi() {
         const response = await authClient.delete(`/students/${id}`);
         return response.data;
       },
+      admissionLetter: async (id) => {
+        const response = await authClient.get(`/students/${id}/admission-letter`);
+        return response.data;
+      },
     }),
     [],
   );

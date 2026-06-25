@@ -16,6 +16,10 @@ export function useCourseEnrolmentsApi() {
         const response = await authClient.put(`/course-enrolments/${id}/status`, payload);
         return response.data;
       },
+      statusLogs: async (params = {}) => {
+        const response = await authClient.get("/student-status-logs", { params });
+        return response.data;
+      },
     }),
     [],
   );

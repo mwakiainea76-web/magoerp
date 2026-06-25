@@ -22,7 +22,7 @@ const quickLinks = [
   { label: "Fee Statements", to: "/finance/statements", icon: Coins, color: "bg-emerald-100 text-emerald-700" },
   { label: "Reports", to: "/reports", icon: LayoutDashboard, color: "bg-blue-100 text-blue-700" },
   { label: "School Info", to: "/school-info", icon: School, color: "bg-rose-100 text-rose-700" },
-  { label: "Session Enrolment", to: "/operations/enrollments", icon: LogIn, color: "bg-orange-100 text-orange-700" },
+  { label: "Session Enrolment", to: "/", icon: LogIn, color: "bg-orange-100 text-orange-700" },
 ];
 
 export function StudentLandingPage() {
@@ -37,7 +37,9 @@ export function StudentLandingPage() {
       .then((res) => {
         if (!cancelled) setData(res.data);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setData(null);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -49,24 +51,31 @@ export function StudentLandingPage() {
 
   const { student, course, enrolment, current_session, needs_session_enrolment } = data ?? {};
 
+  const links = quickLinks.map((link) => {
+    if (link.label === "Session Enrolment" && needs_session_enrolment) {
+      return { ...link, cardAccent: true, color: "bg-emerald-100 text-emerald-700" };
+    }
+    return link;
+  });
+
   return (
     <section className="space-y-6">
       {needs_session_enrolment && current_session && (
-        <Card className="rounded-3xl border-0 bg-[linear-gradient(135deg,_#dc2626_0%,_#ea580c_180%)] text-white shadow-lg">
+        <Card className="rounded-3xl border-0 bg-[linear-gradient(135deg,_#059669_0%,_#10b981_180%)] text-white shadow-lg">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
                 <LogIn className="size-6" />
               </div>
               <div>
-                <p className="text-lg font-semibold">Session enrolment required</p>
-                <p className="text-sm text-orange-100">
-                  You have not yet enrolled for <strong>{current_session.name}</strong>. Please enroll to access your units and course content.
+                <p className="text-lg font-semibold">Enrol in a Session</p>
+                <p className="text-sm text-emerald-100">
+                  You are not yet enrolled in <strong>{current_session.name}</strong>. Enrol now to access your units and course content.
                 </p>
               </div>
             </div>
-            <Button color="light" className="shrink-0" as={Link} to="/operations/enrollments">
-              Enroll Now
+            <Button color="light" className="shrink-0" as={Link} to="/">
+              Enrol Now
               <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
@@ -142,17 +151,25 @@ export function StudentLandingPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {quickLinks.map((link) => (
+        {links.map((link) => (
           <Link key={link.label} to={link.to}>
-            <Card className="group rounded-3xl border border-slate-200/80 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+            <Card className={`group rounded-3xl border shadow-sm transition hover:shadow-md ${
+              link.cardAccent
+                ? "border-emerald-300 bg-emerald-50 hover:border-emerald-400"
+                : "border-slate-200/80 hover:border-slate-300"
+            }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`rounded-2xl p-3 ${link.color}`}>
                     <link.icon className="size-5" />
                   </div>
-                  <p className="font-semibold text-slate-700">{link.label}</p>
+                  <p className={`font-semibold ${
+                    link.cardAccent ? "text-emerald-800" : "text-slate-700"
+                  }`}>{link.label}</p>
                 </div>
-                <ArrowRight className="size-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-600" />
+                <ArrowRight className={`size-4 transition group-hover:translate-x-0.5 ${
+                  link.cardAccent ? "text-emerald-500" : "text-slate-400 group-hover:text-slate-600"
+                }`} />
               </div>
             </Card>
           </Link>
