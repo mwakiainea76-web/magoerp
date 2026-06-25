@@ -17,6 +17,9 @@ class Unit extends Model
         'name',
         'description',
         'modules_taught',
+        'year_of_study',
+        'session_number',
+        'module',
         'taught_hours',
         'credit_factor',
         'is_active',
@@ -26,6 +29,9 @@ class Unit extends Model
 
     protected $casts = [
         'modules_taught' => 'integer',
+        'year_of_study' => 'integer',
+        'session_number' => 'integer',
+        'module' => 'integer',
         'taught_hours' => 'integer',
         'credit_factor' => 'decimal:2',
         'is_active' => 'boolean',

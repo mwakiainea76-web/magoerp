@@ -17,6 +17,9 @@ return new class extends Migration
             $table->string('name', 255);
             $table->text('description')->nullable();
             $table->unsignedTinyInteger('modules_taught')->nullable();
+            $table->unsignedTinyInteger('year_of_study')->nullable();
+            $table->unsignedTinyInteger('session_number')->nullable();
+            $table->unsignedTinyInteger('module')->nullable();
             $table->unsignedSmallInteger('taught_hours')->nullable();
             $table->decimal('credit_factor', 5, 2)->unsigned()->nullable();
             $table->boolean('is_active')->default(true);

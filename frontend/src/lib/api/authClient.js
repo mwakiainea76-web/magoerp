@@ -72,6 +72,12 @@ authClient.interceptors.request.use((config) => {
 authClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (error.response?.status === 401) {
+      useAuthStore.getState().clearAuth();
+      window.location.href = "/login";
+      return Promise.reject(error);
+    }
+
     const config = error.config;
 
     if (!config || !shouldRetry(error)) {

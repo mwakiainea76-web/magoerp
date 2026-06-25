@@ -66,8 +66,10 @@ class UnitsController extends Controller
 
     public function store(StoreUnitRequest $request): JsonResponse
     {
+        $data = $this->resolveModuleProgress($request->validated());
+
         $unit = Unit::create([
-            ...$request->validated(),
+            ...$data,
             'created_by' => $request->user()->id,
             'updated_by' => $request->user()->id,
         ]);
@@ -93,8 +95,10 @@ class UnitsController extends Controller
 
     public function update(UpdateUnitRequest $request, Unit $unit): JsonResponse
     {
+        $data = $this->resolveModuleProgress($request->validated());
+
         $unit->update([
-            ...$request->validated(),
+            ...$data,
             'updated_by' => $request->user()->id,
         ]);
 
@@ -115,6 +119,19 @@ class UnitsController extends Controller
         return response()->json([
             'message' => 'Unit deleted successfully.',
         ]);
+    }
+
+    private function resolveModuleProgress(array $data): array
+    {
+        if (!empty($data['module'])) {
+            $module = (int) $data['module'];
+            $data['year_of_study'] = (int) floor(($module - 1) / 3) + 1;
+            $data['session_number'] = (($module - 1) % 3) + 1;
+        } elseif (!empty($data['year_of_study']) && !empty($data['session_number'])) {
+            $data['module'] = (($data['year_of_study'] - 1) * 3) + $data['session_number'];
+        }
+
+        return $data;
     }
 
     private function transformUnit(Unit $unit): array
@@ -141,6 +158,9 @@ class UnitsController extends Controller
             'name' => $unit->name,
             'description' => $unit->description,
             'modules_taught' => $unit->modules_taught,
+            'year_of_study' => $unit->year_of_study,
+            'session_number' => $unit->session_number,
+            'module' => $unit->module,
             'taught_hours' => $unit->taught_hours,
             'credit_factor' => $unit->credit_factor,
             'is_active' => $unit->is_active,

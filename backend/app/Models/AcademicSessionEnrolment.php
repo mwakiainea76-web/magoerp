@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Student;
 
 class AcademicSessionEnrolment extends Model
 {
@@ -17,6 +18,9 @@ class AcademicSessionEnrolment extends Model
         'student_id',
         'academic_session_id',
         'course_enrolment_id',
+        'year_of_study',
+        'session_number',
+        'module',
         'status',
         'enrolled_at',
         'created_by',
@@ -24,6 +28,9 @@ class AcademicSessionEnrolment extends Model
     ];
 
     protected $casts = [
+        'year_of_study' => 'integer',
+        'session_number' => 'integer',
+        'module' => 'integer',
         'enrolled_at' => 'datetime',
     ];
 
@@ -54,5 +61,18 @@ class AcademicSessionEnrolment extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public static function currentProgress(Student $student): array
+    {
+        $total = static::where('student_id', $student->id)->count();
+        $last = static::where('student_id', $student->id)->latest()->first();
+        return [
+            'total_sessions' => $total,
+            'current_year' => $last?->year_of_study ?? 0,
+            'current_module' => $last?->session_number ?? 0,
+            'current_module_number' => $last?->module ?? 0,
+            'modules_per_year' => 3,
+        ];
     }
 }

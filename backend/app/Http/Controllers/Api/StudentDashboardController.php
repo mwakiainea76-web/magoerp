@@ -128,8 +128,13 @@ class StudentDashboardController extends Controller
                     'id' => $lastSessionEnrolment->id,
                     'session_name' => $lastSessionEnrolment->academicSession?->name,
                     'session_active' => $lastSessionEnrolment->academicSession?->is_active ?? false,
+                    'year_of_study' => $lastSessionEnrolment->year_of_study,
+                    'session_number' => $lastSessionEnrolment->session_number,
+                    'module' => $lastSessionEnrolment->module,
                     'enrolled_at' => $lastSessionEnrolment->enrolled_at,
                 ] : null,
+
+                'progress' => AcademicSessionEnrolment::currentProgress($student),
 
                 'invoice_template' => $courseInvoiceTemplate ? [
                     'id' => $courseInvoiceTemplate->id,

@@ -242,9 +242,17 @@ class AcademicTimetablesController extends Controller
             'course_curriculum_id' => 'required|string|exists:course_curricula,id',
         ]);
 
-        $units = Unit::query()
-            ->where('course_curriculum_id', $validated['course_curriculum_id'])
-            ->get(['id', 'code', 'name']);
+        $query = Unit::query()
+            ->where('course_curriculum_id', $validated['course_curriculum_id']);
+
+        if ($search = trim((string) $request->string('q', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        $units = $query->get(['id', 'code', 'name']);
 
         return response()->json(['data' => $units]);
     }

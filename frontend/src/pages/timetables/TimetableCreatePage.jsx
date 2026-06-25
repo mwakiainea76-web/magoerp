@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import { bodyTextClassName, inputClassName } from "@/lib/styles";
@@ -36,6 +36,9 @@ export function TimetableCreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  const courseCurriculumIdRef = useRef(courseCurriculumId);
+  useEffect(() => { courseCurriculumIdRef.current = courseCurriculumId; }, [courseCurriculumId]);
+
   const fetchCurricula = useCallback(async (query) => {
     const res = await courseCurriculaApi.list({ q: query, per_page: 200 });
     return (res.data ?? []).map((cc) => ({
@@ -45,13 +48,14 @@ export function TimetableCreatePage() {
   }, []);
 
   const fetchUnits = useCallback(async (query) => {
-    if (!courseCurriculumId) return [];
-    const res = await timetableApi.availableUnits({ course_curriculum_id: courseCurriculumId, q: query });
+    const id = courseCurriculumIdRef.current;
+    if (!id) return [];
+    const res = await timetableApi.availableUnits({ course_curriculum_id: id, q: query });
     return (res.data ?? []).map((u) => ({
       id: u.id,
       label: `${u.code} — ${u.name}`,
     }));
-  }, [courseCurriculumId]);
+  }, []);
 
   const fetchTrainers = useCallback(async (query) => {
     const res = await timetableApi.staffList();

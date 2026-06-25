@@ -98,7 +98,7 @@ export function StudentDashboard() {
     );
   }
 
-  const { student, course, enrolment, invoice_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance } = data ?? {};
+  const { student, course, enrolment, invoice_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance, progress } = data ?? {};
 
   const statsCards = [
     {
@@ -303,10 +303,26 @@ export function StudentDashboard() {
                 </p>
               </div>
               <div className="rounded-2xl bg-zinc-50 px-4 py-3">
-                <p className="text-zinc-500">Year of Study</p>
+                <p className="text-zinc-500">Progress</p>
                 <p className="mt-1 font-semibold text-zinc-900">
-                  {course?.duration ? `Year 1` : "-"}
+                  {progress?.total_sessions > 0
+                    ? `Year ${progress.current_year} — Module ${progress.current_module}`
+                    : "Not started"}
                 </p>
+                {progress?.total_sessions > 0 ? (
+                  <div className="mt-2">
+                    <div className="flex h-1.5 overflow-hidden rounded-full bg-zinc-200">
+                      <div
+                        className="rounded-full bg-emerald-500 transition-all"
+                        style={{ width: `${(progress.current_module / progress.modules_per_year) * 100}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-400">
+                      Module {progress.current_module} of {progress.modules_per_year}
+                      {progress.total_sessions > 0 ? ` · ${progress.total_sessions} total` : ""}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -338,6 +354,15 @@ export function StudentDashboard() {
               <div className="rounded-2xl bg-zinc-50 px-4 py-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Active Session</p>
                 <p className="mt-1 text-sm font-semibold text-zinc-900">{current_session?.name ?? "No active session available"}</p>
+              </div>
+
+              <div className="rounded-2xl bg-emerald-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">You will be enrolled as</p>
+                <p className="mt-1 text-sm font-semibold text-emerald-900">
+                  {progress
+                    ? `Module ${progress.total_sessions + 1} — Year ${Math.floor((progress.total_sessions) / 3) + 1} Session ${(progress.total_sessions % 3) + 1}`
+                    : "Module 1 — Year 1 Session 1"}
+                </p>
               </div>
 
               {registerErrors?.session_registration ? (

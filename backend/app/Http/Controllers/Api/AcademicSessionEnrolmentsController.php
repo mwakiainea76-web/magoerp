@@ -145,10 +145,18 @@ class AcademicSessionEnrolmentsController extends Controller
             ->latest()
             ->first();
 
+        $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
+        $module = $priorCount + 1;
+        $yearOfStudy = (int) floor(($module - 1) / 3) + 1;
+        $sessionNumber = (($module - 1) % 3) + 1;
+
         $enrolment = AcademicSessionEnrolment::create([
             'student_id' => $student->id,
             'academic_session_id' => $validated['academic_session_id'],
             'course_enrolment_id' => $courseEnrolment?->id,
+            'year_of_study' => $yearOfStudy,
+            'session_number' => $sessionNumber,
+            'module' => $module,
             'status' => 'enrolled',
             'enrolled_at' => now(),
             'created_by' => $user->id,
@@ -203,10 +211,18 @@ class AcademicSessionEnrolmentsController extends Controller
             ->latest()
             ->first();
 
+        $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
+        $module = $priorCount + 1;
+        $yearOfStudy = (int) floor(($module - 1) / 3) + 1;
+        $sessionNumber = (($module - 1) % 3) + 1;
+
         $enrolment = AcademicSessionEnrolment::create([
             'student_id' => $student->id,
             'academic_session_id' => $activeSession->id,
             'course_enrolment_id' => $courseEnrolment?->id,
+            'year_of_study' => $yearOfStudy,
+            'session_number' => $sessionNumber,
+            'module' => $module,
             'status' => 'enrolled',
             'enrolled_at' => now(),
             'created_by' => $user->id,
@@ -254,6 +270,9 @@ class AcademicSessionEnrolmentsController extends Controller
             'academic_session_id' => $enrolment->academic_session_id,
             'academic_session_name' => $enrolment->academicSession?->name,
             'academic_session_code' => $enrolment->academicSession?->code,
+            'year_of_study' => $enrolment->year_of_study,
+            'session_number' => $enrolment->session_number,
+            'module' => $enrolment->module,
             'status' => $enrolment->status,
             'enrolled_at' => $enrolment->enrolled_at,
             'created_at' => $enrolment->created_at,

@@ -149,27 +149,31 @@ export function SessionEnrolmentsPage() {
                   <h2 className="text-[1.0625rem] font-semibold text-slate-900">My Enrolments</h2>
                 </TableHeader>
                 <TableWrapper>
-                  <Thead>
-                    <tr>
-                      <Th>Session</Th>
-                      <Th>Code</Th>
-                      <Th>Status</Th>
-                      <Th>Enrolled At</Th>
-                    </tr>
-                  </Thead>
-                  <Tbody>
-                    {myEnrolments.map((e) => (
-                      <tr key={e.id}>
-                        <Td>{e.academic_session_name}</Td>
-                        <Td>{e.academic_session_code}</Td>
-                        <Td>
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[e.status] ?? "bg-slate-100 text-slate-600"}`}>
-                            {e.status.charAt(0).toUpperCase() + e.status.slice(1)}
-                          </span>
-                        </Td>
-                        <Td>{e.enrolled_at ? new Date(e.enrolled_at).toLocaleDateString() : "—"}</Td>
+                    <Thead>
+                      <tr>
+                        <Th>Session</Th>
+                        <Th>Code</Th>
+                        <Th>Year</Th>
+                        <Th>Module</Th>
+                        <Th>Status</Th>
+                        <Th>Enrolled At</Th>
                       </tr>
-                    ))}
+                    </Thead>
+                    <Tbody>
+                      {myEnrolments.map((e) => (
+                        <tr key={e.id}>
+                          <Td>{e.academic_session_name}</Td>
+                          <Td>{e.academic_session_code}</Td>
+                          <Td>{e.year_of_study ?? "—"}</Td>
+                          <Td>{e.module ?? "—"}</Td>
+                          <Td>
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[e.status] ?? "bg-slate-100 text-slate-600"}`}>
+                              {e.status.charAt(0).toUpperCase() + e.status.slice(1)}
+                            </span>
+                          </Td>
+                          <Td>{e.enrolled_at ? new Date(e.enrolled_at).toLocaleDateString() : "—"}</Td>
+                        </tr>
+                      ))}
                   </Tbody>
                 </TableWrapper>
               </Table>
@@ -289,6 +293,8 @@ export function SessionEnrolmentsPage() {
                 <Th>Student</Th>
                 <Th>Admission #</Th>
                 <Th>Session</Th>
+                <Th>Year</Th>
+                <Th>Module</Th>
                 <Th>Status</Th>
                 <Th>Enrolled At</Th>
               </tr>
@@ -302,6 +308,8 @@ export function SessionEnrolmentsPage() {
                   <Td>{enrolment.student_name}</Td>
                   <Td>{enrolment.admission_number}</Td>
                   <Td>{enrolment.academic_session_name ?? "—"}</Td>
+                  <Td>{enrolment.year_of_study ?? "—"}</Td>
+                  <Td>{enrolment.module ?? "—"}</Td>
                   <Td>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[enrolment.status] ?? "bg-slate-100 text-slate-600"}`}>
                       {enrolment.status.charAt(0).toUpperCase() + enrolment.status.slice(1)}
