@@ -289,12 +289,6 @@ export function StudentDashboard() {
               )}
             </div>
 
-            <div className="mt-3 rounded-2xl bg-zinc-50 px-4 py-3 text-xs text-zinc-500">
-              {fee_plan?.items?.length
-                ? `${fee_plan.items.length} fee item(s) in your current fee plan.`
-                : "Your fee plan details will appear once assigned."}
-            </div>
-
             <div className="mt-3 space-y-3">
               <div className="rounded-2xl bg-zinc-50 px-4 py-3">
                 <p className="text-sm text-zinc-500">Curriculum</p>

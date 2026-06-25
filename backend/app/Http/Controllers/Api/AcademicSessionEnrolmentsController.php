@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\CourseCurriculum;
-use App\Models\CourseEnrolment;
 use App\Models\Invoice;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
@@ -278,15 +277,8 @@ class AcademicSessionEnrolmentsController extends Controller
         if (!$sessionEnrolment->academicSession?->is_active) {
             return response()->json(['message' => 'You can only register units for an active academic session.'], 422);
         }
-
-        $courseEnrolment = CourseEnrolment::query()
-            ->where('student_id', $student->id)
-            ->latest()
-            ->first();
-
         $courseCurriculumIds = CourseCurriculum::query()
-            ->where('course_id', $courseEnrolment?->course_id ?? $student->course_id)
-            ->when($courseEnrolment?->curriculum_id, fn ($query, $curriculumId) => $query->where('curriculum_id', $curriculumId))
+            ->where('course_id', $student->course_id)
             ->where('is_active', true)
             ->pluck('id');
 

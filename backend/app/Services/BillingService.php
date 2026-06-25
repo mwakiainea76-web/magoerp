@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
-use App\Models\CourseEnrolment;
 use App\Models\CourseInvoiceTemplate;
 use App\Models\InvoiceAdjustment;
 use App\Models\Hostel;
@@ -23,14 +22,9 @@ class BillingService
     public function createInvoiceForStudent(Student $student, ?string $createdBy = null, ?AcademicSession $session = null): Invoice
     {
         return DB::transaction(function () use ($student, $createdBy, $session) {
-            $courseEnrolment = CourseEnrolment::query()
-                ->where('student_id', $student->id)
-                ->latest()
-                ->first();
-
-            if (!$courseEnrolment) {
+            if (!$student->course_id) {
                 throw ValidationException::withMessages([
-                    'enrolment' => 'Student has no course enrolment.',
+                    'course' => 'Student has no course assigned.',
                 ]);
             }
 
@@ -46,7 +40,7 @@ class BillingService
             }
 
             $courseInvoiceTemplate = CourseInvoiceTemplate::query()
-                ->where('course_id', $courseEnrolment->course_id)
+                ->where('course_id', $student->course_id)
                 ->where('is_approved', true)
                 ->when($this->studentSessionEnrolment($student, $targetSession), function ($query, AcademicSessionEnrolment $enrolment) {
                     $query->where('year_level', $enrolment->year_of_study)
@@ -115,7 +109,7 @@ class BillingService
                         'item_name' => $item->name,
                         'item_amount' => $item->amount,
                         'item_description' => $item->description,
-                        'course_id' => $courseEnrolment->course_id,
+                        'course_id' => $student->course_id,
                         'academic_session_id' => $targetSession->id,
                         'snapshot_taken_at' => now()->toDateTimeString(),
                     ],
