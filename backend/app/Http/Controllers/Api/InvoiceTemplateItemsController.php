@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreInvoiceTemplateItemRequest;
 use App\Http\Requests\UpdateInvoiceTemplateItemRequest;
+use App\Models\InvoiceItem;
 use App\Models\InvoiceTemplateItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -91,8 +92,23 @@ class InvoiceTemplateItemsController extends Controller
 
     public function update(UpdateInvoiceTemplateItemRequest $request, InvoiceTemplateItem $invoice_template_item): JsonResponse
     {
+        $validated = $request->validated();
+        $newAmount = (float) $validated['amount'];
+        $currentAmount = (float) $invoice_template_item->amount;
+        $isAmountChanged = abs($newAmount - $currentAmount) > 0.00001;
+        $isUsedInInvoice = InvoiceItem::where('invoice_template_item_id', $invoice_template_item->id)->exists();
+
+        if ($isUsedInInvoice && $isAmountChanged) {
+            return response()->json([
+                'message' => 'This fee component has already been assigned to an invoice. Its amount cannot be changed.',
+                'errors' => [
+                    'amount' => ['This fee component has already been assigned to an invoice. Its amount cannot be changed.'],
+                ],
+            ], 422);
+        }
+
         $invoice_template_item->update([
-            ...$request->validated(),
+            ...$validated,
             'updated_by' => $request->user()->id,
         ]);
 
@@ -107,6 +123,14 @@ class InvoiceTemplateItemsController extends Controller
     public function destroy(Request $request, InvoiceTemplateItem $invoice_template_item): JsonResponse
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
+
+        $isUsedInInvoice = InvoiceItem::where('invoice_template_item_id', $invoice_template_item->id)->exists();
+
+        if ($isUsedInInvoice) {
+            return response()->json([
+                'message' => 'This fee component has already been assigned to an invoice. It cannot be deleted.',
+            ], 422);
+        }
 
         $invoice_template_item->delete();
 
@@ -126,6 +150,7 @@ class InvoiceTemplateItemsController extends Controller
             'amount' => (float) $item->amount,
             'description' => $item->description,
             'is_active' => $item->is_active,
+            'is_amount_locked' => InvoiceItem::where('invoice_template_item_id', $item->id)->exists(),
             'created_at' => $item->created_at,
             'updated_at' => $item->updated_at,
         ];

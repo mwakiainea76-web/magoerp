@@ -56,6 +56,7 @@ export function InvoiceTemplateItemsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isFormLoading, setIsFormLoading] = useState(false);
   const [editingItemId, setEditingItemId] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
 
   const {
     register,
@@ -161,6 +162,7 @@ export function InvoiceTemplateItemsPage() {
 
   function openCreateModal() {
     setEditingItemId(null);
+    setEditingItem(null);
     setFormError("");
     reset(defaultInvoiceTemplateItemValues);
     setIsFormLoading(false);
@@ -176,6 +178,7 @@ export function InvoiceTemplateItemsPage() {
     try {
       const response = await itemsApi.show(itemId);
       const item = response.data;
+      setEditingItem(item ?? null);
 
       reset({
         name: item?.name ?? "",
@@ -195,6 +198,7 @@ export function InvoiceTemplateItemsPage() {
 
     setIsFormModalOpen(false);
     setEditingItemId(null);
+    setEditingItem(null);
     setFormError("");
     setIsFormLoading(false);
     reset(defaultInvoiceTemplateItemValues);
@@ -222,6 +226,7 @@ export function InvoiceTemplateItemsPage() {
 
       setIsFormModalOpen(false);
       setEditingItemId(null);
+      setEditingItem(null);
       setIsFormLoading(false);
       reset(defaultInvoiceTemplateItemValues);
       setPage(1);
@@ -336,7 +341,16 @@ export function InvoiceTemplateItemsPage() {
                         {(meta.current_page - 1) * meta.per_page + index + 1}
                       </Td>
                       <Td>{item.name}</Td>
-                      <Td>{formatCurrency(item.amount)}</Td>
+                      <Td>
+                        <div className="flex flex-col gap-1">
+                          <span>{formatCurrency(item.amount)}</span>
+                          {item.is_amount_locked ? (
+                            <span className="w-fit rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                              Amount locked
+                            </span>
+                          ) : null}
+                        </div>
+                      </Td>
                       <Td>
                         <div className="flex justify-end gap-2">
                           <button
@@ -349,7 +363,12 @@ export function InvoiceTemplateItemsPage() {
                           <button
                             type="button"
                             onClick={() => handleDelete(item)}
-                            disabled={deletingId === item.id}
+                            disabled={deletingId === item.id || item.is_amount_locked}
+                            title={
+                              item.is_amount_locked
+                                ? "This component has already been assigned to an invoice."
+                                : "Delete component"
+                            }
                             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -412,6 +431,7 @@ export function InvoiceTemplateItemsPage() {
             loading={isFormLoading}
             formError={formError}
             templateField={templateField}
+            amountLocked={Boolean(editingItem?.is_amount_locked)}
           />
         </ModalBody>
         <ModalFooter>

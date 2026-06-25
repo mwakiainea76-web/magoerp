@@ -50,6 +50,7 @@ export function InvoiceTemplateItemForm({
   formError = "",
   templateField = null,
   footer = null,
+  amountLocked = false,
 }) {
   if (loading) {
     return (
@@ -90,8 +91,14 @@ export function InvoiceTemplateItemForm({
           placeholder="e.g. 2000"
           required
           error={errors.amount?.message}
+          disabled={amountLocked}
           {...register("amount")}
         />
+        {amountLocked ? (
+          <p className="md:col-start-2 -mt-3 text-[12px] leading-5 text-amber-700">
+            Amount is locked because this component has already been assigned to an invoice.
+          </p>
+        ) : null}
 
         <div className="md:col-span-2">
           <label htmlFor="description" className={labelClassName}>
