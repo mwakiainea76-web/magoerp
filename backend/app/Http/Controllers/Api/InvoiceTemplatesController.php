@@ -136,7 +136,6 @@ class InvoiceTemplatesController extends Controller
             'is_active' => $template->is_active,
             'is_issued' => $template->is_issued,
             'is_assigned' => $isAssigned,
-            'billing_period' => $template->billing_period,
             'is_locked' => $isLocked,
             'lock_reason' => $isLocked ? ($template->is_issued ? 'Issued' : 'Assigned to course') : null,
             'items_count' => (int) ($template->items_count ?? $template->items()->count()),

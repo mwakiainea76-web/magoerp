@@ -2,7 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\AcademicSession;
 use App\Models\Course;
+use App\Models\CourseCurriculum;
+use App\Models\CourseEnrolment;
 use App\Models\departments;
 use App\Models\Student;
 use App\Models\staffs;
@@ -81,14 +84,32 @@ class UserSeeder extends Seeder
             );
             $user->syncRoles(['student']);
 
-            Student::updateOrCreate(
+            $courseCurriculum = $dipCourse
+                ? CourseCurriculum::where('course_id', $dipCourse->id)->where('is_active', true)->first()
+                : null;
+
+            $student = Student::updateOrCreate(
                 ['admission_number' => $s['adm']],
                 [
                     'user_id' => $user->id,
                     'first_name' => $s['first'],
                     'last_name' => $s['last'],
                     'course_id' => $dipCourse?->id,
+                    'course_curriculum_id' => $courseCurriculum?->id,
                     'status' => true,
+                ]
+            );
+
+            $session = AcademicSession::where('is_active', true)->latest('start_date')->first();
+
+            CourseEnrolment::updateOrCreate(
+                ['student_id' => $student->id, 'course_id' => $dipCourse?->id],
+                [
+                    'course_curriculum_id' => $courseCurriculum?->id,
+                    'curriculum_id' => $courseCurriculum?->curriculum_id,
+                    'academic_session_id' => $session?->id,
+                    'enrolment_date' => now()->toDateString(),
+                    'status' => 'enrolled',
                 ]
             );
         }

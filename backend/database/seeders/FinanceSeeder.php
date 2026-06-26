@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AcademicSession;
 use App\Models\Course;
+use App\Models\CourseCurriculum;
 use App\Models\CourseInvoiceTemplate;
 use App\Models\Invoice;
 use App\Models\InvoiceComponent;
@@ -48,11 +49,14 @@ class FinanceSeeder extends Seeder
 
         $courses = Course::whereIn('code', ['DICT', 'DBM'])->get();
         foreach ($courses as $course) {
+            $courseCurriculum = CourseCurriculum::where('course_id', $course->id)->where('is_active', true)->first();
+            if (!$courseCurriculum) continue;
+
             for ($year = 1; $year <= $course->duration; $year++) {
                 for ($sessionNum = 1; $sessionNum <= 2; $sessionNum++) {
                     CourseInvoiceTemplate::updateOrCreate(
                         [
-                            'course_id' => $course->id,
+                            'course_curriculum_id' => $courseCurriculum->id,
                             'year_level' => $year,
                             'session_number' => $sessionNum,
                         ],

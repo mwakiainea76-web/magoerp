@@ -62,18 +62,23 @@ class StudentDashboardController extends Controller
         $totalFee = 0;
 
         if ($course && $currentSession && $currentSessionEnrolment) {
-            $courseInvoiceTemplate = CourseInvoiceTemplate::query()
-                ->where('course_id', $course->id)
-                ->where('is_approved', true)
-                ->where('year_level', $currentSessionEnrolment->year_of_study)
-                ->where('session_number', $currentSessionEnrolment->session_number)
-                ->where(function ($query) use ($currentSession) {
-                    $query->where('academic_session_id', $currentSession->id)
-                        ->orWhereNull('academic_session_id');
-                })
-                ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
-                ->orderByRaw('academic_session_id = ? desc', [$currentSession->id])
-                ->first();
+            $courseCurriculumId = $student->course_curriculum_id
+                ?? $courseEnrolment?->course_curriculum_id;
+
+            $courseInvoiceTemplate = $courseCurriculumId
+                ? CourseInvoiceTemplate::query()
+                    ->where('course_curriculum_id', $courseCurriculumId)
+                    ->where('is_approved', true)
+                    ->where('year_level', $currentSessionEnrolment->year_of_study)
+                    ->where('session_number', $currentSessionEnrolment->session_number)
+                    ->where(function ($query) use ($currentSession) {
+                        $query->where('academic_session_id', $currentSession->id)
+                            ->orWhereNull('academic_session_id');
+                    })
+                    ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                    ->orderByRaw('academic_session_id = ? desc', [$currentSession->id])
+                    ->first()
+                : null;
 
             if ($courseInvoiceTemplate?->invoiceTemplate) {
                 $invoiceTemplateItems = $courseInvoiceTemplate->invoiceTemplate->items->map(fn ($item) => [

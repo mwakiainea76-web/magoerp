@@ -173,9 +173,12 @@ class CourseEnrolmentsController extends Controller
             ->latest('start_date')
             ->first();
 
+        $courseCurriculumId = $activePivot?->id;
+
         return CourseEnrolment::create([
             'student_id' => $student->id,
             'course_id' => $student->course_id,
+            'course_curriculum_id' => $courseCurriculumId,
             'curriculum_id' => $curriculumId,
             'academic_session_id' => $session?->id,
             'enrolment_date' => $student->enrollment_date?->toDateString() ?? now()->format('Y-m-d'),
@@ -193,6 +196,7 @@ class CourseEnrolmentsController extends Controller
             'student_name' => $enrolment->student?->full_name ?? trim(collect([$enrolment->student?->first_name, $enrolment->student?->middle_name, $enrolment->student?->last_name])->filter()->implode(' ')),
             'admission_number' => $enrolment->student?->admission_number,
             'course_id' => $enrolment->course_id,
+            'course_curriculum_id' => $enrolment->course_curriculum_id,
             'course_code' => $enrolment->course?->code,
             'course_name' => $enrolment->course?->name,
             'curriculum_id' => $enrolment->curriculum_id,

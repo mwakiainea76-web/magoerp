@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('course_id')->constrained('courses')->cascadeOnDelete();
             $table->foreignUuid('curriculum_id')->nullable()->constrained('curricula')->nullOnDelete();
+            $table->foreignUuid('course_curriculum_id')->after('curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->date('enrolment_date');
             $table->string('status', 50)->default('enrolled');

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
-use App\Models\CourseCurriculum;
+use App\Models\CourseEnrolment;
 use App\Models\Invoice;
 use App\Models\SystemConfiguration;
 use App\Models\StudentUnitRegistration;
@@ -286,13 +286,19 @@ class AcademicSessionEnrolmentsController extends Controller
         if (!$sessionEnrolment->academicSession?->is_active) {
             return response()->json([ 'status_code' => 422, 'message' => 'You can only register units for an active academic session.'], 422);
         }
-        $courseCurriculumIds = CourseCurriculum::query()
-            ->where('course_id', $student->course_id)
-            ->where('is_active', true)
-            ->pluck('id');
+        $courseCurriculumId = $student->course_curriculum_id
+            ?? CourseEnrolment::query()
+                ->where('student_id', $student->id)
+                ->where('status', 'enrolled')
+                ->latest()
+                ->value('course_curriculum_id');
+
+        if (!$courseCurriculumId) {
+            return response()->json(['status_code' => 422, 'message' => 'No course curriculum assigned to this student.'], 422);
+        }
 
         $allowedUnitIds = Unit::query()
-            ->whereIn('course_curriculum_id', $courseCurriculumIds)
+            ->where('course_curriculum_id', $courseCurriculumId)
             ->where('is_active', true)
             ->where(function ($query) use ($sessionEnrolment) {
                 $query->where('modules_taught', $sessionEnrolment->module)

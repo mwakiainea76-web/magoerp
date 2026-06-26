@@ -176,6 +176,7 @@ class CourseChangeController extends Controller
             $newEnrolment = CourseEnrolment::create([
                 'student_id' => $student->id,
                 'course_id' => $toMapping->course_id,
+                'course_curriculum_id' => $toMapping->id,
                 'curriculum_id' => $toMapping->curriculum_id,
                 'academic_session_id' => $oldEnrolment->academic_session_id,
                 'enrolment_date' => now()->format('Y-m-d'),
@@ -189,6 +190,7 @@ class CourseChangeController extends Controller
                 'user_id' => $newUser->id,
                 'admission_number' => $newAdmissionNumber,
                 'course_id' => $toMapping->course_id,
+                'course_curriculum_id' => $toMapping->id,
                 'updated_by' => $processedBy->id,
             ]);
 

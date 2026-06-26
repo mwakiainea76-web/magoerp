@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('course_invoice_templates', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('course_id')->constrained('courses')->cascadeOnDelete();
+            $table->foreignUuid('course_curriculum_id')->nullable()->constrained('course_curricula')->cascadeOnDelete();
             $table->foreignUuid('invoice_template_id')->constrained('invoice_templates')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->integer('year_level');

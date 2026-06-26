@@ -20,5 +20,14 @@ class SystemConfigurationSeeder extends Seeder
                 'type' => 'integer',
             ]
         );
+
+        SystemConfiguration::updateOrCreate(
+            ['key' => 'billing_period'],
+            [
+                'value' => 'session',
+                'label' => 'Billing Period (session or annual)',
+                'type' => 'string',
+            ]
+        );
     }
 }

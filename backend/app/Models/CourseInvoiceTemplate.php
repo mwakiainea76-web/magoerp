@@ -15,12 +15,11 @@ class CourseInvoiceTemplate extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'course_id',
+        'course_curriculum_id',
         'invoice_template_id',
         'academic_session_id',
         'year_level',
         'session_number',
-        'billing_period',
         'is_approved',
         'approved_by',
         'approved_at',
@@ -36,9 +35,9 @@ class CourseInvoiceTemplate extends Model
         ];
     }
 
-    public function course(): BelongsTo
+    public function courseCurriculum(): BelongsTo
     {
-        return $this->belongsTo(Course::class);
+        return $this->belongsTo(CourseCurriculum::class);
     }
 
     public function invoiceTemplate(): BelongsTo

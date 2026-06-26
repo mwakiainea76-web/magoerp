@@ -19,13 +19,9 @@ class InvoiceTemplateAssignmentsController extends Controller
             ->where('invoice_template_id', $invoice_template->id)
             ->with([
                 'academicSession:id,name,code',
-                'course' => function ($query) {
-                    $query->with('level:id,name')
-                        ->with(['curricula' => function ($q) {
-                            $q->wherePivot('is_active', true)->select('curricula.id', 'curricula.code', 'curricula.name');
-                        }])
-                        ->select('id', 'code', 'name', 'certification_level_id');
-                },
+                'courseCurriculum.course.level:id,name',
+                'courseCurriculum.course:id,code,name,certification_level_id',
+                'courseCurriculum.curriculum:id,code,name',
             ])
             ->orderBy('year_level')
             ->orderBy('session_number')
@@ -58,23 +54,21 @@ class InvoiceTemplateAssignmentsController extends Controller
         }
 
         $validated = $request->validate([
-            'course_id' => ['required', 'uuid', Rule::exists('courses', 'id')],
+            'course_curriculum_id' => ['nullable', 'uuid', Rule::exists('course_curricula', 'id')],
             'academic_session_id' => ['nullable', 'uuid', Rule::exists('academic_sessions', 'id')],
             'year_level' => ['required', 'integer', 'min:1', 'max:10'],
             'session_number' => ['required', 'integer', 'min:1', 'max:10'],
-            'billing_period' => ['required', Rule::in(['session', 'annual'])],
             'is_approved' => ['boolean'],
         ]);
 
         $existsQuery = CourseInvoiceTemplate::query()
-            ->where('course_id', $validated['course_id'])
-            ->where('year_level', $validated['year_level']);
+            ->where('year_level', $validated['year_level'])
+            ->where('session_number', $validated['session_number']);
 
-        if ($validated['billing_period'] === 'session') {
-            $existsQuery->where('billing_period', 'session')
-                ->where('session_number', $validated['session_number']);
+        if ($validated['course_curriculum_id'] ?? null) {
+            $existsQuery->where('course_curriculum_id', $validated['course_curriculum_id']);
         } else {
-            $existsQuery->where('billing_period', 'annual');
+            $existsQuery->whereNull('course_curriculum_id');
         }
 
         $exists = $existsQuery->when(
@@ -87,17 +81,16 @@ class InvoiceTemplateAssignmentsController extends Controller
         if ($exists) {
             return response()->json([
                 'status_code' => 409,
-                'message' => 'This course already has an invoice template for the selected year, session, and academic session.',
+                'message' => 'This assignment already exists for the selected year and session.',
             ], 409);
         }
 
         $cit = CourseInvoiceTemplate::create([
-            'course_id' => $validated['course_id'],
+            'course_curriculum_id' => $validated['course_curriculum_id'] ?? null,
             'invoice_template_id' => $invoice_template->id,
             'academic_session_id' => $validated['academic_session_id'] ?? null,
             'year_level' => $validated['year_level'],
             'session_number' => $validated['session_number'],
-            'billing_period' => $validated['billing_period'],
             'is_approved' => $request->boolean('is_approved', false),
             'approved_by' => $request->boolean('is_approved') ? $request->user()->id : null,
             'approved_at' => $request->boolean('is_approved') ? now() : null,
@@ -107,18 +100,14 @@ class InvoiceTemplateAssignmentsController extends Controller
 
         $cit->load([
             'academicSession:id,name,code',
-            'course' => function ($query) {
-                $query->with('level:id,name')
-                    ->with(['curricula' => function ($q) {
-                        $q->wherePivot('is_active', true)->select('curricula.id', 'curricula.code', 'curricula.name');
-                    }])
-                    ->select('id', 'code', 'name', 'certification_level_id');
-            },
+            'courseCurriculum.course.level:id,name',
+            'courseCurriculum.course:id,code,name,certification_level_id',
+            'courseCurriculum.curriculum:id,code,name',
         ]);
 
         return response()->json([
             'status_code' => 201,
-            'message' => 'Course linked to invoice template successfully.',
+            'message' => 'Course curriculum linked to invoice template successfully.',
             'data' => $this->transform($cit),
         ], 201);
     }
@@ -148,13 +137,9 @@ class InvoiceTemplateAssignmentsController extends Controller
 
         $course_invoice_template->load([
             'academicSession:id,name,code',
-            'course' => function ($query) {
-                $query->with('level:id,name')
-                    ->with(['curricula' => function ($q) {
-                        $q->wherePivot('is_active', true)->select('curricula.id', 'curricula.code', 'curricula.name');
-                    }])
-                    ->select('id', 'code', 'name', 'certification_level_id');
-            },
+            'courseCurriculum.course.level:id,name',
+            'courseCurriculum.course:id,code,name,certification_level_id',
+            'courseCurriculum.curriculum:id,code,name',
         ]);
 
         return response()->json([
@@ -177,21 +162,22 @@ class InvoiceTemplateAssignmentsController extends Controller
 
     private function transform(CourseInvoiceTemplate $cit): array
     {
-        $activeCurriculum = $cit->course?->curricula?->first();
+        $cc = $cit->courseCurriculum;
 
         return [
             'id' => $cit->id,
-            'course_id' => $cit->course_id,
-            'course_code' => $cit->course?->code,
-            'course_name' => $cit->course?->name,
-            'course_curriculum_name' => $activeCurriculum ? trim($activeCurriculum->code . ' ' . $activeCurriculum->name) : null,
-            'course_level_name' => $cit->course?->level?->name,
+            'course_curriculum_id' => $cit->course_curriculum_id,
+            'course_code' => $cc?->course?->code,
+            'course_name' => $cc?->course?->name,
+            'course_curriculum_name' => $cc && $cc->curriculum
+                ? trim($cc->curriculum->code . ' ' . $cc->curriculum->name)
+                : null,
+            'course_level_name' => $cc?->course?->level?->name,
             'academic_session_id' => $cit->academic_session_id,
             'academic_session_name' => $cit->academicSession?->name,
             'academic_session_code' => $cit->academicSession?->code,
             'year_level' => $cit->year_level,
             'session_number' => $cit->session_number,
-            'billing_period' => $cit->billing_period,
             'is_approved' => $cit->is_approved,
             'approved_at' => $cit->approved_at,
         ];

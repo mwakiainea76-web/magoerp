@@ -14,6 +14,7 @@ use App\Models\LedgerTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\Student;
+use App\Models\SystemConfiguration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,10 +22,18 @@ class BillingService
 {
     public function createInvoiceForStudent(Student $student, ?string $createdBy = null, ?AcademicSession $session = null): Invoice
     {
-        return DB::transaction(function () use ($student, $createdBy, $session) {
-            if (!$student->course_id) {
+        $billingPeriod = SystemConfiguration::getValue('billing_period', 'session');
+
+        return DB::transaction(function () use ($student, $createdBy, $session, $billingPeriod) {
+            $courseCurriculumId = $student->course_curriculum_id
+                ?? $student->courseEnrolments()
+                    ->where('status', 'enrolled')
+                    ->latest()
+                    ->value('course_curriculum_id');
+
+            if (!$courseCurriculumId) {
                 throw ValidationException::withMessages([
-                    'course' => 'Student has no course assigned.',
+                    'course' => 'Student has no course curriculum assigned.',
                 ]);
             }
 
@@ -42,16 +51,14 @@ class BillingService
             $enrolment = $this->studentSessionEnrolment($student, $targetSession);
 
             $courseInvoiceTemplate = CourseInvoiceTemplate::query()
-                ->where('course_id', $student->course_id)
+                ->where('course_curriculum_id', $courseCurriculumId)
                 ->where('is_approved', true)
-                ->when($enrolment, function ($query, AcademicSessionEnrolment $enrolment) {
-                    $query->where('year_level', $enrolment->year_of_study)
-                        ->where(function ($q) use ($enrolment) {
-                            $q->where(function ($q2) use ($enrolment) {
-                                $q2->where('billing_period', 'session')
-                                    ->where('session_number', $enrolment->session_number);
-                            })->orWhere('billing_period', 'annual');
-                        });
+                ->when($enrolment, function ($query, AcademicSessionEnrolment $enrolment) use ($billingPeriod) {
+                    $query->where('year_level', $enrolment->year_of_study);
+
+                    if ($billingPeriod === 'session') {
+                        $query->where('session_number', $enrolment->session_number);
+                    }
                 })
                 ->where(function ($query) use ($targetSession) {
                     $query->where('academic_session_id', $targetSession->id)
@@ -73,7 +80,7 @@ class BillingService
                 ]);
             }
 
-            if ($courseInvoiceTemplate->billing_period === 'annual') {
+            if ($billingPeriod === 'annual') {
                 $yearOfStudy = $enrolment?->year_of_study ?? 1;
                 $idempotencyKey = "fees:{$student->id}:year{$yearOfStudy}:annual";
 
@@ -135,7 +142,7 @@ class BillingService
                         'item_name' => $item->name,
                         'item_amount' => $item->amount,
                         'item_description' => $item->description,
-                        'course_id' => $student->course_id,
+                        'course_curriculum_id' => $courseCurriculumId,
                         'academic_session_id' => $targetSession->id,
                         'snapshot_taken_at' => now()->toDateTimeString(),
                     ],

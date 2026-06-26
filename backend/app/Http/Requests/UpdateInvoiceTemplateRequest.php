@@ -28,7 +28,6 @@ class UpdateInvoiceTemplateRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],
-            'billing_period' => ['required', Rule::in(['session', 'annual'])],
         ];
     }
 }

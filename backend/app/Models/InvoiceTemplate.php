@@ -21,7 +21,6 @@ class InvoiceTemplate extends Model
         'description',
         'is_active',
         'is_issued',
-        'billing_period',
         'created_by',
         'updated_by',
     ];

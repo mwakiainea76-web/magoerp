@@ -120,6 +120,11 @@ class StudentsController extends Controller
 
             $user->assignRole('student');
 
+            $activeCourseCurriculum = \App\Models\CourseCurriculum::query()
+                ->where('course_id', $course->id)
+                ->where('is_active', true)
+                ->first();
+
             $student = Student::create([
                 'user_id' => $user->id,
                 'admission_number' => $admissionNumber,
@@ -127,6 +132,7 @@ class StudentsController extends Controller
                 'middle_name' => $request->middle_name,
                 'last_name' => $request->last_name,
                 'course_id' => $course->id,
+                'course_curriculum_id' => $activeCourseCurriculum?->id,
                 'enrollment_date' => $enrollmentDate->toDateString(),
                 'status' => $request->status,
                 'created_by' => $request->user()->id,

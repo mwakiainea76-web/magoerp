@@ -19,6 +19,7 @@ class CourseEnrolment extends Model
         'student_id',
         'course_id',
         'curriculum_id',
+        'course_curriculum_id',
         'academic_session_id',
         'enrolment_date',
         'status',
@@ -48,6 +49,11 @@ class CourseEnrolment extends Model
     public function curriculum(): BelongsTo
     {
         return $this->belongsTo(Curriculum::class);
+    }
+
+    public function courseCurriculum(): BelongsTo
+    {
+        return $this->belongsTo(CourseCurriculum::class);
     }
 
     public function academicSession(): BelongsTo

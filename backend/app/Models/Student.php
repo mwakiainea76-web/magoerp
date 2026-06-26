@@ -20,6 +20,7 @@ class Student extends Model
         'middle_name',
         'last_name',
         'course_id',
+        'course_curriculum_id',
         'enrollment_date',
         'status',
         'created_by',
@@ -30,6 +31,11 @@ class Student extends Model
         'enrollment_date' => 'date',
         'status' => 'boolean',
     ];
+
+    public function courseCurriculum(): BelongsTo
+    {
+        return $this->belongsTo(CourseCurriculum::class);
+    }
 
     protected $keyType = 'string';
 
