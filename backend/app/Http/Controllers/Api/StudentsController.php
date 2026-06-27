@@ -7,6 +7,7 @@ use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
 use App\Models\AcademicYear;
 use App\Models\Course;
+use App\Models\CourseEnrolment;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -36,7 +37,7 @@ class StudentsController extends Controller
         ];
 
         $students = Student::query()
-            ->with(['user', 'course'])
+            ->with(['user', 'courseEnrolments.courseCurriculum.courseCurriculum.course'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
@@ -44,7 +45,7 @@ class StudentsController extends Controller
                         ->orWhere('first_name', 'like', "%{$search}%")
                         ->orWhere('middle_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhereHas('course', function ($courseQuery) use ($search) {
+                        ->orWhereHas('courseEnrolments.courseCurriculum.courseCurriculum.course', function ($courseQuery) use ($search) {
                             $courseQuery->where('name', 'like', "%{$search}%")
                                 ->orWhere('code', 'like', "%{$search}%");
                         });
@@ -131,7 +132,6 @@ class StudentsController extends Controller
                 'first_name' => $request->first_name,
                 'middle_name' => $request->middle_name,
                 'last_name' => $request->last_name,
-                'course_id' => $course->id,
                 'course_curriculum_id' => $activeCourseCurriculum?->id,
                 'enrollment_date' => $enrollmentDate->toDateString(),
                 'status' => $request->status,
@@ -139,9 +139,9 @@ class StudentsController extends Controller
                 'updated_by' => $request->user()->id,
             ]);
 
-            \App\Http\Controllers\Api\CourseEnrolmentsController::createForStudent($student, $request->user()->id);
+            \App\Http\Controllers\Api\CourseEnrolmentsController::createForStudent($student, $request->user()->id, $course->id);
 
-            $student->load(['user', 'course']);
+            $student->load(['user', 'courseEnrolments.courseCurriculum.course']);
 
             return $student;
         });
@@ -156,7 +156,7 @@ class StudentsController extends Controller
     {
         abort_unless($request->user()?->can('students.view'), 403);
 
-        $student->load(['user', 'course']);
+        $student->load(['user', 'courseEnrolments.courseCurriculum.course']);
 
         return response()->json([
             'data' => $this->transformStudent($student),
@@ -198,13 +198,12 @@ class StudentsController extends Controller
                 'first_name' => $request->first_name,
                 'middle_name' => $request->middle_name,
                 'last_name' => $request->last_name,
-                'course_id' => $request->course_id,
                 'enrollment_date' => $request->enrollment_date ?? now()->format('Y-m-d'),
                 'status' => $request->status,
                 'updated_by' => $request->user()->id,
             ]);
 
-            $student->load(['user', 'course']);
+            $student->load(['user', 'courseEnrolments.courseCurriculum.course']);
 
             return $student;
         });
@@ -230,16 +229,16 @@ class StudentsController extends Controller
     {
         abort_unless($request->user()?->can('students.view'), 403);
 
-        $student->load(['user', 'course.department', 'course.level', 'course.authority']);
+        $student->load(['user']);
 
         $enrolment = CourseEnrolment::query()
-            ->with(['curriculum', 'academicSession'])
+            ->with(['courseCurriculum.course.department', 'courseCurriculum.course.level', 'courseCurriculum.course.authority', 'courseCurriculum.curriculum', 'academicSession'])
             ->where('student_id', $student->id)
             ->latest()
             ->first();
 
         $user = $student->user;
-        $course = $student->course;
+        $course = $enrolment?->courseCurriculum?->course;
 
         return response()->json([
             'data' => [
@@ -247,7 +246,7 @@ class StudentsController extends Controller
                 'reference_number' => $student->admission_number,
                 'date' => now()->format('F d, Y'),
 
-                'student_name' => trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' ')),
+                'student_name' => trim(collect([$user->first_name, $user->middle_name, $user->last_name])->filter()->implode(' ')),
                 'admission_number' => $student->admission_number,
                 'email' => $user?->email,
                 'phone' => $user?->phone_number,
@@ -260,7 +259,7 @@ class StudentsController extends Controller
                 'department_name' => $course?->department?->name,
                 'certification_level' => $course?->level?->name,
                 'certification_authority' => $course?->authority?->name,
-                'curriculum_name' => $enrolment?->curriculum?->name,
+                'curriculum_name' => $enrolment?->courseCurriculum?->curriculum?->name,
                 'academic_session' => $enrolment?->academicSession?->name,
                 'enrolment_status' => $enrolment?->status,
                 'duration' => $course?->duration,
@@ -274,7 +273,8 @@ class StudentsController extends Controller
     private function transformStudent(Student $student): array
     {
         $user = $student->user;
-        $course = $student->course;
+        $activeEnrolment = $student->courseEnrolments?->first();
+        $course = $activeEnrolment?->courseCurriculum?->course;
 
         return [
             'id' => $student->id,
@@ -285,10 +285,10 @@ class StudentsController extends Controller
 
             'admission_number' => $student->admission_number,
 
-            'first_name' => $student->first_name,
-            'middle_name' => $student->middle_name,
-            'last_name' => $student->last_name,
-            'full_name' => trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' ')),
+            'first_name' => $user->first_name,
+            'middle_name' => $user->middle_name,
+            'last_name' => $user->last_name,
+            'full_name' => trim(collect([$user->first_name, $user->middle_name, $user->last_name])->filter()->implode(' ')),
 
             'gender' => $user?->gender,
             'date_of_birth' => $user?->date_of_birth?->format('Y-m-d'),
@@ -301,7 +301,7 @@ class StudentsController extends Controller
 
             'county' => $user?->county,
 
-            'course_id' => $student->course_id,
+            'course_id' => $course?->id,
             'course_name' => $course?->name,
             'course_code' => $course?->code,
             'course_initials' => $course?->initials,
@@ -333,20 +333,10 @@ class StudentsController extends Controller
             ->first()
             ?? AcademicYear::query()->orderByDesc('start_date')->first();
 
-        $students = Student::withTrashed()->where('course_id', $course->id);
-
-        if ($academicYear?->start_date && $academicYear?->end_date) {
-            $students->whereBetween('enrollment_date', [
-                $academicYear->start_date->toDateString(),
-                $academicYear->end_date->toDateString(),
-            ]);
-        } elseif ($academicYear?->start_date) {
-            $students->whereDate('enrollment_date', '>=', $academicYear->start_date->toDateString());
-        } elseif ($academicYear?->end_date) {
-            $students->whereDate('enrollment_date', '<=', $academicYear->end_date->toDateString());
-        } else {
-            $students->whereYear('enrollment_date', now()->year);
-        }
+        $count = CourseEnrolment::query()
+            ->whereHas('courseCurriculum', fn ($q) => $q->where('course_id', $course->id))
+            ->whereHas('student', fn ($q) => $q->withTrashed())
+            ->count();
 
         $initials = Str::upper((string) preg_replace(
             '/[^A-Za-z0-9]/',
@@ -354,7 +344,7 @@ class StudentsController extends Controller
             $course->initials ?: $course->code,
         ));
         $initials = $initials !== '' ? $initials : 'STU';
-        $sequence = str_pad((string) ($students->count() + 1), 4, '0', STR_PAD_LEFT);
+        $sequence = str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
         $intakeYear = $academicYear?->start_date?->format('y') ?? now()->format('y');
 
         return "{$initials}/{$sequence}/{$intakeYear}";

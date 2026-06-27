@@ -10,6 +10,8 @@ class CourseInvoiceTemplate extends Model
 {
     use HasUuids;
 
+    protected $table = 'course_curriculum_invoice_template';
+
     protected $keyType = 'string';
 
     public $incrementing = false;

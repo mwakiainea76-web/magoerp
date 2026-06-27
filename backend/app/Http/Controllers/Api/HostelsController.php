@@ -307,11 +307,18 @@ class HostelsController extends Controller
             return response()->json([ 'data' => []]);
         }
 
+        $courseName = CourseEnrolment::query()
+            ->where('student_id', $student->id)
+            ->where('status', 'enrolled')
+            ->latest()
+            ->first()
+            ?->course?->name;
+
         $hostels = Hostel::where('is_active', true)
-            ->where(function ($q) use ($student) {
+            ->where(function ($q) use ($courseName) {
                 $q->whereNull('gender')
                     ->orWhere('gender', 'mixed')
-                    ->orWhere('gender', $student->course?->name); // simplified gender matching
+                    ->orWhere('gender', $courseName);
             })
             ->get()
             ->map(function ($hostel) use ($activeSession) {

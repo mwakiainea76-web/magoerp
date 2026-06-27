@@ -20,10 +20,10 @@ return new class extends Migration
             $table->unsignedTinyInteger('year_of_study')->nullable();
             $table->unsignedTinyInteger('session_number')->nullable();
             $table->unsignedSmallInteger('taught_hours')->nullable();
-            $table->decimal('credit_factor', 5, 2)->unsigned()->nullable();
+            $table->unsignedSmallInteger('credit_factor')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['course_curriculum_id', 'code']);

@@ -58,13 +58,10 @@ class DatabaseSeeder extends Seeder
 
         $adminUser->syncRoles(['admin']);
 
-        staffs::updateOrCreate(
+        $adminStaff = staffs::updateOrCreate(
             ['user_id' => $adminUser->id],
             [
                 'employee_number' => $loginId,
-                'first_name' => 'System',
-                'middle_name' => null,
-                'last_name' => 'Administrator',
                 'kra_pin' => null,
                 'nhif_number' => null,
                 'nssf_number' => null,
@@ -81,8 +78,6 @@ class DatabaseSeeder extends Seeder
                 'status' => true,
                 'termination_date' => null,
                 'termination_reason' => null,
-                'created_by' => $adminUser->id,
-                'updated_by' => $adminUser->id,
             ]
         );
 
@@ -96,6 +91,10 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             TimetableFeatureSeeder::class,
             SystemConfigurationSeeder::class,
+            HostelAllocationSeeder::class,
+            MarksSeeder::class,
+            ComplaintsSeeder::class,
+            CurriculumTransferSeeder::class,
         ]);
     }
 }

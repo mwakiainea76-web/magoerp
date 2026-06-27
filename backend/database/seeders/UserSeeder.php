@@ -44,8 +44,6 @@ class UserSeeder extends Seeder
             ['user_id' => $trainer->id],
             [
                 'employee_number' => 'TRAINER-001',
-                'first_name' => 'James',
-                'last_name' => 'Trainer',
                 'department_id' => $ictDept?->id,
                 'job_title' => 'ICT Lecturer',
                 'employment_type' => 'Permanent',
@@ -92,9 +90,6 @@ class UserSeeder extends Seeder
                 ['admission_number' => $s['adm']],
                 [
                     'user_id' => $user->id,
-                    'first_name' => $s['first'],
-                    'last_name' => $s['last'],
-                    'course_id' => $dipCourse?->id,
                     'course_curriculum_id' => $courseCurriculum?->id,
                     'status' => true,
                 ]
@@ -103,10 +98,8 @@ class UserSeeder extends Seeder
             $session = AcademicSession::where('is_active', true)->latest('start_date')->first();
 
             CourseEnrolment::updateOrCreate(
-                ['student_id' => $student->id, 'course_id' => $dipCourse?->id],
+                ['student_id' => $student->id, 'course_curriculum_id' => $courseCurriculum?->id],
                 [
-                    'course_curriculum_id' => $courseCurriculum?->id,
-                    'curriculum_id' => $courseCurriculum?->curriculum_id,
                     'academic_session_id' => $session?->id,
                     'enrolment_date' => now()->toDateString(),
                     'status' => 'enrolled',

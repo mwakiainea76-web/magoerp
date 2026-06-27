@@ -16,10 +16,6 @@ class Student extends Model
     protected $fillable = [
         'user_id',
         'admission_number',
-        'first_name',
-        'middle_name',
-        'last_name',
-        'course_id',
         'course_curriculum_id',
         'enrollment_date',
         'status',
@@ -32,11 +28,6 @@ class Student extends Model
         'status' => 'boolean',
     ];
 
-    public function courseCurriculum(): BelongsTo
-    {
-        return $this->belongsTo(CourseCurriculum::class);
-    }
-
     protected $keyType = 'string';
 
     public $incrementing = false;
@@ -46,9 +37,9 @@ class Student extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function course(): BelongsTo
+    public function courseCurriculum(): BelongsTo
     {
-        return $this->belongsTo(Course::class);
+        return $this->belongsTo(CourseCurriculum::class);
     }
 
     public function sessionEnrolments(): HasMany

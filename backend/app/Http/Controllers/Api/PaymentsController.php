@@ -114,6 +114,6 @@ class PaymentsController extends Controller
     private function studentName($student): string
     {
         if (!$student) return '-';
-        return trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' '));
+        return trim(collect([$student->user->first_name, $student->user->middle_name, $student->user->last_name])->filter()->implode(' '));
     }
 }

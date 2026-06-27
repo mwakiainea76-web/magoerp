@@ -28,8 +28,8 @@ CREATE TABLE `certification_levels` (
     KEY `cert_levels_created_by_foreign` (`created_by`),
     KEY `cert_levels_updated_by_foreign` (`updated_by`),
     CONSTRAINT `cert_levels_authority_foreign` FOREIGN KEY (`certification_authority_id`) REFERENCES `certification_authorities` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `cert_levels_created_by_foreign` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-    CONSTRAINT `cert_levels_updated_by_foreign` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+    CONSTRAINT `cert_levels_created_by_foreign` FOREIGN KEY (`created_by`) REFERENCES `staffs` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `cert_levels_updated_by_foreign` FOREIGN KEY (`updated_by`) REFERENCES `staffs` (`id`) ON DELETE SET NULL
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
 SQL);
     }

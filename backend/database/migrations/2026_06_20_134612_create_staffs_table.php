@@ -18,9 +18,6 @@ $table->foreignUuid('user_id')->unique()->constrained('users')->cascadeOnDelete(
 
 // Employee Information
 $table->string('employee_number')->unique();
-$table->string('first_name');
-$table->string('middle_name')->nullable();
-$table->string('last_name');
 
 // Personal Information
 $table->string('kra_pin')->nullable()->unique();

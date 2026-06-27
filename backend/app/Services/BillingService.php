@@ -20,11 +20,11 @@ use Illuminate\Validation\ValidationException;
 
 class BillingService
 {
-    public function createInvoiceForStudent(Student $student, ?string $createdBy = null, ?AcademicSession $session = null): Invoice
+    public function createInvoiceForStudent(Student $student, ?string $createdBy = null, ?AcademicSession $session = null, ?string $invoiceTemplateId = null): Invoice
     {
         $billingPeriod = SystemConfiguration::getValue('billing_period', 'session');
 
-        return DB::transaction(function () use ($student, $createdBy, $session, $billingPeriod) {
+        return DB::transaction(function () use ($student, $createdBy, $session, $billingPeriod, $invoiceTemplateId) {
             $courseCurriculumId = $student->course_curriculum_id
                 ?? $student->courseEnrolments()
                     ->where('status', 'enrolled')
@@ -50,23 +50,29 @@ class BillingService
 
             $enrolment = $this->studentSessionEnrolment($student, $targetSession);
 
-            $courseInvoiceTemplate = CourseInvoiceTemplate::query()
-                ->where('course_curriculum_id', $courseCurriculumId)
-                ->where('is_approved', true)
-                ->when($enrolment, function ($query, AcademicSessionEnrolment $enrolment) use ($billingPeriod) {
-                    $query->where('year_level', $enrolment->year_of_study);
+            $courseInvoiceTemplate = $invoiceTemplateId
+                ? CourseInvoiceTemplate::query()
+                    ->whereHas('invoiceTemplate', fn ($q) => $q->where('id', $invoiceTemplateId))
+                    ->where('course_curriculum_id', $courseCurriculumId)
+                    ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                    ->first()
+                : CourseInvoiceTemplate::query()
+                    ->where('course_curriculum_id', $courseCurriculumId)
+                    ->where('is_approved', true)
+                    ->when($enrolment, function ($query, AcademicSessionEnrolment $enrolment) use ($billingPeriod) {
+                        $query->where('year_level', $enrolment->year_of_study);
 
-                    if ($billingPeriod === 'session') {
-                        $query->where('session_number', $enrolment->session_number);
-                    }
-                })
-                ->where(function ($query) use ($targetSession) {
-                    $query->where('academic_session_id', $targetSession->id)
-                        ->orWhereNull('academic_session_id');
-                })
-                ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
-                ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
-                ->first();
+                        if ($billingPeriod === 'session') {
+                            $query->where('session_number', $enrolment->session_number);
+                        }
+                    })
+                    ->where(function ($query) use ($targetSession) {
+                        $query->where('academic_session_id', $targetSession->id)
+                            ->orWhereNull('academic_session_id');
+                    })
+                    ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                    ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
+                    ->first();
 
             if (!$courseInvoiceTemplate?->invoiceTemplate) {
                 throw ValidationException::withMessages([

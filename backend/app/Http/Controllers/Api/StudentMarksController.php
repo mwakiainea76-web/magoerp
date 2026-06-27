@@ -62,12 +62,25 @@ class StudentMarksController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'academic_session_id' => 'required|string|exists:academic_sessions,id',
+            'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'required|string|exists:units,id',
             'student_admission_number' => 'required|string|exists:students,admission_number',
             'assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
             'score' => 'required|integer|min:0|max:100',
         ]);
+
+        if (empty($validated['academic_session_id'])) {
+            $session = AcademicSession::query()
+                ->where('is_active', true)
+                ->latest('start_date')
+                ->first();
+
+            if (!$session) {
+                return response()->json(['message' => 'No active academic session found.'], 422);
+            }
+
+            $validated['academic_session_id'] = $session->id;
+        }
 
         $user = $request->user();
         $staffId = null;
@@ -105,7 +118,7 @@ class StudentMarksController extends Controller
             'assessment_type' => $assessmentType,
             'assessment_number' => $assessmentNumber,
             'score' => $validated['score'],
-            'marks' => $validated['score'],
+            'marks' => 100,
             'recorded_by_staff_id' => $staffId,
         ]);
 
@@ -181,7 +194,7 @@ class StudentMarksController extends Controller
                     'assessment_type' => $assessmentType,
                     'assessment_number' => $assessmentNumber,
                     'score' => $entry['score'],
-                    'marks' => $entry['score'],
+                    'marks' => 100,
                     'recorded_by_staff_id' => $staffId,
                 ]);
             }
@@ -277,6 +290,47 @@ class StudentMarksController extends Controller
         ]);
     }
 
+    public function publishFiltered(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
+            'unit_id' => 'nullable|string|exists:units,id',
+            'assessment_type' => 'nullable|string|max:50',
+            'student_id' => 'nullable|string|exists:students,id',
+            'publish' => 'required|boolean',
+        ]);
+
+        $query = StudentMark::query();
+
+        if ($sessionId = $validated['academic_session_id'] ?? null) {
+            $query->where('academic_session_id', $sessionId);
+        }
+        if ($unitId = $validated['unit_id'] ?? null) {
+            $query->where('unit_id', $unitId);
+        }
+        if ($type = $validated['assessment_type'] ?? null) {
+            if (in_array($type, self::ASSESSMENT_TYPES, true)) {
+                [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($type);
+                $query->where('assessment_type', $assessmentType)
+                    ->where('assessment_number', $assessmentNumber);
+            } else {
+                $query->where('assessment_type', $type);
+            }
+        }
+        if ($studentId = $validated['student_id'] ?? null) {
+            $query->where('student_id', $studentId);
+        }
+
+        $count = $query->update(['is_published' => $validated['publish']]);
+
+        return response()->json([
+            'message' => $validated['publish']
+                ? "{$count} marks published."
+                : "{$count} marks unpublished.",
+            'updated_count' => $count,
+        ]);
+    }
+
     public function availableUnits(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -312,23 +366,33 @@ class StudentMarksController extends Controller
     {
         $validated = $request->validate([
             'academic_session_id' => 'required|string|exists:academic_sessions,id',
-            'unit_id' => 'required|string|exists:units,id',
+            'unit_id' => 'nullable|string|exists:units,id',
         ]);
 
-        $students = Student::query()
+        $query = Student::query()
             ->select('students.id', 'students.admission_number', 'students.first_name', 'students.middle_name', 'students.last_name')
             ->join('student_unit_registrations', function ($j) use ($validated) {
                 $j->on('student_unit_registrations.student_id', '=', 'students.id')
-                    ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id'])
-                    ->where('student_unit_registrations.unit_id', $validated['unit_id']);
-            })
-            ->distinct()
-            ->get()
-            ->map(fn ($s) => [
-                'id' => $s->id,
-                'admission_number' => $s->admission_number,
-                'name' => trim(collect([$s->first_name, $s->middle_name, $s->last_name])->filter()->implode(' ')),
-            ]);
+                    ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id']);
+            });
+
+        if ($unitId = $validated['unit_id'] ?? null) {
+            $query->where('student_unit_registrations.unit_id', $unitId);
+        }
+
+        if ($q = $request->get('q')) {
+            $query->where(function ($qry) use ($q) {
+                $qry->where('students.admission_number', 'like', "%{$q}%")
+                    ->orWhere('students.first_name', 'like', "%{$q}%")
+                    ->orWhere('students.last_name', 'like', "%{$q}%");
+            });
+        }
+
+        $students = $query->distinct()->get()->map(fn ($s) => [
+            'id' => $s->id,
+            'admission_number' => $s->admission_number,
+            'name' => trim(collect([$s->first_name, $s->middle_name, $s->last_name])->filter()->implode(' ')),
+        ]);
 
         return response()->json([ 'data' => $students]);
     }
@@ -338,6 +402,7 @@ class StudentMarksController extends Controller
         $validated = $request->validate([
             'academic_session_id' => 'required|string|exists:academic_sessions,id',
             'unit_id' => 'required|string|exists:units,id',
+            'student_id' => 'nullable|string|exists:students,id',
         ]);
 
         $students = Student::query()
@@ -347,8 +412,13 @@ class StudentMarksController extends Controller
                     ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id'])
                     ->where('student_unit_registrations.unit_id', $validated['unit_id']);
             })
-            ->distinct()
-            ->get();
+            ->distinct();
+
+        if ($studentId = $validated['student_id'] ?? null) {
+            $students->where('students.id', $studentId);
+        }
+
+        $students = $students->get();
 
         $marks = StudentMark::query()
             ->where('academic_session_id', $validated['academic_session_id'])

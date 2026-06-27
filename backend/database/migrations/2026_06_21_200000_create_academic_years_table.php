@@ -17,8 +17,8 @@ return new class extends Migration
             $table->date('end_date')->nullable();
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
 
             $table->unique('code');

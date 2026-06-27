@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\AcademicYear;
 use App\Models\Course;
-use App\Models\Student;
+use App\Models\CourseEnrolment;
 use Illuminate\Support\Str;
 
 class AdmissionNumberService
@@ -17,20 +17,10 @@ class AdmissionNumberService
             ->first()
             ?? AcademicYear::query()->orderByDesc('start_date')->first();
 
-        $students = Student::withTrashed()->where('course_id', $course->id);
-
-        if ($academicYear?->start_date && $academicYear?->end_date) {
-            $students->whereBetween('enrollment_date', [
-                $academicYear->start_date->toDateString(),
-                $academicYear->end_date->toDateString(),
-            ]);
-        } elseif ($academicYear?->start_date) {
-            $students->whereDate('enrollment_date', '>=', $academicYear->start_date->toDateString());
-        } elseif ($academicYear?->end_date) {
-            $students->whereDate('enrollment_date', '<=', $academicYear->end_date->toDateString());
-        } else {
-            $students->whereYear('enrollment_date', now()->year);
-        }
+        $count = CourseEnrolment::query()
+            ->where('course_id', $course->id)
+            ->whereHas('student', fn ($q) => $q->withTrashed())
+            ->count();
 
         $initials = Str::upper((string) preg_replace(
             '/[^A-Za-z0-9]/',
@@ -38,7 +28,7 @@ class AdmissionNumberService
             $course->initials ?: $course->code,
         ));
         $initials = $initials !== '' ? $initials : 'STU';
-        $sequence = str_pad((string) ($students->count() + 1), 4, '0', STR_PAD_LEFT);
+        $sequence = str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
         $intakeYear = $academicYear?->start_date?->format('y') ?? now()->format('y');
 
         return "{$initials}/{$sequence}/{$intakeYear}";

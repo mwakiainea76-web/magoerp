@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class CourseCurriculum extends Pivot
@@ -38,10 +37,4 @@ class CourseCurriculum extends Pivot
         return $this->belongsTo(Curriculum::class);
     }
 
-    public function invoiceTemplates(): BelongsToMany
-    {
-        return $this->belongsToMany(InvoiceTemplate::class, 'course_curriculum_invoice_template')
-            ->withPivot('academic_session_id')
-            ->withTimestamps();
-    }
 }

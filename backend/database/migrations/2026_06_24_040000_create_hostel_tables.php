@@ -61,8 +61,8 @@ return new class extends Migration
             $table->date('allocated_on');
             $table->enum('status', ['active', 'vacated'])->default('active');
             $table->text('notes')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['academic_session_enrolment_id', 'academic_session_id'], 'ha_enrolment_session_unique');

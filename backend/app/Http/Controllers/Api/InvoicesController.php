@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
+use App\Models\CourseInvoiceTemplate;
 use App\Models\Invoice;
+use App\Models\InvoiceTemplate;
 use App\Models\Student;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
@@ -80,18 +82,62 @@ class InvoicesController extends Controller
         ], 200);
     }
 
+    public function availableTemplates(Student $student): JsonResponse
+    {
+        abort_unless(request()->user()?->can('finance.view'), 403);
+
+        $courseCurriculumId = $student->course_curriculum_id
+            ?? $student->courseEnrolments()
+                ->where('status', 'enrolled')
+                ->latest()
+                ->value('course_curriculum_id');
+
+        if (!$courseCurriculumId) {
+            return response()->json(['data' => []], 200);
+        }
+
+        $templates = CourseInvoiceTemplate::query()
+            ->where('course_curriculum_id', $courseCurriculumId)
+            ->where('is_approved', true)
+            ->with(['invoiceTemplate' => function ($q) {
+                $q->with(['activeItems' => function ($q) {
+                    $q->where('amount', '>', 0);
+                }]);
+            }])
+            ->get()
+            ->filter(fn ($cit) => $cit->invoiceTemplate && $cit->invoiceTemplate->activeItems->isNotEmpty())
+            ->values()
+            ->map(fn ($cit) => [
+                'id' => $cit->id,
+                'invoice_template_id' => $cit->invoiceTemplate->id,
+                'template_code' => $cit->invoiceTemplate->code,
+                'template_name' => $cit->invoiceTemplate->name,
+                'year_level' => $cit->year_level,
+                'session_number' => $cit->session_number,
+                'total_amount' => (float) $cit->invoiceTemplate->activeItems->sum('amount'),
+            ]);
+
+        return response()->json(['data' => $templates], 200);
+    }
+
     public function store(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('finance.create'), 403);
 
         $validated = $request->validate([
             'student_id' => ['required', 'string', 'exists:students,id'],
+            'invoice_template_id' => ['nullable', 'string', 'exists:invoice_templates,id'],
         ]);
 
         $student = Student::findOrFail($validated['student_id']);
 
         try {
-            $invoice = $this->billingService->createInvoiceForStudent($student, $request->user()?->id);
+            $invoice = $this->billingService->createInvoiceForStudent(
+                $student,
+                $request->user()?->id,
+                null,
+                $validated['invoice_template_id'] ?? null,
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'status_code' => 422,
@@ -213,6 +259,6 @@ class InvoicesController extends Controller
     private function studentName($student): string
     {
         if (!$student) return '-';
-        return trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' '));
+        return trim(collect([$student->user->first_name, $student->user->middle_name, $student->user->last_name])->filter()->implode(' '));
     }
 }

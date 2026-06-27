@@ -1,0 +1,32 @@
+<?php
+
+namespace Database\Factories;
+
+use App\Models\AcademicSession;
+use App\Models\Invoice;
+use App\Models\LedgerTransaction;
+use App\Models\Student;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class LedgerTransactionFactory extends Factory
+{
+    protected $model = LedgerTransaction::class;
+
+    public function definition(): array
+    {
+        $isDebit = fake()->boolean();
+
+        return [
+            'student_id' => Student::factory(),
+            'invoice_id' => Invoice::factory(),
+            'academic_session_id' => AcademicSession::factory(),
+            'type' => $isDebit ? 'debit' : 'credit',
+            'debit' => $isDebit ? fake()->randomFloat(2, 1000, 50000) : 0,
+            'credit' => $isDebit ? 0 : fake()->randomFloat(2, 1000, 50000),
+            'reference' => fake()->optional()->bothify('TXN-##########'),
+            'description' => fake()->sentence(),
+            'transaction_date' => now()->toDateString(),
+            'created_by' => null,
+        ];
+    }
+}

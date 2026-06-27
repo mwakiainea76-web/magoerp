@@ -150,9 +150,6 @@ class StaffsSeeder extends Seeder
             staffs::create([
                 'user_id' => $user->id,
                 'employee_number' => $employeeNumber,
-                'first_name' => $data['first_name'],
-                'middle_name' => $data['middle_name'],
-                'last_name' => $data['last_name'],
                 'kra_pin' => $data['kra_pin'],
                 'nhif_number' => $data['nhif_number'],
                 'nssf_number' => $data['nssf_number'],

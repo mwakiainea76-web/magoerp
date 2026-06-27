@@ -11,15 +11,13 @@ return new class extends Migration
         Schema::create('course_enrolments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
-            $table->foreignUuid('course_id')->constrained('courses')->cascadeOnDelete();
-            $table->foreignUuid('curriculum_id')->nullable()->constrained('curricula')->nullOnDelete();
-            $table->foreignUuid('course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
+            $table->foreignUuid('course_curriculum_id')->constrained('course_curricula')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->date('enrolment_date');
             $table->string('status', 50)->default('enrolled');
             $table->text('remarks')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
         });

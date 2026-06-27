@@ -34,7 +34,7 @@ class CourseEnrolmentsController extends Controller
         ];
 
         $enrolments = CourseEnrolment::query()
-            ->with(['student', 'course', 'curriculum', 'academicSession'])
+            ->with(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
@@ -44,7 +44,7 @@ class CourseEnrolmentsController extends Controller
                                 ->orWhere('last_name', 'like', "%{$search}%")
                                 ->orWhere('admission_number', 'like', "%{$search}%");
                         })
-                        ->orWhereHas('course', function ($cq) use ($search) {
+                        ->orWhereHas('courseCurriculum.course', function ($cq) use ($search) {
                             $cq->where('name', 'like', "%{$search}%")
                                 ->orWhere('code', 'like', "%{$search}%");
                         });
@@ -70,7 +70,7 @@ class CourseEnrolmentsController extends Controller
     {
         abort_unless($request->user()?->can('enrolments.view'), 403);
 
-        $course_enrolment->load(['student', 'course', 'curriculum', 'academicSession']);
+        $course_enrolment->load(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
 
         return response()->json([
             'data' => $this->transform($course_enrolment),
@@ -81,15 +81,55 @@ class CourseEnrolmentsController extends Controller
     {
         $oldStatus = $course_enrolment->status;
 
+        if ($request->status === 'transferred' && $request->filled('course_id') && $request->course_id !== $course_enrolment->courseCurriculum?->course_id) {
+            // Old enrolment retains original course_id, marks as transferred
+            $course_enrolment->update([
+                'status' => 'transferred',
+                'remarks' => $request->remarks,
+                'updated_by' => $request->user()->id,
+            ]);
+
+            // Create new enrolment for the new course
+            $newCourseCurriculum = CourseCurriculum::query()
+                ->where('course_id', $request->course_id)
+                ->where('is_active', true)
+                ->first();
+
+            $newEnrolment = CourseEnrolment::create([
+                'student_id' => $course_enrolment->student_id,
+                'course_curriculum_id' => $newCourseCurriculum?->id,
+                'academic_session_id' => $course_enrolment->academic_session_id,
+                'enrolment_date' => now()->toDateString(),
+                'status' => 'enrolled',
+                'remarks' => 'Transferred from ' . ($course_enrolment->courseCurriculum?->course?->name ?? 'previous course'),
+                'created_by' => $request->user()->id,
+                'updated_by' => $request->user()->id,
+            ]);
+
+            StudentStatusLog::create([
+                'student_id' => $course_enrolment->student_id,
+                'course_enrolment_id' => $course_enrolment->id,
+                'from_status' => $oldStatus,
+                'to_status' => 'transferred',
+                'reason' => $request->remarks,
+                'effective_date' => now()->toDateString(),
+                'recorded_by' => $request->user()->id,
+            ]);
+
+            $course_enrolment->load(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
+
+            return response()->json([
+                'message' => 'Student transferred to new course successfully.',
+                'data' => $this->transform($course_enrolment),
+            ]);
+        }
+
+        // Regular (non-transfer) status update
         $data = [
             'status' => $request->status,
             'remarks' => $request->remarks,
             'updated_by' => $request->user()->id,
         ];
-
-        if ($request->filled('course_id') && $request->status === 'transferred') {
-            $data['course_id'] = $request->course_id;
-        }
 
         $course_enrolment->update($data);
 
@@ -103,7 +143,7 @@ class CourseEnrolmentsController extends Controller
             'recorded_by' => $request->user()->id,
         ]);
 
-        $course_enrolment->load(['student', 'course', 'curriculum', 'academicSession']);
+        $course_enrolment->load(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
 
         return response()->json([
             'message' => 'Enrolment status updated successfully.',
@@ -153,21 +193,21 @@ class CourseEnrolmentsController extends Controller
         ]);
     }
 
-    public static function createForStudent(Student $student, ?string $createdBy = null): CourseEnrolment
+    public static function createForStudent(Student $student, ?string $createdBy = null, ?string $courseId = null): CourseEnrolment
     {
-        $course = $student->course;
-
-        // Pick the first active curriculum for this course
-        $curriculumId = null;
-        if ($course) {
-            $activePivot = CourseCurriculum::query()
-                ->where('course_id', $course->id)
-                ->where('is_active', true)
-                ->first();
-            $curriculumId = $activePivot?->curriculum_id;
+        if (!$courseId && $student->courseCurriculum) {
+            $courseId = $student->courseCurriculum->course_id;
         }
 
-        // Pick the latest active academic session
+        $activePivot = null;
+
+        if ($courseId) {
+            $activePivot = CourseCurriculum::query()
+                ->where('course_id', $courseId)
+                ->where('is_active', true)
+                ->first();
+        }
+
         $session = AcademicSession::query()
             ->where('is_active', true)
             ->latest('start_date')
@@ -177,9 +217,7 @@ class CourseEnrolmentsController extends Controller
 
         return CourseEnrolment::create([
             'student_id' => $student->id,
-            'course_id' => $student->course_id,
             'course_curriculum_id' => $courseCurriculumId,
-            'curriculum_id' => $curriculumId,
             'academic_session_id' => $session?->id,
             'enrolment_date' => $student->enrollment_date?->toDateString() ?? now()->format('Y-m-d'),
             'status' => 'enrolled',
@@ -195,12 +233,12 @@ class CourseEnrolmentsController extends Controller
             'student_id' => $enrolment->student_id,
             'student_name' => $enrolment->student?->full_name ?? trim(collect([$enrolment->student?->first_name, $enrolment->student?->middle_name, $enrolment->student?->last_name])->filter()->implode(' ')),
             'admission_number' => $enrolment->student?->admission_number,
-            'course_id' => $enrolment->course_id,
+            'course_id' => $enrolment->courseCurriculum?->course_id,
             'course_curriculum_id' => $enrolment->course_curriculum_id,
-            'course_code' => $enrolment->course?->code,
-            'course_name' => $enrolment->course?->name,
-            'curriculum_id' => $enrolment->curriculum_id,
-            'curriculum_name' => $enrolment->curriculum?->name,
+            'course_code' => $enrolment->courseCurriculum?->course?->code,
+            'course_name' => $enrolment->courseCurriculum?->course?->name,
+            'curriculum_id' => $enrolment->courseCurriculum?->curriculum_id,
+            'curriculum_name' => $enrolment->courseCurriculum?->curriculum?->name,
             'academic_session_id' => $enrolment->academic_session_id,
             'academic_session_name' => $enrolment->academicSession?->name,
             'enrolment_date' => $enrolment->enrolment_date?->format('Y-m-d'),

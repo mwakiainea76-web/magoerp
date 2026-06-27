@@ -22,7 +22,8 @@ return new class extends Migration
             $table->decimal('balance_due', 10, 2)->default(0);
             $table->string('idempotency_key')->nullable()->unique();
             $table->text('notes')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
 
@@ -62,7 +63,7 @@ return new class extends Migration
             $table->string('reference', 100)->nullable();
             $table->string('status', 50)->default('completed');
             $table->string('idempotency_key')->nullable()->unique();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
 
@@ -87,7 +88,7 @@ return new class extends Migration
             $table->string('idempotency_key')->nullable()->unique();
             $table->text('description')->nullable();
             $table->date('applied_at')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
 
             $table->index('type');
@@ -104,7 +105,7 @@ return new class extends Migration
             $table->string('reference', 100)->nullable();
             $table->text('description')->nullable();
             $table->date('transaction_date');
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
         });

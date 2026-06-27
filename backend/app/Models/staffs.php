@@ -17,9 +17,6 @@ class staffs extends Model
     protected $fillable = [
         'user_id',
         'employee_number',
-        'first_name',
-        'middle_name',
-        'last_name',
         'kra_pin',
         'nhif_number',
         'nssf_number',

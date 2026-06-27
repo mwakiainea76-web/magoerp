@@ -42,9 +42,11 @@ class DepartmentsController extends Controller
                         ->orWhereHas('headOfDepartment', function ($staffQuery) use ($search) {
                             $staffQuery
                                 ->where('employee_number', 'like', "%{$search}%")
-                                ->orWhere('first_name', 'like', "%{$search}%")
-                                ->orWhere('middle_name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%");
+                                ->orWhereHas('user', function ($uq) use ($search) {
+                                    $uq->where('first_name', 'like', "%{$search}%")
+                                       ->orWhere('middle_name', 'like', "%{$search}%")
+                                       ->orWhere('last_name', 'like', "%{$search}%");
+                                });
                         });
                 });
             })
@@ -69,15 +71,15 @@ class DepartmentsController extends Controller
         $staffOptions = staffs::query()
             ->where('status', true)
             ->with('user')
-            ->orderBy('first_name')
-            ->orderBy('last_name')
+            ->orderBy(\App\Models\User::select('first_name')->whereColumn('users.id', 'staffs.user_id'))
+            ->orderBy(\App\Models\User::select('last_name')->whereColumn('users.id', 'staffs.user_id'))
             ->get()
             ->map(fn (staffs $staff) => [
                 'id' => $staff->id,
                 'employee_number' => $staff->employee_number,
-                'name' => trim($staff->first_name . ' ' . $staff->last_name),
+                'name' => trim($staff->user->first_name . ' ' . $staff->user->last_name),
                 'job_title' => $staff->job_title,
-                'label' => trim($staff->first_name . ' ' . $staff->last_name) . ' (' . $staff->employee_number . ')',
+                'label' => trim($staff->user->first_name . ' ' . $staff->user->last_name) . ' (' . $staff->employee_number . ')',
             ]);
 
         return response()->json([
@@ -148,7 +150,7 @@ class DepartmentsController extends Controller
             'name' => $department->name,
             'description' => $department->description,
             'head_of_department' => $department->head_of_department,
-            'head_of_department_name' => $head ? trim($head->first_name . ' ' . $head->last_name) : null,
+            'head_of_department_name' => $head ? trim($head->user->first_name . ' ' . $head->user->last_name) : null,
             'head_of_department_employee_number' => $head?->employee_number,
             'created_at' => $department->created_at,
             'updated_at' => $department->updated_at,

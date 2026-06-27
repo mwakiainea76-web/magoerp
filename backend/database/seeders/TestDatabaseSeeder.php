@@ -48,8 +48,6 @@ class TestDatabaseSeeder extends Seeder
             ['user_id' => $adminUser->id],
             [
                 'employee_number' => 'EMP-ADMIN-001',
-                'first_name' => 'System',
-                'last_name' => 'Administrator',
                 'job_title' => 'System Administrator',
                 'employment_type' => 'Permanent',
                 'date_joined' => '2024-01-01',
@@ -62,5 +60,9 @@ class TestDatabaseSeeder extends Seeder
         );
 
         $this->call(TimetableFeatureSeeder::class);
+        $this->call(HostelAllocationSeeder::class);
+        $this->call(MarksSeeder::class);
+        $this->call(ComplaintsSeeder::class);
+        $this->call(CurriculumTransferSeeder::class);
     }
 }

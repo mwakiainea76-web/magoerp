@@ -98,6 +98,10 @@ class InvoiceTemplateAssignmentsController extends Controller
             'updated_by' => $request->user()->id,
         ]);
 
+        if (!$invoice_template->is_issued) {
+            $invoice_template->update(['is_issued' => true]);
+        }
+
         $cit->load([
             'academicSession:id,name,code',
             'courseCurriculum.course.level:id,name',

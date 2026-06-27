@@ -15,6 +15,7 @@ use App\Models\InvoiceTemplate;
 use App\Models\Role;
 use App\Models\staffs;
 use App\Models\Student;
+use App\Models\Unit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -38,6 +39,7 @@ class LookupController extends Controller
             'invoice-templates' => $this->invoiceTemplates($request, $search, $limit),
             'roles' => $this->roles($request, $search, $limit),
             'students' => $this->students($request, $search, $limit),
+            'units' => $this->units($request, $search, $limit),
             default => response()->json([
                 'message' => 'Lookup resource not found.',
             ], 404),
@@ -50,21 +52,24 @@ class LookupController extends Controller
 
         $staffs = staffs::query()
             ->where('status', true)
+            ->with('user')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
-                        ->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($uq) use ($search) {
+                            $uq->where('first_name', 'like', "%{$search}%")
+                               ->orWhere('middle_name', 'like', "%{$search}%")
+                               ->orWhere('last_name', 'like', "%{$search}%");
+                        })
                         ->orWhere('employee_number', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('first_name')
-            ->orderBy('last_name')
+            ->orderBy(\App\Models\User::select('first_name')->whereColumn('users.id', 'staffs.user_id'))
+            ->orderBy(\App\Models\User::select('last_name')->whereColumn('users.id', 'staffs.user_id'))
             ->limit($limit)
             ->get()
             ->map(function (staffs $staff) {
-                $name = trim(collect([$staff->first_name, $staff->middle_name, $staff->last_name])->filter()->implode(' '));
+                $name = trim(collect([$staff->user->first_name, $staff->user->middle_name, $staff->user->last_name])->filter()->implode(' '));
 
                 return [
                     'id' => $staff->id,
@@ -366,6 +371,33 @@ class LookupController extends Controller
         ]);
     }
 
+    private function units(Request $request, string $search, int $limit): JsonResponse
+    {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
+        $items = Unit::query()
+            ->where('is_active', true)
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery
+                        ->where('code', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('code')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Unit $unit) => [
+                'id' => $unit->id,
+                'label' => trim($unit->code . ' - ' . $unit->name),
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => $items,
+        ]);
+    }
+
     private function students(Request $request, string $search, int $limit): JsonResponse
     {
         abort_unless($request->user()?->can('students.view'), 403);
@@ -387,7 +419,7 @@ class LookupController extends Controller
             ->limit($limit)
             ->get()
             ->map(function (Student $student) {
-                $name = trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' '));
+                $name = trim(collect([$student->user->first_name, $student->user->middle_name, $student->user->last_name])->filter()->implode(' '));
 
                 return [
                     'id' => $student->id,

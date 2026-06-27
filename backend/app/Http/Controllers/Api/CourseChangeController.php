@@ -3,20 +3,21 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicSessionEnrolment;
 use App\Models\Course;
 use App\Models\CourseChangeLog;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
 use App\Models\Curriculum;
 use App\Models\CurriculumTransfer;
+use App\Models\Invoice;
+use App\Models\InvoiceAdjustment;
+use App\Models\LedgerTransaction;
 use App\Models\Student;
-use App\Models\User;
 use App\Services\AdmissionNumberService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-
 class CourseChangeController extends Controller
 {
     public function lookupStudent(Request $request): JsonResponse
@@ -28,8 +29,8 @@ class CourseChangeController extends Controller
         ]);
 
         $student = Student::query()
-            ->with(['user', 'course', 'courseEnrolments' => function ($q) {
-                $q->where('status', 'enrolled')->latest();
+            ->with(['user', 'courseEnrolments' => function ($q) {
+                $q->with(['courseCurriculum.course', 'courseCurriculum.curriculum'])->where('status', 'enrolled')->latest();
             }])
             ->where('admission_number', $request->admission_number)
             ->first();
@@ -48,15 +49,15 @@ class CourseChangeController extends Controller
             'data' => [
                 'id' => $student->id,
                 'admission_number' => $student->admission_number,
-                'full_name' => trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' ')),
-                'first_name' => $student->first_name,
-                'middle_name' => $student->middle_name,
-                'last_name' => $student->last_name,
-                'course_id' => $student->course_id,
-                'course_name' => $student->course?->name,
-                'course_code' => $student->course?->code,
-                'curriculum_id' => $activeEnrolment?->curriculum_id,
-                'curriculum_name' => $activeEnrolment?->curriculum?->name,
+                'full_name' => trim(collect([$student->user->first_name, $student->user->middle_name, $student->user->last_name])->filter()->implode(' ')),
+                'first_name' => $student->user->first_name,
+                'middle_name' => $student->user->middle_name,
+                'last_name' => $student->user->last_name,
+                'course_id' => $activeEnrolment?->courseCurriculum?->course_id,
+                'course_name' => $activeEnrolment?->courseCurriculum?->course?->name,
+                'course_code' => $activeEnrolment?->courseCurriculum?->course?->code,
+                'curriculum_id' => $activeEnrolment?->courseCurriculum?->curriculum_id,
+                'curriculum_name' => $activeEnrolment?->courseCurriculum?->curriculum?->name,
                 'enrolment_status' => $activeEnrolment?->status,
                 'enrolment_date' => $activeEnrolment?->enrolment_date?->format('Y-m-d'),
             ],
@@ -73,13 +74,19 @@ class CourseChangeController extends Controller
 
         $student = Student::query()->findOrFail($request->student_id);
 
+        $currentCourseId = CourseEnrolment::query()
+            ->where('student_id', $student->id)
+            ->where('status', 'enrolled')
+            ->latest()
+            ->first()?->courseCurriculum?->course_id;
+
         $activeMappings = CourseCurriculum::query()
             ->with(['course', 'curriculum'])
             ->whereHas('course', function ($q) {
                 $q->where('is_active', true);
             })
             ->where('is_active', true)
-            ->where('course_id', '!=', $student->course_id)
+            ->when($currentCourseId, fn ($q) => $q->where('course_id', '!=', $currentCourseId))
             ->get()
             ->map(fn (CourseCurriculum $mapping) => [
                 'id' => $mapping->id,
@@ -98,7 +105,7 @@ class CourseChangeController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->can('students.edit'), 403);
+        abort_unless($request->user()?->can('students.update'), 403);
 
         $validated = $request->validate([
             'student_id' => ['required', 'uuid', 'exists:students,id'],
@@ -115,6 +122,7 @@ class CourseChangeController extends Controller
 
             $oldEnrolment = CourseEnrolment::query()
                 ->lockForUpdate()
+                ->with('courseCurriculum.course')
                 ->where('student_id', $student->id)
                 ->where('status', 'enrolled')
                 ->latest()
@@ -124,48 +132,12 @@ class CourseChangeController extends Controller
 
             $toMapping = CourseCurriculum::query()->findOrFail($validated['to_curriculum_mapping_id']);
 
-            abort_if($toMapping->course_id === $student->course_id, 422, 'Student is already enrolled in this course.');
+            abort_if($toMapping->course_id === $oldEnrolment->courseCurriculum?->course_id, 422, 'Student is already enrolled in this course.');
 
             $toCourse = Course::query()->lockForUpdate()->findOrFail($toMapping->course_id);
 
             $admissionNumberService = app(AdmissionNumberService::class);
             $newAdmissionNumber = $admissionNumberService->generateForCourse($toCourse);
-
-            $oldUser = $student->user;
-            $oldEmail = $oldUser?->email;
-            $oldPassword = $oldUser?->password;
-
-            $newUser = User::create([
-                'login_id' => $newAdmissionNumber,
-                'email' => $this->generatedTransferEmail($newAdmissionNumber),
-                'password' => $oldPassword,
-                'role' => 'student',
-                'first_name' => $student->first_name,
-                'middle_name' => $student->middle_name,
-                'last_name' => $student->last_name,
-                'gender' => $oldUser?->gender,
-                'date_of_birth' => $oldUser?->date_of_birth,
-                'nationality' => $oldUser?->nationality,
-                'national_id' => $oldUser?->national_id,
-                'place_of_birth' => $oldUser?->place_of_birth,
-                'religion' => $oldUser?->religion,
-                'phone_number' => $oldUser?->phone_number,
-                'alternative_phone_number' => $oldUser?->alternative_phone_number,
-                'county' => $oldUser?->county,
-                'is_pwd' => $oldUser?->is_pwd,
-                'disability_type' => $oldUser?->disability_type,
-                'disability_description' => $oldUser?->disability_description,
-                'next_of_kin_first_name' => $oldUser?->next_of_kin_first_name,
-                'next_of_kin_last_name' => $oldUser?->next_of_kin_last_name,
-                'next_of_kin_phone' => $oldUser?->next_of_kin_phone,
-                'next_of_kin_alt_phone' => $oldUser?->next_of_kin_alt_phone,
-                'next_of_kin_email' => $oldUser?->next_of_kin_email,
-                'next_of_kin_relationship' => $oldUser?->next_of_kin_relationship,
-                'created_by' => $processedBy->id,
-                'updated_by' => $processedBy->id,
-            ]);
-
-            $newUser->assignRole('student');
 
             $oldEnrolment->update([
                 'status' => 'transferred',
@@ -173,49 +145,79 @@ class CourseChangeController extends Controller
                 'updated_by' => $processedBy->id,
             ]);
 
+            AcademicSessionEnrolment::query()
+                ->where('student_id', $student->id)
+                ->where('academic_session_id', $oldEnrolment->academic_session_id)
+                ->update(['status' => 'deactivated']);
+
+            $invoicesToReverse = Invoice::query()
+                ->where('student_id', $student->id)
+                ->where('academic_session_id', $oldEnrolment->academic_session_id)
+                ->where('invoice_type', 'fees')
+                ->whereNotIn('status', ['cancelled', 'reversed'])
+                ->get();
+
+            foreach ($invoicesToReverse as $invoice) {
+                $balanceDue = (float) $invoice->balance_due;
+
+                if ($balanceDue > 0) {
+                    InvoiceAdjustment::create([
+                        'invoice_id' => $invoice->id,
+                        'type' => 'reversal',
+                        'amount' => $balanceDue,
+                        'description' => 'Full reversal due to course transfer.',
+                        'applied_at' => now()->toDateString(),
+                        'created_by' => $processedBy->id,
+                    ]);
+
+                    LedgerTransaction::create([
+                        'student_id' => $invoice->student_id,
+                        'invoice_id' => $invoice->id,
+                        'academic_session_id' => $invoice->academic_session_id,
+                        'type' => 'reversal',
+                        'debit' => 0,
+                        'credit' => $balanceDue,
+                        'description' => 'Full reversal due to course transfer.',
+                        'transaction_date' => now()->toDateString(),
+                        'created_by' => $processedBy->id,
+                    ]);
+
+                    $invoice->recalculateTotals();
+                }
+
+                $invoice->update(['status' => 'reversed']);
+            }
+
             $newEnrolment = CourseEnrolment::create([
                 'student_id' => $student->id,
-                'course_id' => $toMapping->course_id,
                 'course_curriculum_id' => $toMapping->id,
-                'curriculum_id' => $toMapping->curriculum_id,
                 'academic_session_id' => $oldEnrolment->academic_session_id,
                 'enrolment_date' => now()->format('Y-m-d'),
-                'status' => 'enrolled',
-                'remarks' => 'Course transfer from ' . ($oldEnrolment->course?->name ?? 'previous') . '.',
+                'status' => 'active',
+                'remarks' => 'Course transfer from ' . ($oldEnrolment->courseCurriculum?->course?->name ?? 'previous') . '.',
                 'created_by' => $processedBy->id,
                 'updated_by' => $processedBy->id,
             ]);
 
+            $oldAdmissionNumber = $student->admission_number;
+            $changedAt = now();
+
+            $fromMappingId = $oldEnrolment->course_curriculum_id;
+
+            $student->user?->update(['login_id' => $newAdmissionNumber]);
+
             $student->update([
-                'user_id' => $newUser->id,
                 'admission_number' => $newAdmissionNumber,
-                'course_id' => $toMapping->course_id,
                 'course_curriculum_id' => $toMapping->id,
                 'updated_by' => $processedBy->id,
             ]);
 
-            if ($oldUser) {
-                $oldUser->update([
-                    'login_id' => $oldUser->login_id . '_transferred_' . now()->format('YmdHis'),
-                    'status' => false,
-                    'updated_by' => $processedBy->id,
-                ]);
-            }
-
-            $changedAt = now();
-
             $courseChangeLog = CourseChangeLog::create([
                 'student_id' => $student->id,
-                'old_course_enrolment_id' => $oldEnrolment->id,
-                'new_course_enrolment_id' => $newEnrolment->id,
-                'old_curriculum_mapping_id' => $oldEnrolment->curriculum_id
-                    ? CourseCurriculum::query()->where('course_id', $oldEnrolment->course_id)->where('curriculum_id', $oldEnrolment->curriculum_id)->value('id')
-                    : null,
-                'new_curriculum_mapping_id' => $toMapping->id,
-                'old_admission_number' => $student->getOriginal('admission_number'),
+                'old_admission_number' => $oldAdmissionNumber,
                 'new_admission_number' => $newAdmissionNumber,
-                'old_user_id' => $oldUser?->id,
-                'new_user_id' => $newUser->id,
+                'old_course_curriculum_id' => $fromMappingId,
+                'new_course_curriculum_id' => $toMapping->id,
                 'processed_by' => $processedBy->id,
                 'changed_at' => $changedAt,
                 'notes' => $validated['notes'] ?? null,
@@ -223,28 +225,24 @@ class CourseChangeController extends Controller
 
             CurriculumTransfer::create([
                 'student_id' => $student->id,
-                'from_curriculum_mapping_id' => $oldEnrolment->curriculum_id
-                    ? CourseCurriculum::query()->where('course_id', $oldEnrolment->course_id)->where('curriculum_id', $oldEnrolment->curriculum_id)->value('id')
-                    : CourseCurriculum::query()->where('course_id', $toMapping->course_id)->where('curriculum_id', $toMapping->curriculum_id)->first()->id,
+                'from_curriculum_mapping_id' => $fromMappingId,
                 'to_curriculum_mapping_id' => $toMapping->id,
                 'transfer_date' => $changedAt->format('Y-m-d'),
                 'reason' => $validated['notes'] ?? null,
                 'approved_by' => null,
             ]);
 
-            $student->load(['user', 'course']);
+            $student->load(['user']);
 
             return [
                 'student' => [
                     'id' => $student->id,
                     'admission_number' => $student->admission_number,
-                    'full_name' => trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' ')),
-                    'course_name' => $student->course?->name,
+                    'full_name' => trim(collect([$student->user->first_name, $student->user->middle_name, $student->user->last_name])->filter()->implode(' ')),
+                    'course_name' => $newEnrolment->courseCurriculum?->course?->name,
                 ],
                 'old_admission_number' => $courseChangeLog->old_admission_number,
                 'new_admission_number' => $courseChangeLog->new_admission_number,
-                'new_login_id' => $newUser->login_id,
-                'new_email' => $newUser->email,
                 'changed_at' => $changedAt->toDateTimeString(),
             ];
         });
@@ -324,11 +322,5 @@ class CourseChangeController extends Controller
                 'filters' => ['q' => $search],
             ],
         ]);
-    }
-
-    private function generatedTransferEmail(string $admissionNumber): string
-    {
-        $slug = Str::slug($admissionNumber);
-        return "{$slug}@transfer.magoerp.com";
     }
 }

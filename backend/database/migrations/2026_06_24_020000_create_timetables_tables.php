@@ -45,11 +45,11 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->foreignUuid('created_by')
                 ->nullable()
-                ->constrained('users')
+                ->constrained('staffs')
                 ->nullOnDelete();
             $table->foreignUuid('updated_by')
                 ->nullable()
-                ->constrained('users')
+                ->constrained('staffs')
                 ->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();

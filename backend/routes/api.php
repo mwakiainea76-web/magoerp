@@ -107,6 +107,7 @@ Route::middleware(['api_token_cookie', 'auth:sanctum'])->group(function () {
     Route::post('/invoices', [InvoicesController::class, 'store']);
     Route::get('/invoices', [InvoicesController::class, 'index']);
     Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
+    Route::get('/students/{student}/invoice-templates', [InvoicesController::class, 'availableTemplates']);
     Route::post('/payments', [PaymentsController::class, 'store']);
     Route::get('/payments', [PaymentsController::class, 'index']);
     Route::post('/invoices/{invoice}/adjustments', [InvoiceAdjustmentsController::class, 'store']);
@@ -117,6 +118,7 @@ Route::middleware(['api_token_cookie', 'auth:sanctum'])->group(function () {
     Route::post('/marks', [StudentMarksController::class, 'store']);
     Route::post('/marks/bulk', [StudentMarksController::class, 'bulkStore']);
     Route::post('/marks/publish-assessment', [StudentMarksController::class, 'publishAssessment']);
+    Route::post('/marks/publish-filtered', [StudentMarksController::class, 'publishFiltered']);
     Route::get('/marks/available-units', [StudentMarksController::class, 'availableUnits']);
     Route::get('/marks/available-students', [StudentMarksController::class, 'availableStudents']);
     Route::get('/marks/marksheet', [StudentMarksController::class, 'marksheet']);

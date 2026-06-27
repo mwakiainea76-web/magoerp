@@ -29,11 +29,13 @@ class StudentDashboardController extends Controller
             ], 404);
         }
 
-        $course = $student->course;
         $courseEnrolment = CourseEnrolment::query()
+            ->with('courseCurriculum.course')
             ->where('student_id', $student->id)
             ->latest()
             ->first();
+
+        $course = $courseEnrolment?->courseCurriculum?->course;
 
         $currentSession = AcademicSession::query()
             ->where('is_active', true)
@@ -118,8 +120,8 @@ class StudentDashboardController extends Controller
                 ->pluck('unit_id');
 
             $courseCurriculumIds = CourseCurriculum::query()
-                ->where('course_id', $courseEnrolment?->course_id ?? $student->course_id)
-                ->when($courseEnrolment?->curriculum_id, fn ($query, $curriculumId) => $query->where('curriculum_id', $curriculumId))
+                ->where('course_id', $courseEnrolment?->courseCurriculum?->course_id)
+                ->when($courseEnrolment?->courseCurriculum?->curriculum_id, fn ($query, $curriculumId) => $query->where('curriculum_id', $curriculumId))
                 ->where('is_active', true)
                 ->pluck('id');
 
@@ -148,9 +150,9 @@ class StudentDashboardController extends Controller
                 'student' => [
                     'id' => $student->id,
                     'admission_number' => $student->admission_number,
-                    'first_name' => $student->first_name,
-                    'last_name' => $student->last_name,
-                    'name' => trim($student->first_name . ' ' . $student->last_name),
+                    'first_name' => $student->user->first_name,
+                    'last_name' => $student->user->last_name,
+                    'name' => trim($student->user->first_name . ' ' . $student->user->last_name),
                 ],
                 'finance' => [
                     'outstanding_balance' => $outstandingBalance,
@@ -163,10 +165,10 @@ class StudentDashboardController extends Controller
                     'name' => $course->name,
                     'duration' => $course->duration,
                     'level' => $course->level?->name,
-                    'curriculum' => $courseEnrolment?->curriculum ? [
-                        'id' => $courseEnrolment->curriculum->id,
-                        'code' => $courseEnrolment->curriculum->code,
-                        'name' => $courseEnrolment->curriculum->name,
+                    'curriculum' => $courseEnrolment?->courseCurriculum?->curriculum ? [
+                        'id' => $courseEnrolment->courseCurriculum->curriculum->id,
+                        'code' => $courseEnrolment->courseCurriculum->curriculum->code,
+                        'name' => $courseEnrolment->courseCurriculum->curriculum->name,
                     ] : null,
                 ] : null,
                 'enrolment' => $courseEnrolment ? [
@@ -177,10 +179,10 @@ class StudentDashboardController extends Controller
                         'id' => $currentSessionEnrolment->academicSession->id,
                         'name' => $currentSessionEnrolment->academicSession->name,
                     ] : null,
-                    'curriculum' => $courseEnrolment->curriculum ? [
-                        'id' => $courseEnrolment->curriculum->id,
-                        'code' => $courseEnrolment->curriculum->code,
-                        'name' => $courseEnrolment->curriculum->name,
+                    'curriculum' => $courseEnrolment->courseCurriculum?->curriculum ? [
+                        'id' => $courseEnrolment->courseCurriculum->curriculum->id,
+                        'code' => $courseEnrolment->courseCurriculum->curriculum->code,
+                        'name' => $courseEnrolment->courseCurriculum->curriculum->name,
                     ] : null,
                 ] : null,
                 'current_session' => $currentSession ? [

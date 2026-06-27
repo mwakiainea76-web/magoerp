@@ -26,8 +26,6 @@ class StaffsController extends Controller
 
         $sortableColumns = [
             'employee_number' => 'employee_number',
-            'first_name' => 'first_name',
-            'last_name' => 'last_name',
             'job_title' => 'job_title',
             'created_at' => 'created_at',
         ];
@@ -38,9 +36,11 @@ class StaffsController extends Controller
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
                         ->where('employee_number', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($uq) use ($search) {
+                            $uq->where('first_name', 'like', "%{$search}%")
+                               ->orWhere('middle_name', 'like', "%{$search}%")
+                               ->orWhere('last_name', 'like', "%{$search}%");
+                        })
                         ->orWhere('job_title', 'like', "%{$search}%")
                         ->orWhereHas('department', function ($deptQuery) use ($search) {
                             $deptQuery->where('name', 'like', "%{$search}%")
@@ -118,9 +118,6 @@ class StaffsController extends Controller
             $staff = staffs::create([
                 'user_id' => $user->id,
                 'employee_number' => $employeeNumber,
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'last_name' => $request->last_name,
                 'kra_pin' => $request->kra_pin,
                 'nhif_number' => $request->nhif_number,
                 'nssf_number' => $request->nssf_number,
@@ -198,9 +195,6 @@ class StaffsController extends Controller
             $user->update($userData);
 
             $staff->update([
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'last_name' => $request->last_name,
                 'kra_pin' => $request->kra_pin,
                 'nhif_number' => $request->nhif_number,
                 'nssf_number' => $request->nssf_number,
@@ -253,10 +247,10 @@ class StaffsController extends Controller
 
             'employee_number' => $staff->employee_number,
 
-            'first_name' => $staff->first_name,
-            'middle_name' => $staff->middle_name,
-            'last_name' => $staff->last_name,
-            'full_name' => trim(collect([$staff->first_name, $staff->middle_name, $staff->last_name])->filter()->implode(' ')),
+            'first_name' => $user?->first_name,
+            'middle_name' => $user?->middle_name,
+            'last_name' => $user?->last_name,
+            'full_name' => trim(collect([$user?->first_name, $user?->middle_name, $user?->last_name])->filter()->implode(' ')),
 
             'gender' => $user?->gender,
             'date_of_birth' => $user?->date_of_birth?->format('Y-m-d'),

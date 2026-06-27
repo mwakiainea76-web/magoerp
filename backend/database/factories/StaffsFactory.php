@@ -25,9 +25,6 @@ class StaffsFactory extends Factory
         return [
             'user_id' => User::factory(),
             'employee_number' => $employeeNumber,
-            'first_name' => fake()->firstName(),
-            'middle_name' => fake()->optional()->firstName(),
-            'last_name' => fake()->lastName(),
             'kra_pin' => null,
             'nhif_number' => fake()->optional()->numerify('##########'),
             'nssf_number' => fake()->optional()->numerify('##########'),

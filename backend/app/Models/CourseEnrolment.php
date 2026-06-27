@@ -17,8 +17,6 @@ class CourseEnrolment extends Model
 
     protected $fillable = [
         'student_id',
-        'course_id',
-        'curriculum_id',
         'course_curriculum_id',
         'academic_session_id',
         'enrolment_date',
@@ -39,16 +37,6 @@ class CourseEnrolment extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
-    }
-
-    public function course(): BelongsTo
-    {
-        return $this->belongsTo(Course::class);
-    }
-
-    public function curriculum(): BelongsTo
-    {
-        return $this->belongsTo(Curriculum::class);
     }
 
     public function courseCurriculum(): BelongsTo
