@@ -30,10 +30,11 @@ class PaymentsController extends Controller
             ->with(['student', 'invoice'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->whereHas('student', function ($sq) use ($search) {
-                    $sq->where('first_name', 'like', "%{$search}%")
+                    $sq->where('admission_number', 'like', "%{$search}%");
+                })->orWhereHas('student.user', function ($uq) use ($search) {
+                    $uq->where('first_name', 'like', "%{$search}%")
                         ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('admission_number', 'like', "%{$search}%");
+                        ->orWhere('last_name', 'like', "%{$search}%");
                 });
             })
             ->latest()

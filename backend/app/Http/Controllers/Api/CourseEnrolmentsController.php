@@ -39,10 +39,12 @@ class CourseEnrolmentsController extends Controller
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
                         ->whereHas('student', function ($sq) use ($search) {
-                            $sq->where('first_name', 'like', "%{$search}%")
+                            $sq->where('admission_number', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('student.user', function ($uq) use ($search) {
+                            $uq->where('first_name', 'like', "%{$search}%")
                                 ->orWhere('middle_name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%")
-                                ->orWhere('admission_number', 'like', "%{$search}%");
+                                ->orWhere('last_name', 'like', "%{$search}%");
                         })
                         ->orWhereHas('courseCurriculum.course', function ($cq) use ($search) {
                             $cq->where('name', 'like', "%{$search}%")
@@ -162,11 +164,14 @@ class CourseEnrolmentsController extends Controller
         $logs = StudentStatusLog::query()
             ->with(['student', 'recordedBy'])
             ->when($search !== '', function ($q) use ($search) {
-                $q->whereHas('student', function ($sq) use ($search) {
-                    $sq->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('admission_number', 'like', "%{$search}%");
+                $q->where(function ($inner) use ($search) {
+                    $inner->whereHas('student', function ($sq) use ($search) {
+                        $sq->where('admission_number', 'like', "%{$search}%");
+                    })->orWhereHas('student.user', function ($uq) use ($search) {
+                        $uq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('middle_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    });
                 });
             })
             ->when($status !== '', fn ($q) => $q->where('to_status', $status))

@@ -47,10 +47,12 @@ class InvoicesController extends Controller
             ->when($search !== '', function ($q) use ($search) {
                 $q->where('invoice_number', 'like', "%{$search}%")
                     ->orWhereHas('student', function ($sq) use ($search) {
-                        $sq->where('first_name', 'like', "%{$search}%")
+                        $sq->where('admission_number', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('student.user', function ($uq) use ($search) {
+                        $uq->where('first_name', 'like', "%{$search}%")
                             ->orWhere('middle_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('admission_number', 'like', "%{$search}%");
+                            ->orWhere('last_name', 'like', "%{$search}%");
                     });
             })
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))

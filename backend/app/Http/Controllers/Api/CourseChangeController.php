@@ -293,6 +293,8 @@ class CourseChangeController extends Controller
                         ->where('old_admission_number', 'like', "%{$search}%")
                         ->orWhere('new_admission_number', 'like', "%{$search}%")
                         ->orWhereHas('student', fn ($sq) => $sq
+                            ->where('admission_number', 'like', "%{$search}%"))
+                        ->orWhereHas('student.user', fn ($uq) => $uq
                             ->where('first_name', 'like', "%{$search}%")
                             ->orWhere('middle_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%"));
@@ -305,7 +307,7 @@ class CourseChangeController extends Controller
         return response()->json([
             'data' => $transfers->getCollection()->map(fn (CourseChangeLog $log) => [
                 'id' => $log->id,
-                'student_name' => trim(collect([$log->student?->first_name, $log->student?->middle_name, $log->student?->last_name])->filter()->implode(' ')),
+                'student_name' => trim(collect([$log->student?->user?->first_name, $log->student?->user?->middle_name, $log->student?->user?->last_name])->filter()->implode(' ')),
                 'old_admission_number' => $log->old_admission_number,
                 'new_admission_number' => $log->new_admission_number,
                 'notes' => $log->notes,

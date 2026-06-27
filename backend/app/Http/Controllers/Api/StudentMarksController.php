@@ -370,7 +370,8 @@ class StudentMarksController extends Controller
         ]);
 
         $query = Student::query()
-            ->select('students.id', 'students.admission_number', 'students.first_name', 'students.middle_name', 'students.last_name')
+            ->select('students.id', 'students.admission_number', 'users.first_name', 'users.middle_name', 'users.last_name')
+            ->join('users', 'users.id', '=', 'students.user_id')
             ->join('student_unit_registrations', function ($j) use ($validated) {
                 $j->on('student_unit_registrations.student_id', '=', 'students.id')
                     ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id']);
@@ -383,8 +384,8 @@ class StudentMarksController extends Controller
         if ($q = $request->get('q')) {
             $query->where(function ($qry) use ($q) {
                 $qry->where('students.admission_number', 'like', "%{$q}%")
-                    ->orWhere('students.first_name', 'like', "%{$q}%")
-                    ->orWhere('students.last_name', 'like', "%{$q}%");
+                    ->orWhere('users.first_name', 'like', "%{$q}%")
+                    ->orWhere('users.last_name', 'like', "%{$q}%");
             });
         }
 
@@ -406,7 +407,8 @@ class StudentMarksController extends Controller
         ]);
 
         $students = Student::query()
-            ->select('students.id', 'students.admission_number', 'students.first_name', 'students.middle_name', 'students.last_name')
+            ->select('students.id', 'students.admission_number', 'users.first_name', 'users.middle_name', 'users.last_name')
+            ->join('users', 'users.id', '=', 'students.user_id')
             ->join('student_unit_registrations', function ($j) use ($validated) {
                 $j->on('student_unit_registrations.student_id', '=', 'students.id')
                     ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id'])

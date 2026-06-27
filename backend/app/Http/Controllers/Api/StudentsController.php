@@ -31,27 +31,31 @@ class StudentsController extends Controller
 
         $sortableColumns = [
             'admission_number' => 'admission_number',
-            'first_name' => 'first_name',
-            'last_name' => 'last_name',
+            'first_name' => User::select('first_name')->whereColumn('users.id', 'students.user_id'),
+            'last_name' => User::select('last_name')->whereColumn('users.id', 'students.user_id'),
             'created_at' => 'created_at',
         ];
 
+        $sortColumn = $sortableColumns[$sortBy] ?? 'admission_number';
+
         $students = Student::query()
-            ->with(['user', 'courseEnrolments.courseCurriculum.courseCurriculum.course'])
+            ->with(['user', 'courseEnrolments.courseCurriculum.course'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
                         ->where('admission_number', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhereHas('courseEnrolments.courseCurriculum.courseCurriculum.course', function ($courseQuery) use ($search) {
+                        ->orWhereHas('user', function ($uq) use ($search) {
+                            $uq->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('middle_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('courseEnrolments.courseCurriculum.course', function ($courseQuery) use ($search) {
                             $courseQuery->where('name', 'like', "%{$search}%")
                                 ->orWhere('code', 'like', "%{$search}%");
                         });
                 });
             })
-            ->orderBy($sortableColumns[$sortBy] ?? 'admission_number', $sortDirection)
+            ->orderBy($sortColumn, $sortDirection)
             ->paginate($perPage)
             ->withQueryString();
 

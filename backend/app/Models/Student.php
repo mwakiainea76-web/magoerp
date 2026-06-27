@@ -61,4 +61,24 @@ class Student extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+
+    public function getFirstNameAttribute(): ?string
+    {
+        return $this->user?->first_name;
+    }
+
+    public function getMiddleNameAttribute(): ?string
+    {
+        return $this->user?->middle_name;
+    }
+
+    public function getLastNameAttribute(): ?string
+    {
+        return $this->user?->last_name;
+    }
+
+    public function getFullNameAttribute(): ?string
+    {
+        return $this->user ? trim(collect([$this->user->first_name, $this->user->middle_name, $this->user->last_name])->filter()->implode(' ')) : null;
+    }
 }
