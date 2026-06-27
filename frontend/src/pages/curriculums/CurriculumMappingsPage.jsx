@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { Link, Plus, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import * as yup from "yup";
 
 import {
   Table,
@@ -12,12 +15,18 @@ import {
   Td,
   TableFooter,
 } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useCourseCurriculaApi } from "@/hooks/useCourseCurriculaApi";
 import { useCoursesApi } from "@/hooks/useCoursesApi";
 import { useCurriculumsApi } from "@/hooks/useCurriculumsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
+
+const mappingSchema = yup.object({
+  course_id: yup.string().required("Course is required"),
+  curriculum_id: yup.string().required("Curriculum is required"),
+});
 
 export function CurriculumMappingsPage() {
   const api = useCourseCurriculaApi();
@@ -38,9 +47,18 @@ export function CurriculumMappingsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [courses, setCourses] = useState([]);
   const [curriculums, setCurriculums] = useState([]);
-  const [newCourseId, setNewCourseId] = useState("");
-  const [newCurriculumId, setNewCurriculumId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError: setFormError,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(mappingSchema),
+    defaultValues: { course_id: "", curriculum_id: "" },
+  });
 
   const [deletingId, setDeletingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
@@ -79,18 +97,23 @@ export function CurriculumMappingsPage() {
     }
   }, [coursesApi, curriculumsApi]);
 
-  async function handleAdd() {
-    if (!newCourseId || !newCurriculumId) return;
+  async function handleAdd(data) {
     setIsSaving(true);
     try {
-      const res = await api.create({ course_id: newCourseId, curriculum_id: newCurriculumId });
+      const res = await api.create(data);
       toast.success(res.message ?? "Mapping created.");
       setShowAddForm(false);
-      setNewCourseId("");
-      setNewCurriculumId("");
+      reset();
       setReloadKey((k) => k + 1);
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Failed to create mapping."));
+      const serverErrors = e?.response?.data?.errors;
+      if (serverErrors) {
+        Object.entries(serverErrors).forEach(([key, value]) => {
+          setFormError(key, { message: value?.[0] ?? "Invalid value" });
+        });
+      } else {
+        toast.error(getApiErrorMessage(e, "Failed to create mapping."));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -160,18 +183,6 @@ export function CurriculumMappingsPage() {
               placeholder="Search by course or curriculum name/code..."
             />
           </div>
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Per Page</label>
-            <select
-              value={perPage}
-              onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
-              className={`${selectClassName} w-full`}
-            >
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
           <div className="flex gap-3 xl:justify-end">
             <FormButton type="submit" className="w-full sm:w-auto">Apply</FormButton>
             <FormButton type="button" variant="secondary" className="w-full sm:w-auto" onClick={handleResetFilters}>Reset</FormButton>
@@ -183,37 +194,31 @@ export function CurriculumMappingsPage() {
       </form>
 
       {showAddForm ? (
-        <div className="rounded-xl border border-sky-100 bg-sky-50 p-5">
+        <form onSubmit={handleSubmit(handleAdd)} className="rounded-xl border border-sky-100 bg-sky-50 p-5">
           <h2 className="mb-4 text-[15px] font-semibold text-sky-900">New Mapping</h2>
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Course</label>
-              <select
-                value={newCourseId}
-                onChange={(e) => setNewCourseId(e.target.value)}
-                className={`${selectClassName} w-full`}
-              >
+              <label htmlFor="course_id" className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Course</label>
+              <select id="course_id" className={`${selectClassName} w-full`} {...register("course_id")}>
                 <option value="">Select a course...</option>
                 {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
                 ))}
               </select>
+              {errors.course_id ? <p className="mt-1 text-sm text-red-600">{errors.course_id.message}</p> : null}
             </div>
             <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Curriculum</label>
-              <select
-                value={newCurriculumId}
-                onChange={(e) => setNewCurriculumId(e.target.value)}
-                className={`${selectClassName} w-full`}
-              >
+              <label htmlFor="curriculum_id" className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Curriculum</label>
+              <select id="curriculum_id" className={`${selectClassName} w-full`} {...register("curriculum_id")}>
                 <option value="">Select a curriculum...</option>
                 {curriculums.map((cur) => (
                   <option key={cur.id} value={cur.id}>{cur.code} — {cur.name}</option>
                 ))}
               </select>
+              {errors.curriculum_id ? <p className="mt-1 text-sm text-red-600">{errors.curriculum_id.message}</p> : null}
             </div>
             <div className="flex items-end gap-2">
-              <FormButton onClick={handleAdd} disabled={isSaving || !newCourseId || !newCurriculumId}>
+              <FormButton type="submit" disabled={isSaving}>
                 {isSaving ? "Saving..." : "Create"}
               </FormButton>
               <FormButton type="button" variant="secondary" onClick={() => setShowAddForm(false)}>
@@ -221,7 +226,7 @@ export function CurriculumMappingsPage() {
               </FormButton>
             </div>
           </div>
-        </div>
+        </form>
       ) : null}
 
       {error ? (
@@ -303,28 +308,7 @@ export function CurriculumMappingsPage() {
         )}
 
         <TableFooter>
-          <p className={`text-slate-500 ${bodyTextClassName}`}>
-            {meta.total > 0
-              ? `Showing ${meta.from} to ${meta.to} of ${meta.total} mappings`
-              : "No results"}
-          </p>
-          <div className="flex items-center gap-3">
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page <= 1 || isLoading}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >Previous</FormButton>
-            <span className={`text-slate-500 ${bodyTextClassName}`}>Page {meta.current_page} of {meta.last_page}</span>
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page >= meta.last_page || isLoading}
-              onClick={() => setPage((p) => p + 1)}
-            >Next</FormButton>
-          </div>
+          <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
         </TableFooter>
       </Table>
     </section>

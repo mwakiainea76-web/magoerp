@@ -2,6 +2,7 @@
 
 import { AccessRoleFormPage } from "@/pages/access/AccessRoleFormPage";
 import { StudentStatusLogsPage } from "@/pages/enrolments/StudentStatusLogsPage";
+import { SystemConfigurationsPage } from "@/pages/admin/SystemConfigurationsPage";
 import { AccessRolePermissionsPage } from "@/pages/access/AccessRolePermissionsPage";
 import { AccessRolesPage } from "@/pages/access/AccessRolesPage";
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
@@ -22,6 +23,7 @@ import { CurriculumMappingsPage } from "@/pages/curriculums/CurriculumMappingsPa
 import { CurriculumsPage } from "@/pages/curriculums/CurriculumsPage";
 import { DepartmentFormPage } from "@/pages/departments/DepartmentFormPage";
 import { DepartmentsPage } from "@/pages/departments/DepartmentsPage";
+import { BillingPage } from "@/pages/finance/BillingPage";
 import { InvoiceTemplateAssignmentsPage } from "@/pages/invoiceTemplates/InvoiceTemplateAssignmentsPage";
 import { InvoiceTemplateFormPage } from "@/pages/invoiceTemplates/InvoiceTemplateFormPage";
 import { InvoiceTemplateItemsPage } from "@/pages/invoiceTemplates/InvoiceTemplateItemsPage";
@@ -82,6 +84,7 @@ export function AdminRoutes() {
       <Route path="/academic-calendar/sessions" element={<AcademicSessionsPage />} />
       <Route path="/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
       <Route path="/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
+      <Route path="/finance/billing" element={<BillingPage />} />
       <Route path="/finance/invoice-templates" element={<InvoiceTemplatesPage />} />
       <Route path="/finance/invoice-templates/create" element={<InvoiceTemplateFormPage />} />
       <Route path="/finance/invoice-templates/:templateId/edit" element={<InvoiceTemplateFormPage />} />
@@ -115,6 +118,7 @@ export function AdminRoutes() {
       <Route path="/hostels/create" element={<HostelFormPage />} />
       <Route path="/hostels/:hostelId/edit" element={<HostelFormPage />} />
       <Route path="/hostel-allocations" element={<HostelAllocationsPage />} />
+      <Route path="/system-configurations" element={<SystemConfigurationsPage />} />
     </>
   );
 }

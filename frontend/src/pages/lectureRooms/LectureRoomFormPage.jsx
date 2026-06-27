@@ -1,68 +1,81 @@
 import { useEffect, useState } from "react";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { ArrowLeft } from "lucide-react";
+import * as yup from "yup";
 
-import { bodyTextClassName, labelTextClassName, inputClassName } from "@/lib/styles";
+import { bodyTextClassName, labelClassName, selectClassName, textAreaClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
+import { FormInput } from "@/components/FormInput";
 import { useLectureRoomsApi } from "@/hooks/useLectureRoomsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
+
+const lectureRoomSchema = yup.object({
+  name: yup.string().required("Room name is required").max(255),
+  code: yup.string().required("Code is required").max(50),
+  capacity: yup.number().nullable().transform((v) => (v === "" || v === null ? null : v)).min(1),
+  location: yup.string().nullable().max(255),
+  description: yup.string().nullable().max(5000),
+  is_active: yup.boolean(),
+});
 
 export function LectureRoomFormPage() {
   const { roomId } = useParams();
   const isEdit = Boolean(roomId);
   const navigate = useNavigate();
   const api = useLectureRoomsApi();
-
-  const [form, setForm] = useState({
-    name: "",
-    code: "",
-    capacity: "",
-    location: "",
-    description: "",
-    is_active: true,
-  });
   const [isLoading, setIsLoading] = useState(isEdit);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: yupResolver(lectureRoomSchema),
+    defaultValues: {
+      name: "",
+      code: "",
+      capacity: "",
+      location: "",
+      description: "",
+      is_active: true,
+    },
+  });
 
   useEffect(() => {
+    if (!isEdit) return;
     let mounted = true;
     async function load() {
       try {
-        if (isEdit) {
-          const roomRes = await api.show(roomId);
-          if (mounted && roomRes.data) {
-            const r = roomRes.data;
-            setForm({
-              name: r.name ?? "",
-              code: r.code ?? "",
-              capacity: r.capacity ?? "",
-              location: r.location ?? "",
-              description: r.description ?? "",
-              is_active: r.is_active ?? true,
-            });
-          }
+        const res = await api.show(roomId);
+        if (mounted && res.data) {
+          const r = res.data;
+          reset({
+            name: r.name ?? "",
+            code: r.code ?? "",
+            capacity: r.capacity ?? "",
+            location: r.location ?? "",
+            description: r.description ?? "",
+            is_active: r.is_active ?? true,
+          });
         }
       } catch (e) {
-        if (mounted) setError(getApiErrorMessage(e, "Failed to load data."));
-      } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) setError("root", { message: getApiErrorMessage(e, "Failed to load data.") });
       }
     }
-    if (isEdit) load(); else setIsLoading(false);
+    load();
     return () => { mounted = false; };
   }, [isEdit]);
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setIsSaving(true);
-    setError("");
-
+  async function onSubmit(data) {
     const payload = {
-      ...form,
-      capacity: form.capacity ? Number(form.capacity) : null,
-      description: form.description || null,
+      ...data,
+      capacity: data.capacity ? Number(data.capacity) : null,
+      description: data.description || null,
     };
 
     try {
@@ -75,9 +88,14 @@ export function LectureRoomFormPage() {
       }
       navigate("/lecture-rooms");
     } catch (e) {
-      setError(getApiErrorMessage(e, "Failed to save room."));
-    } finally {
-      setIsSaving(false);
+      const serverErrors = e?.response?.data?.errors;
+      if (serverErrors) {
+        Object.entries(serverErrors).forEach(([key, value]) => {
+          setError(key, { message: value?.[0] ?? "Invalid value" });
+        });
+      } else {
+        setError("root", { message: getApiErrorMessage(e, "Failed to save room.") });
+      }
     }
   }
 
@@ -100,85 +118,72 @@ export function LectureRoomFormPage() {
           {isEdit ? "Edit Lecture Room" : "Add Lecture Room"}
         </h1>
 
-        {error ? (
-          <div className={`mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{error}</div>
+        {errors.root ? (
+          <div className={`mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{errors.root.message}</div>
         ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
+            <FormInput
+              id="name"
+              label="Room Name"
+              placeholder="e.g. Main Lecture Hall"
+              required
+              maxLength={255}
+              error={errors.name?.message}
+              {...register("name")}
+            />
+            <FormInput
+              id="code"
+              label="Code"
+              placeholder="e.g. MLH-01"
+              required
+              maxLength={50}
+              error={errors.code?.message}
+              {...register("code")}
+            />
+            <FormInput
+              id="capacity"
+              label="Capacity"
+              type="number"
+              placeholder="e.g. 50"
+              min={1}
+              error={errors.capacity?.message}
+              {...register("capacity")}
+            />
+            <FormInput
+              id="location"
+              label="Location"
+              placeholder="e.g. Block A, Floor 2"
+              maxLength={255}
+              error={errors.location?.message}
+              {...register("location")}
+            />
             <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Room Name *</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className={inputClassName}
-                required
-                maxLength={255}
-              />
-            </div>
-            <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Code *</label>
-              <input
-                type="text"
-                value={form.code}
-                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                className={inputClassName}
-                required
-                maxLength={50}
-              />
-            </div>
-            <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Capacity</label>
-              <input
-                type="number"
-                value={form.capacity}
-                onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))}
-                className={inputClassName}
-                min={1}
-                placeholder="e.g. 50"
-              />
-            </div>
-            <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Location</label>
-              <input
-                type="text"
-                value={form.location}
-                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                className={inputClassName}
-                maxLength={255}
-                placeholder="e.g. Block A, Floor 2"
-              />
-            </div>
-            <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Status</label>
-              <select
-                value={form.is_active ? "active" : "inactive"}
-                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "active" }))}
-                className={`${selectClassName} w-full`}
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+              <label htmlFor="is_active" className={labelClassName}>Status</label>
+              <select id="is_active" className={`${selectClassName} w-full`} {...register("is_active")}>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
               </select>
             </div>
           </div>
 
           <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Description</label>
+            <label htmlFor="description" className={labelClassName}>Description</label>
             <textarea
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className={`${inputClassName} min-h-[80px] w-full resize-y py-3`}
+              id="description"
+              className={textAreaClassName}
+              placeholder="Optional notes about this room"
               maxLength={5000}
+              {...register("description")}
             />
+            {errors.description ? <p className="mt-1 text-sm text-red-600">{errors.description.message}</p> : null}
           </div>
 
           <div className="flex justify-end gap-3">
-            <FormButton type="button" variant="secondary" onClick={() => navigate("/lecture-rooms")}>
-              Cancel
-            </FormButton>
-            <FormButton type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : isEdit ? "Update Room" : "Create Room"}
+            <FormButton type="button" variant="secondary" onClick={() => navigate("/lecture-rooms")}>Cancel</FormButton>
+            <FormButton type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : isEdit ? "Update Room" : "Create Room"}
             </FormButton>
           </div>
         </form>

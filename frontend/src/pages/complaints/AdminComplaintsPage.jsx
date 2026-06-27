@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Eye } from "lucide-react";
 
 import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
-import { FormButton } from "@/components/FormButton";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { useComplaintsApi } from "@/hooks/useComplaintsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -24,6 +24,7 @@ export function AdminComplaintsPage() {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
     let mounted = true;
@@ -32,7 +33,7 @@ export function AdminComplaintsPage() {
 
     async function load() {
       try {
-        const params = { page, per_page: 20 };
+        const params = { page, per_page: perPage };
         if (statusFilter) params.status = statusFilter;
         const res = await api.adminIndex(params);
 
@@ -48,7 +49,7 @@ export function AdminComplaintsPage() {
     }
     load();
     return () => { mounted = false; };
-  }, [page, statusFilter]);
+  }, [page, perPage, statusFilter]);
 
   return (
     <section className="space-y-5">
@@ -140,20 +141,7 @@ export function AdminComplaintsPage() {
           </TableWrapper>
         )}
 
-        <TableFooter>
-          <p className={`text-slate-500 ${bodyTextClassName}`}>
-            {meta.total > 0 ? `Showing ${meta.from} to ${meta.to} of ${meta.total}` : "No results"}
-          </p>
-          <div className="flex items-center gap-3">
-            <FormButton type="button" variant="secondary" disabled={meta.current_page <= 1} onClick={() => setPage((c) => c - 1)}>
-              Previous
-            </FormButton>
-            <span className={`text-slate-500 ${bodyTextClassName}`}>Page {meta.current_page} of {meta.last_page}</span>
-            <FormButton type="button" variant="secondary" disabled={meta.current_page >= meta.last_page} onClick={() => setPage((c) => c + 1)}>
-              Next
-            </FormButton>
-          </div>
-        </TableFooter>
+        <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
       </Table>
     </section>
   );

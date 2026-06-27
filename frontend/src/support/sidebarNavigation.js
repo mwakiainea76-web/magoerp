@@ -121,7 +121,7 @@ export const sidebarNavigationByRole = {
       label: "Finance",
       icon: Landmark,
       children: [
-        { label: "Invoices", to: "/finance/invoices" },
+        { label: "Billing", to: "/finance/billing" },
         { label: "Financial Ledger", to: "/finance/ledger" },
         { label: "Invoice Templates", to: "/finance/invoice-templates" },
         { label: "Add Template", to: "/finance/invoice-templates/create" },
@@ -142,6 +142,13 @@ export const sidebarNavigationByRole = {
       children: [
         { label: "Enrollments", to: "/operations/enrollments" },
         { label: "Status Logs", to: "/operations/status-logs" },
+      ],
+    },
+    {
+      label: "System Config",
+      icon: Settings2,
+      children: [
+        { label: "System Configurations", to: "/system-configurations" },
       ],
     },
     {

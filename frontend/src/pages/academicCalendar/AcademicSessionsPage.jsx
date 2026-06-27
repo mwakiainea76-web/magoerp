@@ -16,6 +16,7 @@ import {
   Th,
   Thead,
 } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
@@ -53,7 +54,7 @@ export function AcademicSessionsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
-  const [perPage] = useState(10);
+  const [perPage, setPerPage] = useState(10);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isFormLoading, setIsFormLoading] = useState(false);
@@ -239,14 +240,6 @@ export function AcademicSessionsPage() {
     [yearName],
   );
 
-  const handlePreviousPage = useCallback(() => {
-    setPage((current) => Math.max(1, current - 1));
-  }, []);
-
-  const handleNextPage = useCallback(() => {
-    setPage((current) => current + 1);
-  }, []);
-
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 rounded-xl border border-slate-200/80 bg-white px-4 py-4 shadow-sm sm:px-6 lg:flex-row lg:items-start lg:justify-between">
@@ -348,34 +341,7 @@ export function AcademicSessionsPage() {
             </TableWrapper>
 
             <TableFooter>
-              <p className={`text-slate-500 ${bodyTextClassName}`}>
-                {meta.total > 0
-                  ? `Showing ${meta.from} to ${meta.to} of ${meta.total} sessions`
-                  : "No results"}
-              </p>
-              <div className="flex items-center gap-3">
-                <FormButton
-                  type="button"
-                  variant="secondary"
-                  className="h-9 w-auto px-4"
-                  disabled={meta.current_page <= 1 || isLoading}
-                  onClick={handlePreviousPage}
-                >
-                  Previous
-                </FormButton>
-                <span className={`text-slate-500 ${bodyTextClassName}`}>
-                  Page {meta.current_page} of {meta.last_page}
-                </span>
-                <FormButton
-                  type="button"
-                  variant="secondary"
-                  className="h-9 w-auto px-4"
-                  disabled={meta.current_page >= meta.last_page || isLoading}
-                  onClick={handleNextPage}
-                >
-                  Next
-                </FormButton>
-              </div>
+              <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
             </TableFooter>
           </>
         )}

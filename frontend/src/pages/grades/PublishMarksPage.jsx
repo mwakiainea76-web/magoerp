@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { CheckCircle2, XCircle } from "lucide-react";
 
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName } from "@/lib/styles";
+import { bodyTextClassName, labelClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
-import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td } from "@/components/DataTable";
+import { LookupSelect } from "@/components/LookupSelect";
+import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { useMarksApi } from "@/hooks/useMarksApi";
+import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const ASSESSMENT_TYPES = [
@@ -14,25 +17,70 @@ const ASSESSMENT_TYPES = [
 
 export function PublishMarksPage() {
   const marksApi = useMarksApi();
+  const sessionsApi = useAcademicSessionsApi();
 
   const [marks, setMarks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [publishingId, setPublishingId] = useState(null);
+  const [sessions, setSessions] = useState([]);
+
   const [filterSession, setFilterSession] = useState("");
+  const [filterStudent, setFilterStudent] = useState("");
+  const [filterStudentOption, setFilterStudentOption] = useState(null);
   const [filterUnit, setFilterUnit] = useState("");
+  const [filterUnitOption, setFilterUnitOption] = useState(null);
   const [filterType, setFilterType] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [totalMarks, setTotalMarks] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
+
+  const loadSessions = useCallback(async () => {
+    try {
+      const res = await sessionsApi.list({ per_page: 50, sort_direction: "desc" });
+      setSessions(res.data ?? []);
+    } catch {
+      // silent
+    }
+  }, [sessionsApi]);
+
+  useEffect(() => { loadSessions(); }, [loadSessions]);
+
+  const fetchStudents = useCallback(async (query) => {
+    if (!filterSession) return [];
+    const params = { q: query, academic_session_id: filterSession };
+    const res = await marksApi.availableStudents(params);
+    return (res.data ?? []).map((s) => ({
+      id: s.id,
+      label: `${s.admission_number} - ${s.name}`,
+    }));
+  }, [marksApi, filterSession]);
+
+  const fetchUnits = useCallback(async (query) => {
+    if (!filterSession) return [];
+    const params = { q: query, academic_session_id: filterSession };
+    const res = await marksApi.availableUnits(params);
+    return (res.data ?? []).map((u) => ({
+      id: u.id,
+      label: `${u.code} - ${u.name}`,
+    }));
+  }, [marksApi, filterSession]);
 
   async function loadMarks() {
     setIsLoading(true);
     setError("");
     try {
-      const params = { per_page: 200 };
+      const params = { page, per_page: perPage };
       if (filterSession) params.academic_session_id = filterSession;
+      if (filterStudent) params.student_id = filterStudent;
       if (filterUnit) params.unit_id = filterUnit;
       if (filterType) params.assessment_type = filterType;
       const res = await marksApi.list(params);
       setMarks(res.data ?? []);
+      setTotalMarks(res.total ?? 0);
+      setLastPage(res.last_page ?? 1);
     } catch (e) {
       setError(getApiErrorMessage(e, "Failed to load marks."));
     } finally {
@@ -40,7 +88,7 @@ export function PublishMarksPage() {
     }
   }
 
-  useEffect(() => { loadMarks(); }, [filterSession, filterUnit, filterType]);
+  useEffect(() => { loadMarks(); }, [filterSession, filterStudent, filterUnit, filterType, page, perPage]);
 
   async function handleTogglePublish(markId) {
     setPublishingId(markId);
@@ -52,6 +100,30 @@ export function PublishMarksPage() {
       toast.error(getApiErrorMessage(e, "Failed to toggle."));
     } finally {
       setPublishingId(null);
+    }
+  }
+
+  async function handlePublishFiltered(publish) {
+    const label = publish ? "publish" : "unpublish";
+    let filterDesc = "all marks";
+    if (filterType) filterDesc = filterType;
+    if (filterStudent && filterStudentOption) filterDesc += ` for ${filterStudentOption.label}`;
+
+    const confirmed = window.confirm(`${publish ? "Publish" : "Unpublish"} ${filterDesc}?`);
+    if (!confirmed) return;
+
+    try {
+      const payload = { publish };
+      if (filterSession) payload.academic_session_id = filterSession;
+      if (filterStudent) payload.student_id = filterStudent;
+      if (filterUnit) payload.unit_id = filterUnit;
+      if (filterType) payload.assessment_type = filterType;
+
+      const res = await marksApi.publishFiltered(payload);
+      toast.success(res.message ?? `All matching marks ${label}ed.`);
+      await loadMarks();
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, `Failed to ${label} marks.`));
     }
   }
 
@@ -89,33 +161,60 @@ export function PublishMarksPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Academic Session ID</label>
-            <input
-              type="text"
-              value={filterSession}
-              onChange={(e) => setFilterSession(e.target.value)}
-              className={`${inputClassName} w-full`}
-              placeholder="e.g. session-id"
+            <LookupSelect
+              label="Student (optional)"
+              value={filterStudent}
+              selectedOption={filterStudentOption}
+              onChange={(nextValue, option) => {
+                setFilterStudent(nextValue);
+                setFilterStudentOption(option);
+              }}
+              fetchOptions={fetchStudents}
+              placeholder={filterSession ? "Search student" : "Select session first"}
+              emptyMessage="No students found"
+              disabled={!filterSession}
+              clearable
             />
           </div>
           <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Unit ID</label>
-            <input
-              type="text"
-              value={filterUnit}
-              onChange={(e) => setFilterUnit(e.target.value)}
-              className={`${inputClassName} w-full`}
-              placeholder="e.g. unit-id"
-            />
-          </div>
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Assessment Type</label>
+            <label htmlFor="filterSession" className={`mb-2 block text-slate-600 ${labelClassName}`}>Academic Session</label>
             <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              id="filterSession"
+              value={filterSession}
+              onChange={(e) => { setFilterSession(e.target.value); setFilterStudent(""); setFilterStudentOption(null); setFilterUnit(""); setFilterUnitOption(null); setFilterType(""); }}
               className={`${selectClassName} w-full`}
+            >
+              <option value="">Select a session</option>
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <LookupSelect
+              label="Unit"
+              value={filterUnit}
+              selectedOption={filterUnitOption}
+              onChange={(nextValue, option) => {
+                setFilterUnit(nextValue);
+                setFilterUnitOption(option);
+              }}
+              fetchOptions={fetchUnits}
+              placeholder={filterSession ? "Search unit" : "Select session first"}
+              emptyMessage="No units found"
+              disabled={!filterSession}
+            />
+          </div>
+          <div>
+            <label htmlFor="filterType" className={`mb-2 block text-slate-600 ${labelClassName}`}>Assessment Type</label>
+            <select
+              id="filterType"
+              value={filterType}
+              onChange={(e) => { setFilterType(e.target.value); }}
+              className={`${selectClassName} w-full`}
+              disabled={!filterUnit}
             >
               <option value="">All Types</option>
               {ASSESSMENT_TYPES.map((t) => (
@@ -144,9 +243,27 @@ export function PublishMarksPage() {
         <TableHeader>
           <div className="flex items-center justify-between">
             <h2 className="text-[1.0625rem] font-semibold text-slate-900">Marks for Review</h2>
-            <FormButton type="button" variant="secondary" onClick={loadMarks}>
-              Refresh
-            </FormButton>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePublishFiltered(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm ring-1 ring-emerald-700/20 transition hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.97]"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Publish All Filtered
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePublishFiltered(false)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm ring-1 ring-amber-700/20 transition hover:from-amber-600 hover:to-amber-700 active:scale-[0.97]"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Unpublish All Filtered
+              </button>
+              <FormButton type="button" variant="secondary" onClick={loadMarks}>
+                Refresh
+              </FormButton>
+            </div>
           </div>
         </TableHeader>
 
@@ -157,60 +274,76 @@ export function PublishMarksPage() {
             No marks to review. Use the filters above to find marks.
           </div>
         ) : (
-          <TableWrapper>
-            <Thead>
-              <tr>
-                <Th>Student</Th>
-                <Th>Unit</Th>
-                <Th>Assessment</Th>
-                <Th className="text-center">Score</Th>
-                <Th className="text-center">Published</Th>
-                <Th className="text-right">Action</Th>
-              </tr>
-            </Thead>
-            <Tbody>
-              {marks.map((mark) => (
-                <tr key={mark.id}>
-                  <Td className="font-medium text-slate-800">
-                    {mark.student
-                      ? [mark.student.first_name, mark.student.middle_name, mark.student.last_name]
-                          .filter(Boolean)
-                          .join(" ")
-                      : "—"}
-                  </Td>
-                  <Td>{mark.unit?.code ?? "—"}</Td>
-                  <Td>{mark.assessment_type} {mark.assessment_number}</Td>
-                  <Td className="text-center font-semibold">{mark.score ?? mark.marks}</Td>
-                  <Td className="text-center">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                        mark.is_published
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {mark.is_published ? "Yes" : "No"}
-                    </span>
-                  </Td>
-                  <Td className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleTogglePublish(mark.id)}
-                      disabled={publishingId === mark.id}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition disabled:opacity-50 ${
-                        mark.is_published
-                          ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      {mark.is_published ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                      {mark.is_published ? "Unpublish" : "Publish"}
-                    </button>
-                  </Td>
+          <>
+            <TableWrapper>
+              <Thead>
+                <tr>
+                  <Th className="w-10 text-center">#</Th>
+                  <Th>Student</Th>
+                  <Th>Unit</Th>
+                  <Th>Assessment</Th>
+                  <Th className="text-center">Score</Th>
+                  <Th className="text-center">Published</Th>
+                  <Th className="text-right">Action</Th>
                 </tr>
-              ))}
-            </Tbody>
-          </TableWrapper>
+              </Thead>
+              <Tbody>
+                {marks.map((mark, index) => (
+                  <tr key={mark.id}>
+                    <Td className="w-10 text-center text-slate-400">{(page - 1) * perPage + index + 1}</Td>
+                    <Td className="font-medium text-slate-800">
+                      {mark.student
+                        ? [mark.student.first_name, mark.student.middle_name, mark.student.last_name]
+                            .filter(Boolean)
+                            .join(" ")
+                        : "—"}
+                    </Td>
+                    <Td>{mark.unit?.code ?? "—"}</Td>
+                    <Td>{mark.assessment_type} {mark.assessment_number}</Td>
+                    <Td className="text-center font-semibold">{mark.score ?? mark.marks}</Td>
+                    <Td className="text-center">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          mark.is_published
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {mark.is_published ? "Yes" : "No"}
+                      </span>
+                    </Td>
+                    <Td className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePublish(mark.id)}
+                        disabled={publishingId === mark.id}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition disabled:opacity-50 ${
+                          mark.is_published
+                            ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        }`}
+                      >
+                        {mark.is_published ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                        {mark.is_published ? "Unpublish" : "Publish"}
+                      </button>
+                    </Td>
+                  </tr>
+                ))}
+              </Tbody>
+            </TableWrapper>
+            {totalMarks > 0 ? (
+              <TableFooter>
+                <PaginationFooter
+                  page={page}
+                  perPage={perPage}
+                  total={totalMarks}
+                  lastPage={lastPage}
+                  onPageChange={setPage}
+                  onPerPageChange={setPerPage}
+                />
+              </TableFooter>
+            ) : null}
+          </>
         )}
       </Table>
     </section>

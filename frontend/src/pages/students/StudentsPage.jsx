@@ -14,6 +14,7 @@ import {
   Td,
   TableFooter,
 } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useStudentsApi } from "@/hooks/useStudentsApi";
@@ -132,7 +133,7 @@ export function StudentsPage() {
         onSubmit={handleFilterSubmit}
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_auto] xl:items-end">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_auto] xl:items-end">
           <div>
             <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
             <input
@@ -142,19 +143,6 @@ export function StudentsPage() {
               className={inputClassName}
               placeholder="Search by admission #, name, or course"
             />
-          </div>
-
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Per Page</label>
-            <select
-              value={perPage}
-              onChange={(event) => { setPerPage(Number(event.target.value)); setPage(1); }}
-              className={`${selectClassName} w-full`}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
           </div>
 
           <div className="flex gap-3 xl:justify-end">
@@ -234,28 +222,7 @@ export function StudentsPage() {
         )}
 
         <TableFooter>
-          <p className={`text-slate-500 ${bodyTextClassName}`}>
-            {meta.total > 0
-              ? `Showing ${meta.from} to ${meta.to} of ${meta.total} students`
-              : "No results"}
-          </p>
-          <div className="flex items-center gap-3">
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page <= 1 || isLoading}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >Previous</FormButton>
-            <span className={`text-slate-500 ${bodyTextClassName}`}>Page {meta.current_page} of {meta.last_page}</span>
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page >= meta.last_page || isLoading}
-              onClick={() => setPage((current) => current + 1)}
-            >Next</FormButton>
-          </div>
+          <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
         </TableFooter>
       </Table>
     </section>

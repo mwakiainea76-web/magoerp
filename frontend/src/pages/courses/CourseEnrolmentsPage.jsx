@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { Controller, useForm } from "react-hook-form";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import toast from "react-hot-toast";
+import * as yup from "yup";
 
 import {
   Table,
@@ -13,11 +16,12 @@ import {
   Td,
   TableFooter,
 } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { LookupSelect } from "@/components/LookupSelect";
 import { useCourseEnrolmentsApi } from "@/hooks/useCourseEnrolmentsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { bodyTextClassName, labelClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const statusOptions = ["enrolled", "deferred", "expelled", "transferred", "completed", "withdrawn"];
@@ -29,6 +33,16 @@ const statusColors = {
   completed: "bg-violet-50 text-violet-700",
   withdrawn: "bg-slate-100 text-slate-600",
 };
+
+const statusSchema = yup.object({
+  status: yup.string().required("Status is required"),
+  course_id: yup.string().when("status", {
+    is: "transferred",
+    then: (schema) => schema.required("Transfer course is required"),
+    otherwise: (schema) => schema.nullable(),
+  }),
+  remarks: yup.string().nullable(),
+});
 
 export function CourseEnrolmentsPage() {
   const api = useCourseEnrolmentsApi();
@@ -48,13 +62,25 @@ export function CourseEnrolmentsPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
-  // Status update modal state
+  // Status update modal
   const [selectedEnrolment, setSelectedEnrolment] = useState(null);
-  const [newStatus, setNewStatus] = useState("");
-  const [remarks, setRemarks] = useState("");
-  const [transferCourseValue, setTransferCourseValue] = useState("");
   const [transferCourseOption, setTransferCourseOption] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    watch,
+    setError: setModalError,
+    formState: { errors: modalErrors },
+  } = useForm({
+    resolver: yupResolver(statusSchema),
+    defaultValues: { status: "", course_id: "", remarks: "" },
+  });
+
+  const watchedStatus = watch("status");
 
   useEffect(() => {
     let isMounted = true;
@@ -119,36 +145,39 @@ export function CourseEnrolmentsPage() {
 
   function openStatusModal(enrolment) {
     setSelectedEnrolment(enrolment);
-    setNewStatus(enrolment.status);
-    setRemarks(enrolment.remarks ?? "");
-    setTransferCourseValue("");
     setTransferCourseOption(null);
+    reset({ status: enrolment.status, course_id: "", remarks: enrolment.remarks ?? "" });
   }
 
   function closeStatusModal() {
     setSelectedEnrolment(null);
-    setNewStatus("");
-    setRemarks("");
-    setTransferCourseValue("");
     setTransferCourseOption(null);
+    reset({ status: "", course_id: "", remarks: "" });
   }
 
-  async function handleUpdateStatus() {
-    if (!selectedEnrolment || !newStatus) return;
+  async function onSubmitStatus(data) {
+    if (!selectedEnrolment) return;
 
     setIsUpdating(true);
     try {
-      const payload = { status: newStatus, remarks };
-      if (newStatus === "transferred" && transferCourseValue) {
-        payload.course_id = transferCourseValue;
+      const payload = { status: data.status, remarks: data.remarks };
+      if (data.status === "transferred" && data.course_id) {
+        payload.course_id = data.course_id;
       }
 
       await api.updateStatus(selectedEnrolment.id, payload);
-      toast.success(`Enrolment status changed to "${newStatus}".`);
+      toast.success(`Enrolment status changed to "${data.status}".`);
       closeStatusModal();
       setReloadKey((k) => k + 1);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to update status."));
+      const serverErrors = err?.response?.data?.errors;
+      if (serverErrors) {
+        Object.entries(serverErrors).forEach(([key, value]) => {
+          setModalError(key, { message: value?.[0] ?? "Invalid value" });
+        });
+      } else {
+        toast.error(getApiErrorMessage(err, "Failed to update status."));
+      }
     } finally {
       setIsUpdating(false);
     }
@@ -177,9 +206,9 @@ export function CourseEnrolmentsPage() {
         onSubmit={handleFilterSubmit}
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_auto] xl:items-end">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_auto] xl:items-end">
           <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
+            <label className={`mb-2 block text-slate-600 ${labelClassName}`}>Search</label>
             <input
               type="text"
               value={searchInput}
@@ -189,7 +218,7 @@ export function CourseEnrolmentsPage() {
             />
           </div>
           <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Status</label>
+            <label className={`mb-2 block text-slate-600 ${labelClassName}`}>Status</label>
             <select
               value={statusFilter}
               onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
@@ -199,18 +228,6 @@ export function CourseEnrolmentsPage() {
               {statusOptions.map((s) => (
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Per Page</label>
-            <select
-              value={perPage}
-              onChange={(event) => { setPerPage(Number(event.target.value)); setPage(1); }}
-              className={`${selectClassName} w-full`}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
             </select>
           </div>
           <div className="flex gap-3 xl:justify-end">
@@ -284,28 +301,7 @@ export function CourseEnrolmentsPage() {
         )}
 
         <TableFooter>
-          <p className={`text-slate-500 ${bodyTextClassName}`}>
-            {meta.total > 0
-              ? `Showing ${meta.from} to ${meta.to} of ${meta.total} enrolments`
-              : "No results"}
-          </p>
-          <div className="flex items-center gap-3">
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page <= 1 || isLoading}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >Previous</FormButton>
-            <span className={`text-slate-500 ${bodyTextClassName}`}>Page {meta.current_page} of {meta.last_page}</span>
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page >= meta.last_page || isLoading}
-              onClick={() => setPage((current) => current + 1)}
-            >Next</FormButton>
-          </div>
+          <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
         </TableFooter>
       </Table>
 
@@ -318,54 +314,60 @@ export function CourseEnrolmentsPage() {
               {selectedEnrolment.student_name} — {selectedEnrolment.course_name}
             </p>
 
-            <div className="space-y-4">
+            {modalErrors.root ? (
+              <div className={`mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{modalErrors.root.message}</div>
+            ) : null}
+
+            <form onSubmit={handleSubmit(onSubmitStatus)} className="space-y-4">
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Status</label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-                >
+                <label htmlFor="modal-status" className="mb-1 block text-[13px] font-medium text-slate-600">Status</label>
+                <select id="modal-status" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("status")}>
                   {statusOptions.map((s) => (
                     <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                   ))}
                 </select>
+                {modalErrors.status ? <p className="mt-1 text-sm text-red-600">{modalErrors.status.message}</p> : null}
               </div>
 
-              {newStatus === "transferred" ? (
-                <div>
-                  <LookupSelect
-                    label="Transfer to Course"
-                    value={transferCourseValue}
-                    selectedOption={transferCourseOption}
-                    onChange={(nextValue, option) => {
-                      setTransferCourseValue(nextValue);
-                      setTransferCourseOption(option);
-                    }}
-                    fetchOptions={fetchCourseOptions}
-                    placeholder="Search course"
-                    emptyMessage="No courses found"
-                  />
-                </div>
+              {watchedStatus === "transferred" ? (
+                <Controller
+                  name="course_id"
+                  control={control}
+                  render={({ field }) => (
+                    <LookupSelect
+                      label="Transfer to Course"
+                      value={field.value}
+                      selectedOption={transferCourseOption}
+                      onChange={(nextValue, option) => {
+                        field.onChange(nextValue);
+                        setTransferCourseOption(option);
+                      }}
+                      fetchOptions={fetchCourseOptions}
+                      placeholder="Search course"
+                      emptyMessage="No courses found"
+                      error={modalErrors.course_id?.message}
+                    />
+                  )}
+                />
               ) : null}
 
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Remarks</label>
+                <label htmlFor="modal-remarks" className="mb-1 block text-[13px] font-medium text-slate-600">Remarks</label>
                 <textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
+                  id="modal-remarks"
                   className="h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
                   placeholder="Reason for status change..."
+                  {...register("remarks")}
                 />
               </div>
-            </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <FormButton type="button" variant="secondary" onClick={closeStatusModal}>Cancel</FormButton>
-              <FormButton type="button" disabled={isUpdating || !newStatus} onClick={handleUpdateStatus}>
-                {isUpdating ? "Updating..." : "Update Status"}
-              </FormButton>
-            </div>
+              <div className="flex justify-end gap-3">
+                <FormButton type="button" variant="secondary" onClick={closeStatusModal}>Cancel</FormButton>
+                <FormButton type="submit" disabled={isUpdating}>
+                  {isUpdating ? "Updating..." : "Update Status"}
+                </FormButton>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}

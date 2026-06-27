@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { useHostelsApi } from "@/hooks/useHostelsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -18,6 +19,7 @@ export function HostelAllocationsPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterHostel, setFilterHostel] = useState("");
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [vacatingId, setVacatingId] = useState(null);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function HostelAllocationsPage() {
     setError("");
     async function load() {
       try {
-        const params = { page, per_page: 20 };
+        const params = { page, per_page: perPage };
         if (filterStatus) params.status = filterStatus;
         if (filterHostel) params.hostel_id = filterHostel;
         const res = await api.allocations(params);
@@ -153,14 +155,7 @@ export function HostelAllocationsPage() {
         )}
 
         <TableFooter>
-          <p className={`text-slate-500 ${bodyTextClassName}`}>
-            {meta.total > 0 ? `Showing ${meta.from} to ${meta.to} of ${meta.total}` : "No results"}
-          </p>
-          <div className="flex items-center gap-3">
-            <FormButton type="button" variant="secondary" disabled={meta.current_page <= 1} onClick={() => setPage((c) => c - 1)}>Previous</FormButton>
-            <span className={`text-slate-500 ${bodyTextClassName}`}>Page {meta.current_page} of {meta.last_page}</span>
-            <FormButton type="button" variant="secondary" disabled={meta.current_page >= meta.last_page} onClick={() => setPage((c) => c + 1)}>Next</FormButton>
-          </div>
+          <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
         </TableFooter>
       </Table>
     </section>

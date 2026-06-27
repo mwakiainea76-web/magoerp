@@ -32,6 +32,10 @@ export function useMarksApi() {
         const response = await authClient.post("/marks/publish-assessment", payload);
         return response.data;
       },
+      publishFiltered: async (payload) => {
+        const response = await authClient.post("/marks/publish-filtered", payload);
+        return response.data;
+      },
       availableUnits: async (params = {}) => {
         const response = await authClient.get("/marks/available-units", { params });
         return response.data;

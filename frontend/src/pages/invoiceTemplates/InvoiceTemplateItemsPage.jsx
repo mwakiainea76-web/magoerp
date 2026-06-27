@@ -1,7 +1,7 @@
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Settings2, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSearchParams } from "react-router-dom";
 
@@ -16,6 +16,7 @@ import {
   Th,
   Thead,
 } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useInvoiceTemplateItemsApi } from "@/hooks/useInvoiceTemplateItemsApi";
@@ -51,7 +52,7 @@ export function InvoiceTemplateItemsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
-  const [perPage] = useState(10);
+  const [perPage, setPerPage] = useState(10);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isFormLoading, setIsFormLoading] = useState(false);
@@ -353,20 +354,30 @@ export function InvoiceTemplateItemsPage() {
                       </Td>
                       <Td>
                         <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(item.id)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
+                          {item.is_locked ? (
+                            <span
+                              className="inline-flex h-7 items-center gap-1 rounded-lg border border-amber-200 px-2 text-[11px] font-medium text-amber-600 cursor-not-allowed"
+                              title={item.lock_reason ?? "Locked"}
+                            >
+                              <Settings2 className="h-3 w-3" />
+                              Locked
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(item.id)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleDelete(item)}
-                            disabled={deletingId === item.id || item.is_amount_locked}
+                            disabled={deletingId === item.id || item.is_locked}
                             title={
-                              item.is_amount_locked
-                                ? "This component has already been assigned to an invoice."
+                              item.is_locked
+                                ? "This template has been assigned. Components cannot be deleted."
                                 : "Delete component"
                             }
                             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -382,34 +393,7 @@ export function InvoiceTemplateItemsPage() {
             </TableWrapper>
 
             <TableFooter>
-              <p className={`text-slate-500 ${bodyTextClassName}`}>
-                {meta.total > 0
-                  ? `Showing ${meta.from} to ${meta.to} of ${meta.total} items`
-                  : "No results"}
-              </p>
-              <div className="flex items-center gap-3">
-                <FormButton
-                  type="button"
-                  variant="secondary"
-                  className="h-9 w-auto px-4"
-                  disabled={meta.current_page <= 1 || isLoading}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                >
-                  Previous
-                </FormButton>
-                <span className={`text-slate-500 ${bodyTextClassName}`}>
-                  Page {meta.current_page} of {meta.last_page}
-                </span>
-                <FormButton
-                  type="button"
-                  variant="secondary"
-                  className="h-9 w-auto px-4"
-                  disabled={meta.current_page >= meta.last_page || isLoading}
-                  onClick={() => setPage((current) => current + 1)}
-                >
-                  Next
-                </FormButton>
-              </div>
+              <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
             </TableFooter>
           </>
         )}

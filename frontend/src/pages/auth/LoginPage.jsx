@@ -13,7 +13,7 @@ import { useAuthStore } from "@/store/authStore";
 import { getDashboardPath } from "@/support/dashboardPaths";
 
 const loginSchema = yup.object({
-  username: yup.string().required("Login ID is required"),
+  username: yup.string().required("Username is required"),
   password: yup
     .string()
     .required("Password is required")
@@ -88,44 +88,54 @@ export function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <FormInput
-              id="username"
-              label="Username"
-              placeholder="Enter your username"
-              required
-              error={errors.username?.message}
-              {...register("username")}
-            />
+          <FormInput
+            id="username"
+            label="Username"
+            placeholder="Enter your username"
+            required
+            error={errors.username?.message}
+            {...register("username")}
+          />
 
-            <FormInput
-              id="password"
-              type={showPassword ? "text" : "password"}
-              label="Password"
-              placeholder="Enter your password"
-              required
-              error={errors.password?.message}
-              rightIcon={showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              onRightIconClick={() => setShowPassword((prev) => !prev)}
-              {...register("password")}
-            />
+          <FormInput
+            id="password"
+            type={showPassword ? "text" : "password"}
+            label="Password"
+            placeholder="Enter your password"
+            required
+            error={errors.password?.message}
+            rightIcon={
+              showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )
+            }
+            onRightIconClick={() => setShowPassword((prev) => !prev)}
+            {...register("password")}
+          />
 
-            {errors.root && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                {errors.root.message}
-              </div>
-            )}
-            <FormButton type="submit" disabled={isLoading}>
-              {isLoading ? "Signing In..." : "Sign In"}
-            </FormButton>
-            <div className="text-center">
-              <Link
-                to="/forgot-password"
-                className="text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
-              >
-                Forgot Password?
-              </Link>
+          {errors.root && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {errors.root.message}
             </div>
-          </form>
+          )}
+          <FormButton
+            className="w-full mt-4"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? "Signing In..." : "Sign In"}
+          </FormButton>
+          <div className="text-center">
+            <Link
+              to="/forgot-password"
+              className="text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
+            >
+              Forgot Password?
+            </Link>
+          </div>
+        </form>
       </div>
     </section>
   );

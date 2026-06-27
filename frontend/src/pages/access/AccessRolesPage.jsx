@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 
 import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
 import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { useAccessRolesApi } from "@/hooks/useAccessRolesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -136,18 +137,6 @@ export function AccessRolesPage() {
               placeholder="Search by role name"
             />
           </div>
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Per Page</label>
-            <select
-              value={perPage}
-              onChange={(event) => { setPerPage(Number(event.target.value)); setPage(1); }}
-              className={`${selectClassName} w-full`}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
           <div className="flex gap-3 xl:justify-end">
             <FormButton type="submit" className="w-full sm:w-auto">Apply</FormButton>
             <FormButton type="button" variant="secondary" className="w-full sm:w-auto" onClick={handleResetFilters}>Reset</FormButton>
@@ -223,26 +212,7 @@ export function AccessRolesPage() {
         )}
 
         <TableFooter>
-          <p className={`text-slate-500 ${bodyTextClassName}`}>
-            {meta.total > 0 ? `Showing ${meta.from} to ${meta.to} of ${meta.total} roles` : "No results"}
-          </p>
-          <div className="flex items-center gap-3">
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page <= 1 || isLoading}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >Previous</FormButton>
-            <span className={`text-slate-500 ${bodyTextClassName}`}>Page {meta.current_page} of {meta.last_page}</span>
-            <FormButton
-              type="button"
-              variant="secondary"
-              className="h-9 w-auto px-4"
-              disabled={meta.current_page >= meta.last_page || isLoading}
-              onClick={() => setPage((current) => current + 1)}
-            >Next</FormButton>
-          </div>
+          <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
         </TableFooter>
       </Table>
     </section>

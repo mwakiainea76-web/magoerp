@@ -4,7 +4,8 @@ import { Plus, Eye } from "lucide-react";
 
 import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
-import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td } from "@/components/DataTable";
+import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { useComplaintsApi } from "@/hooks/useComplaintsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -20,6 +21,8 @@ export function MyComplaintsPage() {
   const [complaints, setComplaints] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   useEffect(() => {
     let mounted = true;
@@ -38,6 +41,10 @@ export function MyComplaintsPage() {
     load();
     return () => { mounted = false; };
   }, []);
+
+  const total = complaints.length;
+  const lastPage = Math.ceil(total / perPage);
+  const paginatedComplaints = complaints.slice((page - 1) * perPage, page * perPage);
 
   return (
     <section className="space-y-5">
@@ -73,6 +80,7 @@ export function MyComplaintsPage() {
           <TableWrapper>
             <Thead>
               <tr>
+                <Th className="w-10 text-center">#</Th>
                 <Th>Subject</Th>
                 <Th>Status</Th>
                 <Th>Escalated To</Th>
@@ -80,8 +88,9 @@ export function MyComplaintsPage() {
               </tr>
             </Thead>
             <Tbody>
-              {complaints.map((c) => (
+              {paginatedComplaints.map((c, index) => (
                 <tr key={c.id}>
+                  <Td className="w-10 text-center text-slate-400">{(page - 1) * perPage + index + 1}</Td>
                   <Td className="font-medium text-slate-800">{c.subject}</Td>
                   <Td>
                     <span
@@ -101,6 +110,17 @@ export function MyComplaintsPage() {
             </Tbody>
           </TableWrapper>
         )}
+
+        <TableFooter>
+          <PaginationFooter
+            page={page}
+            perPage={perPage}
+            total={total}
+            lastPage={lastPage}
+            onPageChange={setPage}
+            onPerPageChange={setPerPage}
+          />
+        </TableFooter>
       </Table>
     </section>
   );

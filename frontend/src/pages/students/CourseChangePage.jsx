@@ -218,7 +218,7 @@ export function CourseChangePage() {
                           Curriculum: {selectedMapping.curriculum_name}
                         </p>
                         <p className="mt-2 text-[12px] text-sky-600">
-                          This will create a new user account with a new admission number and deactivate the old account.
+                          The student's admission number and login ID will be updated to reflect the new course.
                         </p>
                       </div>
                     </div>
@@ -262,12 +262,8 @@ export function CourseChangePage() {
                   <span className="ml-2 text-emerald-900">{transferResult.new_admission_number}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-emerald-700">New Login ID:</span>
-                  <span className="ml-2 text-emerald-900">{transferResult.new_login_id}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-emerald-700">New Email:</span>
-                  <span className="ml-2 text-emerald-900">{transferResult.new_email}</span>
+                  <span className="font-medium text-emerald-700">Changed At:</span>
+                  <span className="ml-2 text-emerald-900">{transferResult.changed_at}</span>
                 </div>
               </div>
             </div>

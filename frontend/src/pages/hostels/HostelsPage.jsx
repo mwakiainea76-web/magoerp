@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { bodyTextClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { useHostelsApi } from "@/hooks/useHostelsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -15,6 +16,8 @@ export function HostelsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
 
   async function load() {
     setIsLoading(true);
@@ -45,6 +48,10 @@ export function HostelsPage() {
     }
   }
 
+  const total = hostels.length;
+  const lastPage = Math.ceil(total / perPage);
+  const paginatedHostels = hostels.slice((page - 1) * perPage, page * perPage);
+
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between">
@@ -74,6 +81,7 @@ export function HostelsPage() {
           <TableWrapper>
             <Thead>
               <tr>
+                <Th className="w-10 text-center">#</Th>
                 <Th>Name</Th>
                 <Th>Code</Th>
                 <Th>Gender</Th>
@@ -86,8 +94,9 @@ export function HostelsPage() {
               </tr>
             </Thead>
             <Tbody>
-              {hostels.map((h) => (
+              {paginatedHostels.map((h, index) => (
                 <tr key={h.id}>
+                  <Td className="w-10 text-center text-slate-400">{(page - 1) * perPage + index + 1}</Td>
                   <Td className="font-medium text-slate-800">{h.name}</Td>
                   <Td>{h.code}</Td>
                   <Td className="capitalize">{h.gender ?? "—"}</Td>
@@ -119,6 +128,17 @@ export function HostelsPage() {
             </Tbody>
           </TableWrapper>
         )}
+
+        <TableFooter>
+          <PaginationFooter
+            page={page}
+            perPage={perPage}
+            total={total}
+            lastPage={lastPage}
+            onPageChange={setPage}
+            onPerPageChange={setPerPage}
+          />
+        </TableFooter>
       </Table>
     </section>
   );

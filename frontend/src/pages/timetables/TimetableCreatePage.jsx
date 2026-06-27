@@ -1,6 +1,9 @@
+import { yupResolver } from "@hookform/resolvers/yup";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import * as yup from "yup";
 
 import { bodyTextClassName, inputClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
@@ -27,6 +30,16 @@ function formatClock(value, fallback) {
   return value ? String(value).slice(0, 5) : fallback;
 }
 
+const timetableSchema = yup.object({
+  course_curriculum_id: yup.string().required("Course curriculum is required"),
+  unit_id: yup.string().required("Unit is required"),
+  trainer_id: yup.string().nullable(),
+  lecture_room_id: yup.string().required("Lecture room is required"),
+  day_of_week: yup.number().required().min(0).max(6),
+  start_time: yup.string().required("Start time is required"),
+  end_time: yup.string().required("End time is required"),
+});
+
 export function TimetableCreatePage() {
   const { timetableId } = useParams();
   const isEdit = Boolean(timetableId);
@@ -34,22 +47,37 @@ export function TimetableCreatePage() {
   const timetableApi = useTimetableApi();
   const courseCurriculaApi = useCourseCurriculaApi();
   const initialLoadDone = useRef(false);
-
-  const [courseCurriculumId, setCourseCurriculumId] = useState("");
-  const [selectedCourseCurriculum, setSelectedCourseCurriculum] = useState(null);
-  const [unitId, setUnitId] = useState("");
-  const [selectedUnit, setSelectedUnit] = useState(null);
-  const [moduleFilter, setModuleFilter] = useState(0);
-  const [trainerId, setTrainerId] = useState("");
-  const [selectedTrainer, setSelectedTrainer] = useState(null);
-  const [roomId, setRoomId] = useState("");
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [dayOfWeek, setDayOfWeek] = useState(0);
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("10:00");
   const [isLoading, setIsLoading] = useState(isEdit);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [moduleFilter, setModuleFilter] = useState(0);
+  const [selectedCourseCurriculum, setSelectedCourseCurriculum] = useState(null);
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [selectedTrainer, setSelectedTrainer] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    watch,
+    setError,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(timetableSchema),
+    defaultValues: {
+      course_curriculum_id: "",
+      unit_id: "",
+      trainer_id: "",
+      lecture_room_id: "",
+      day_of_week: 0,
+      start_time: "08:00",
+      end_time: "10:00",
+    },
+  });
+
+  const watchedCourseCurriculum = watch("course_curriculum_id");
 
   const fetchCurricula = useCallback(async (query) => {
     const res = await courseCurriculaApi.list({ q: query, per_page: 200 });
@@ -62,15 +90,15 @@ export function TimetableCreatePage() {
   }, [courseCurriculaApi]);
 
   const fetchUnits = useCallback(async (query) => {
-    if (!courseCurriculumId) return [];
-    const params = { course_curriculum_id: courseCurriculumId, q: query };
+    if (!watchedCourseCurriculum) return [];
+    const params = { course_curriculum_id: watchedCourseCurriculum, q: query };
     if (moduleFilter) params.module = moduleFilter;
     const res = await timetableApi.availableUnits(params);
     return (res.data ?? []).map((u) => ({
       id: u.id,
       label: [u.code, u.name].filter(Boolean).join(" - "),
     }));
-  }, [courseCurriculumId, moduleFilter, timetableApi]);
+  }, [watchedCourseCurriculum, moduleFilter, timetableApi]);
 
   const fetchTrainers = useCallback(async (query) => {
     const res = await timetableApi.staffList();
@@ -108,69 +136,49 @@ export function TimetableCreatePage() {
           ? `${d.room_name}${d.room_code ? ` (${d.room_code})` : ""}`
           : "";
 
-        setCourseCurriculumId(d.course_curriculum_id ?? "");
         setSelectedCourseCurriculum(d.course_curriculum_id ? { id: d.course_curriculum_id, label: courseCurriculumLabel } : null);
-        setUnitId(d.unit_id ?? "");
         setSelectedUnit(d.unit_id ? { id: d.unit_id, label: unitLabel } : null);
-        setTrainerId(d.trainer_staff_id ?? "");
         setSelectedTrainer(d.trainer_staff_id ? { id: d.trainer_staff_id, label: trainerLabel } : null);
-        setRoomId(d.lecture_room_id ?? "");
         setSelectedRoom(d.lecture_room_id ? { id: d.lecture_room_id, label: roomLabel } : null);
-        setDayOfWeek(d.day_of_week ?? 0);
-        setStartTime(formatClock(d.start_time, "08:00"));
-        setEndTime(formatClock(d.end_time, "10:00"));
+
+        reset({
+          course_curriculum_id: d.course_curriculum_id ?? "",
+          unit_id: d.unit_id ?? "",
+          trainer_id: d.trainer_staff_id ?? "",
+          lecture_room_id: d.lecture_room_id ?? "",
+          day_of_week: d.day_of_week ?? 0,
+          start_time: formatClock(d.start_time, "08:00"),
+          end_time: formatClock(d.end_time, "10:00"),
+        });
+
         initialLoadDone.current = true;
       } catch (e) {
-        if (mounted) setError(getApiErrorMessage(e, "Failed to load timetable entry."));
+        if (mounted) setError("root", { message: getApiErrorMessage(e, "Failed to load timetable entry.") });
       } finally {
         if (mounted) setIsLoading(false);
       }
     }
     load();
     return () => { mounted = false; };
-  }, [isEdit, timetableId, timetableApi]);
+  }, [isEdit, timetableId, timetableApi, reset, setError]);
 
-  function handleCourseCurriculumChange(id, option) {
-    setCourseCurriculumId(id ?? "");
-    setSelectedCourseCurriculum(option);
-    setUnitId("");
+  function handleModuleFilterChange(e) {
+    const value = Number(e.target.value);
+    setModuleFilter(value);
+    setValue("unit_id", "");
     setSelectedUnit(null);
-    setModuleFilter(0);
   }
 
-  function handleUnitChange(id, option) {
-    setUnitId(id ?? "");
-    setSelectedUnit(option);
-  }
-
-  function handleTrainerChange(id, option) {
-    setTrainerId(id ?? "");
-    setSelectedTrainer(option);
-  }
-
-  function handleRoomChange(id, option) {
-    setRoomId(id ?? "");
-    setSelectedRoom(option);
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setError("");
-
-    if (!courseCurriculumId || !unitId || !roomId) {
-      setError("Course curriculum, unit, and lecture room are required.");
-      return;
-    }
-
+  async function onSubmit(data) {
     setIsSubmitting(true);
     try {
       const payload = {
-        unit_id: unitId,
-        trainer_staff_id: trainerId || null,
-        lecture_room_id: roomId,
-        day_of_week: dayOfWeek,
-        start_time: startTime,
-        end_time: endTime,
+        unit_id: data.unit_id,
+        trainer_staff_id: data.trainer_id || null,
+        lecture_room_id: data.lecture_room_id,
+        day_of_week: data.day_of_week,
+        start_time: data.start_time,
+        end_time: data.end_time,
       };
 
       if (isEdit) {
@@ -182,7 +190,14 @@ export function TimetableCreatePage() {
       }
       navigate("/timetables");
     } catch (e) {
-      setError(getApiErrorMessage(e, `Failed to ${isEdit ? "update" : "create"} timetable entry.`));
+      const serverErrors = e?.response?.data?.errors;
+      if (serverErrors) {
+        Object.entries(serverErrors).forEach(([key, value]) => {
+          setError(key, { message: value?.[0] ?? "Invalid value" });
+        });
+      } else {
+        setError("root", { message: getApiErrorMessage(e, `Failed to ${isEdit ? "update" : "create"} timetable entry.`) });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -205,26 +220,44 @@ export function TimetableCreatePage() {
         <p className="text-[13px] text-slate-500">{isEdit ? "Update the scheduled session" : "Schedule a lecture, practical, or tutorial session"}</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      {errors.root ? (
+        <div className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{errors.root.message}</div>
+      ) : null}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <LookupSelect
-              label="Course Curriculum"
-              value={courseCurriculumId}
-              onChange={handleCourseCurriculumChange}
-              fetchOptions={fetchCurricula}
-              selectedOption={selectedCourseCurriculum}
-              required
-              placeholder="Search course curriculum"
+            <Controller
+              name="course_curriculum_id"
+              control={control}
+              render={({ field }) => (
+                <LookupSelect
+                  label="Course Curriculum"
+                  value={field.value}
+                  onChange={(nextValue, option) => {
+                    field.onChange(nextValue);
+                    setSelectedCourseCurriculum(option);
+                    setValue("unit_id", "");
+                    setSelectedUnit(null);
+                    setModuleFilter(0);
+                  }}
+                  fetchOptions={fetchCurricula}
+                  selectedOption={selectedCourseCurriculum}
+                  required
+                  placeholder="Search course curriculum"
+                  error={errors.course_curriculum_id?.message}
+                />
+              )}
             />
 
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">Module</label>
+              <label htmlFor="module" className="mb-1 block text-[13px] font-medium text-slate-600">Module</label>
               <select
+                id="module"
                 value={moduleFilter}
-                onChange={(e) => { setModuleFilter(Number(e.target.value)); setUnitId(""); setSelectedUnit(null); }}
+                onChange={handleModuleFilterChange}
                 className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition"
-                disabled={!courseCurriculumId}
+                disabled={!watchedCourseCurriculum}
               >
                 <option value={0}>All</option>
                 <option value={1}>Module 1</option>
@@ -233,43 +266,68 @@ export function TimetableCreatePage() {
               </select>
             </div>
 
-            <LookupSelect
-              label="Unit"
-              value={unitId}
-              onChange={handleUnitChange}
-              fetchOptions={fetchUnits}
-              selectedOption={selectedUnit}
-              required
-              disabled={!courseCurriculumId}
-              placeholder={courseCurriculumId ? "Search unit" : "Select a curriculum first"}
+            <Controller
+              name="unit_id"
+              control={control}
+              render={({ field }) => (
+                <LookupSelect
+                  label="Unit"
+                  value={field.value}
+                  onChange={(nextValue, option) => {
+                    field.onChange(nextValue);
+                    setSelectedUnit(option);
+                  }}
+                  fetchOptions={fetchUnits}
+                  selectedOption={selectedUnit}
+                  required
+                  disabled={!watchedCourseCurriculum}
+                  placeholder={watchedCourseCurriculum ? "Search unit" : "Select a curriculum first"}
+                  error={errors.unit_id?.message}
+                />
+              )}
             />
 
-            <LookupSelect
-              label="Trainer"
-              value={trainerId}
-              onChange={handleTrainerChange}
-              fetchOptions={fetchTrainers}
-              selectedOption={selectedTrainer}
-              placeholder="Search trainer"
+            <Controller
+              name="trainer_id"
+              control={control}
+              render={({ field }) => (
+                <LookupSelect
+                  label="Trainer"
+                  value={field.value}
+                  onChange={(nextValue, option) => {
+                    field.onChange(nextValue);
+                    setSelectedTrainer(option);
+                  }}
+                  fetchOptions={fetchTrainers}
+                  selectedOption={selectedTrainer}
+                  placeholder="Search trainer"
+                />
+              )}
             />
 
-            <LookupSelect
-              label="Lecture Room"
-              value={roomId}
-              onChange={handleRoomChange}
-              fetchOptions={fetchRooms}
-              selectedOption={selectedRoom}
-              required
-              placeholder="Search room"
+            <Controller
+              name="lecture_room_id"
+              control={control}
+              render={({ field }) => (
+                <LookupSelect
+                  label="Lecture Room"
+                  value={field.value}
+                  onChange={(nextValue, option) => {
+                    field.onChange(nextValue);
+                    setSelectedRoom(option);
+                  }}
+                  fetchOptions={fetchRooms}
+                  selectedOption={selectedRoom}
+                  required
+                  placeholder="Search room"
+                  error={errors.lecture_room_id?.message}
+                />
+              )}
             />
 
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">Day</label>
-              <select
-                value={dayOfWeek}
-                onChange={(e) => setDayOfWeek(Number(e.target.value))}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-[13px] placeholder:text-[#a8b6c7]"
-              >
+              <label htmlFor="day_of_week" className="mb-1 block text-[13px] font-medium text-slate-600">Day</label>
+              <select id="day_of_week" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition" {...register("day_of_week")}>
                 {DAYS.map((d) => (
                   <option key={d.value} value={d.value}>{d.label}</option>
                 ))}
@@ -277,32 +335,18 @@ export function TimetableCreatePage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">Start Time</label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className={inputClassName}
-                required
-              />
+              <label htmlFor="start_time" className="mb-1 block text-[13px] font-medium text-slate-600">Start Time</label>
+              <input id="start_time" type="time" className={inputClassName} {...register("start_time")} />
+              {errors.start_time ? <p className="mt-1 text-sm text-red-600">{errors.start_time.message}</p> : null}
             </div>
 
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">End Time</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className={inputClassName}
-                required
-              />
+              <label htmlFor="end_time" className="mb-1 block text-[13px] font-medium text-slate-600">End Time</label>
+              <input id="end_time" type="time" className={inputClassName} {...register("end_time")} />
+              {errors.end_time ? <p className="mt-1 text-sm text-red-600">{errors.end_time.message}</p> : null}
             </div>
           </div>
         </div>
-
-        {error ? (
-          <div className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{error}</div>
-        ) : null}
 
         <div className="flex justify-end">
           <FormButton type="submit" disabled={isSubmitting}>
