@@ -29,7 +29,6 @@ class StoreStudentRequest extends FormRequest
             'alternative_phone_number' => ['required', 'string', 'max:50'],
             'county' => ['required', 'string', 'max:255'],
             'course_id' => ['required', 'uuid', Rule::exists('courses', 'id')],
-            'enrollment_date' => ['nullable', 'date'],
             'is_pwd' => ['required', 'boolean'],
             'disability_type' => ['nullable', 'required_if:is_pwd,true', 'string', 'max:255'],
             'disability_description' => ['nullable', 'required_if:is_pwd,true', 'string'],

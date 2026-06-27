@@ -100,7 +100,7 @@ class CourseEnrolmentsController extends Controller
             $newEnrolment = CourseEnrolment::create([
                 'student_id' => $course_enrolment->student_id,
                 'course_curriculum_id' => $newCourseCurriculum?->id,
-                'academic_session_id' => $course_enrolment->academic_session_id,
+                'academic_session_id' => null,
                 'enrolment_date' => now()->toDateString(),
                 'status' => 'enrolled',
                 'remarks' => 'Transferred from ' . ($course_enrolment->courseCurriculum?->course?->name ?? 'previous course'),
@@ -224,7 +224,7 @@ class CourseEnrolmentsController extends Controller
             'student_id' => $student->id,
             'course_curriculum_id' => $courseCurriculumId,
             'academic_session_id' => $session?->id,
-            'enrolment_date' => $student->enrollment_date?->toDateString() ?? now()->format('Y-m-d'),
+            'enrolment_date' => now()->format('Y-m-d'),
             'status' => 'enrolled',
             'created_by' => $createdBy,
             'updated_by' => $createdBy,

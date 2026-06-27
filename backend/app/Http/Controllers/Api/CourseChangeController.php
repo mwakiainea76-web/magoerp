@@ -145,20 +145,26 @@ class CourseChangeController extends Controller
                 'updated_by' => $processedBy->id,
             ]);
 
+            $currentSessionEnrolment = AcademicSessionEnrolment::where('student_id', $student->id)
+                ->where('status', 'ongoing')
+                ->latest()
+                ->first();
+
             AcademicSessionEnrolment::query()
                 ->where('student_id', $student->id)
-                ->where('academic_session_id', $oldEnrolment->academic_session_id)
+                ->when($currentSessionEnrolment, fn ($q) => $q->where('academic_session_id', $currentSessionEnrolment->academic_session_id))
                 ->update(['status' => 'deactivated']);
 
             $invoicesToReverse = Invoice::query()
                 ->where('student_id', $student->id)
-                ->where('academic_session_id', $oldEnrolment->academic_session_id)
+                ->when($currentSessionEnrolment, fn ($q) => $q->where('academic_session_id', $currentSessionEnrolment->academic_session_id))
                 ->where('invoice_type', 'fees')
                 ->whereNotIn('status', ['cancelled', 'reversed'])
                 ->get();
 
             foreach ($invoicesToReverse as $invoice) {
-                $balanceDue = (float) $invoice->balance_due;
+                $paid = (float) $invoice->paymentAllocations()->sum('amount');
+                $balanceDue = max(0, (float) $invoice->amount_due - $paid);
 
                 if ($balanceDue > 0) {
                     InvoiceAdjustment::create([
@@ -191,7 +197,7 @@ class CourseChangeController extends Controller
             $newEnrolment = CourseEnrolment::create([
                 'student_id' => $student->id,
                 'course_curriculum_id' => $toMapping->id,
-                'academic_session_id' => $oldEnrolment->academic_session_id,
+                'academic_session_id' => $currentSessionEnrolment?->academic_session_id,
                 'enrolment_date' => now()->format('Y-m-d'),
                 'status' => 'active',
                 'remarks' => 'Course transfer from ' . ($oldEnrolment->courseCurriculum?->course?->name ?? 'previous') . '.',
@@ -208,7 +214,6 @@ class CourseChangeController extends Controller
 
             $student->update([
                 'admission_number' => $newAdmissionNumber,
-                'course_curriculum_id' => $toMapping->id,
                 'updated_by' => $processedBy->id,
             ]);
 

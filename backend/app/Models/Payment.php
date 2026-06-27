@@ -15,7 +15,6 @@ class Payment extends Model
     protected $table = 'payments';
 
     protected $fillable = [
-        'invoice_id',
         'student_id',
         'amount',
         'payment_date',
@@ -36,11 +35,6 @@ class Payment extends Model
 
     public $incrementing = false;
 
-    public function invoice(): BelongsTo
-    {
-        return $this->belongsTo(Invoice::class);
-    }
-
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
@@ -49,6 +43,11 @@ class Payment extends Model
     public function allocations(): HasMany
     {
         return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function ledgerTransactions(): HasMany
+    {
+        return $this->hasMany(LedgerTransaction::class);
     }
 
     public function createdBy(): BelongsTo

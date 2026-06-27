@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\AcademicSession;
 use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
@@ -90,17 +89,13 @@ class UserSeeder extends Seeder
                 ['admission_number' => $s['adm']],
                 [
                     'user_id' => $user->id,
-                    'course_curriculum_id' => $courseCurriculum?->id,
                     'status' => true,
                 ]
             );
 
-            $session = AcademicSession::where('is_active', true)->latest('start_date')->first();
-
             CourseEnrolment::updateOrCreate(
                 ['student_id' => $student->id, 'course_curriculum_id' => $courseCurriculum?->id],
                 [
-                    'academic_session_id' => $session?->id,
                     'enrolment_date' => now()->toDateString(),
                     'status' => 'enrolled',
                 ]

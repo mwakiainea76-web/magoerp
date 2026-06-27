@@ -169,21 +169,21 @@ class HostelsController extends Controller
     {
         $query = HostelAllocation::query()
             ->with([
-                'student:id,first_name,middle_name,last_name,admission_number',
-                'academicSession:id,name',
-                'hostel:id,name,code',
+                'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
+                'academicSessionEnrolment.academicSession:id,name',
+                'room.hostel:id,name,code',
                 'room:id,name,code',
-                'bed:id,label',
+                'hostelBed:id,label',
             ]);
 
         if ($status = $request->get('status')) {
             $query->where('status', $status);
         }
         if ($hostelId = $request->get('hostel_id')) {
-            $query->where('hostel_id', $hostelId);
+            $query->whereHas('room.hostel', fn ($q) => $q->where('id', $hostelId));
         }
         if ($sessionId = $request->get('academic_session_id')) {
-            $query->where('academic_session_id', $sessionId);
+            $query->whereHas('academicSessionEnrolment.academicSession', fn ($q) => $q->where('id', $sessionId));
         }
 
         $allocations = $query->latest('allocated_on')->paginate($request->get('per_page', 20));
@@ -209,7 +209,7 @@ class HostelsController extends Controller
 
         // Check bed availability
         $occupied = HostelAllocation::where('hostel_bed_id', $validated['hostel_bed_id'])
-            ->where('academic_session_id', $enrolment->academic_session_id)
+            ->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $enrolment->academic_session_id))
             ->where('status', 'active')
             ->exists();
 
@@ -219,7 +219,6 @@ class HostelsController extends Controller
 
         // Check if student already has allocation
         $already = HostelAllocation::where('academic_session_enrolment_id', $enrolment->id)
-            ->where('academic_session_id', $enrolment->academic_session_id)
             ->exists();
 
         if ($already) {
@@ -230,9 +229,6 @@ class HostelsController extends Controller
 
         $allocation = HostelAllocation::create([
             'academic_session_enrolment_id' => $enrolment->id,
-            'student_id' => $enrolment->student_id,
-            'academic_session_id' => $enrolment->academic_session_id,
-            'hostel_id' => $validated['hostel_id'],
             'hostel_room_id' => $validated['hostel_room_id'],
             'hostel_bed_id' => $validated['hostel_bed_id'],
             'hostel_fee_amount' => (float) $hostel->session_fee_amount,
@@ -241,7 +237,13 @@ class HostelsController extends Controller
             'created_by' => $user?->id,
         ]);
 
-        $allocation->load(['student', 'academicSession', 'hostel', 'room', 'bed']);
+        $allocation->load([
+            'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
+            'academicSessionEnrolment.academicSession:id,name',
+            'room.hostel:id,name,code',
+            'room:id,name,code',
+            'hostelBed:id,label',
+        ]);
 
         return response()->json([ 'data' => $this->transformAllocation($allocation)], 201);
     }
@@ -266,8 +268,14 @@ class HostelsController extends Controller
         }
 
         $allocation = HostelAllocation::query()
-            ->with(['hostel:id,name,code', 'room:id,name,code', 'bed:id,label', 'academicSession:id,name'])
-            ->where('student_id', $student->id)
+            ->with([
+                'academicSessionEnrolment.academicSession:id,name',
+                'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
+                'room.hostel:id,name,code',
+                'room:id,name,code',
+                'hostelBed:id,label',
+            ])
+            ->whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $student->id))
             ->where('status', 'active')
             ->latest()
             ->first();
@@ -299,8 +307,7 @@ class HostelsController extends Controller
         }
 
         // Check existing allocation
-        $existing = HostelAllocation::where('student_id', $student->id)
-            ->where('academic_session_id', $activeSession->id)
+        $existing = HostelAllocation::whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $student->id)->where('academic_session_id', $activeSession->id))
             ->exists();
 
         if ($existing) {
@@ -326,8 +333,8 @@ class HostelsController extends Controller
                     ->where('is_active', true)
                     ->count();
 
-                $occupiedBeds = HostelAllocation::where('hostel_id', $hostel->id)
-                    ->where('academic_session_id', $activeSession->id)
+                $occupiedBeds = HostelAllocation::whereHas('room', fn ($q) => $q->where('hostel_id', $hostel->id))
+                    ->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $activeSession->id))
                     ->where('status', 'active')
                     ->distinct('hostel_bed_id')
                     ->count('hostel_bed_id');
@@ -380,8 +387,7 @@ class HostelsController extends Controller
             return response()->json([ 'message' => 'You are not enrolled in the current session.'], 422);
         }
 
-        $existingAllocation = HostelAllocation::where('student_id', $student->id)
-            ->where('academic_session_id', $activeSession->id)
+        $existingAllocation = HostelAllocation::whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $student->id)->where('academic_session_id', $activeSession->id))
             ->where('status', 'active')
             ->exists();
 
@@ -412,7 +418,8 @@ class HostelsController extends Controller
         })
             ->where('is_active', true)
             ->whereDoesntHave('allocations', function ($q) use ($activeSession) {
-                $q->where('academic_session_id', $activeSession->id)->where('status', 'active');
+                $q->whereHas('academicSessionEnrolment', fn ($sq) => $sq->where('academic_session_id', $activeSession->id))
+                    ->where('status', 'active');
             })
             ->first();
 
@@ -428,9 +435,6 @@ class HostelsController extends Controller
 
             $allocation = HostelAllocation::create([
                 'academic_session_enrolment_id' => $enrolment->id,
-                'student_id' => $student->id,
-                'academic_session_id' => $activeSession->id,
-                'hostel_id' => $hostel->id,
                 'hostel_room_id' => $room->id,
                 'hostel_bed_id' => $availableBed->id,
                 'hostel_fee_amount' => (float) $hostel->session_fee_amount,
@@ -491,8 +495,7 @@ class HostelsController extends Controller
             return response()->json([ 'data' => $eligibility]);
         }
 
-        $existingAllocation = HostelAllocation::where('student_id', $student->id)
-            ->where('academic_session_id', $activeSession->id)
+        $existingAllocation = HostelAllocation::whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $student->id)->where('academic_session_id', $activeSession->id))
             ->where('status', 'active')
             ->first();
 
@@ -501,9 +504,9 @@ class HostelsController extends Controller
             $eligibility['message'] = 'You already have a hostel allocation.';
             $eligibility['can_book'] = false;
             $eligibility['allocation'] = [
-                'hostel_name' => $existingAllocation->hostel?->name,
+                'hostel_name' => $existingAllocation->room?->hostel?->name,
                 'room_name' => $existingAllocation->room?->name,
-                'bed_label' => $existingAllocation->bed?->label,
+                'bed_label' => $existingAllocation->hostelBed?->label,
                 'status' => $existingAllocation->status,
             ];
             return response()->json([ 'data' => $eligibility]);
@@ -590,16 +593,20 @@ class HostelsController extends Controller
 
     private function transformAllocation($a): array
     {
+        $student = $a->academicSessionEnrolment?->student;
+        $session = $a->academicSessionEnrolment?->academicSession;
+        $hostel = $a->room?->hostel;
+
         return [
             'id' => $a->id,
-            'student_name' => $a->student
-                ? trim(collect([$a->student->first_name, $a->student->middle_name, $a->student->last_name])->filter()->implode(' '))
+            'student_name' => $student
+                ? trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' '))
                 : null,
-            'admission_number' => $a->student?->admission_number,
-            'session_name' => $a->academicSession?->name,
-            'hostel_name' => $a->hostel?->name,
+            'admission_number' => $student?->admission_number,
+            'session_name' => $session?->name,
+            'hostel_name' => $hostel?->name,
             'room_name' => $a->room?->name,
-            'bed_label' => $a->bed?->label,
+            'bed_label' => $a->hostelBed?->label,
             'hostel_fee_amount' => (float) $a->hostel_fee_amount,
             'allocated_on' => $a->allocated_on?->toDateString(),
             'status' => $a->status,

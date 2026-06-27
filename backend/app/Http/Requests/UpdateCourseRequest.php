@@ -27,7 +27,7 @@ class UpdateCourseRequest extends FormRequest
             ],
             'initials' => ['required', 'string', 'max:20'],
             'name' => ['required', 'string', 'max:255'],
-            'duration' => ['nullable', 'string', 'max:100'],
+            'duration_months' => ['required', 'integer', 'min:1'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],
             'certification_authority_id' => ['required', 'string', 'exists:certification_authorities,id'],

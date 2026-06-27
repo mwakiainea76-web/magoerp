@@ -17,6 +17,8 @@ class CourseChangeLog extends Model
         'new_admission_number',
         'old_course_curriculum_id',
         'new_course_curriculum_id',
+        'old_status',
+        'new_status',
         'processed_by',
         'changed_at',
         'notes',

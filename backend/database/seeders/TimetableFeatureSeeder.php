@@ -73,7 +73,7 @@ class TimetableFeatureSeeder extends Seeder
             [
                 'initials' => 'TTICT4',
                 'name' => 'Timetable Test ICT Level 4',
-                'duration' => '1 year',
+                'duration_months' => 12,
                 'description' => 'Course used for timetable create testing.',
                 'is_active' => true,
                 'certification_authority_id' => $authority->id,
@@ -242,13 +242,10 @@ class TimetableFeatureSeeder extends Seeder
 
                 StudentUnitRegistration::updateOrCreate(
                     [
-                        'academic_session_id' => $activeSession->id,
-                        'student_id' => $student->id,
+                        'academic_session_enrolment_id' => $sessionEnrolment->id,
                         'unit_id' => $firstUnit->id,
                     ],
-                    [
-                        'academic_session_enrolment_id' => $sessionEnrolment->id,
-                    ],
+                    []
                 );
             });
 

@@ -27,7 +27,7 @@ class PaymentsController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
 
         $payments = Payment::query()
-            ->with(['student', 'invoice'])
+            ->with(['student'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->whereHas('student', function ($sq) use ($search) {
                     $sq->where('admission_number', 'like', "%{$search}%");
@@ -55,7 +55,7 @@ class PaymentsController extends Controller
         abort_unless($request->user()?->can('finance.create'), 403);
 
         $validated = $request->validate([
-            'invoice_id' => ['required', 'string', 'exists:invoices,id'],
+            'student_id' => ['required', 'string', 'exists:students,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'method' => ['required', 'string', 'max:50'],
             'reference' => ['nullable', 'string', 'max:100'],
@@ -63,14 +63,14 @@ class PaymentsController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $invoice = Invoice::findOrFail($validated['invoice_id']);
+        $student = Student::findOrFail($validated['student_id']);
 
         try {
-            $payment = $this->billingService->recordPayment(
-                $invoice,
+            $payment = $this->billingService->recordStudentPayment(
+                $student,
                 (float) $validated['amount'],
                 $validated['method'],
-                $request->user()->id,
+                (string) $request->user()->id,
                 $validated['reference'] ?? null,
                 $validated['payment_date'] ?? null,
                 $validated['notes'] ?? null,
@@ -83,7 +83,7 @@ class PaymentsController extends Controller
             ], 422);
         }
 
-        $payment->load(['student', 'invoice']);
+        $payment->load(['student']);
 
         return response()->json([
             'status_code' => 201,
@@ -99,8 +99,6 @@ class PaymentsController extends Controller
             'student_id' => $payment->student_id,
             'student_name' => $this->studentName($payment->student),
             'admission_number' => $payment->student?->admission_number,
-            'invoice_id' => $payment->invoice_id,
-            'invoice_number' => $payment->invoice?->invoice_number,
             'amount' => (float) $payment->amount,
             'allocated_total' => (float) $payment->allocated_total,
             'unallocated_amount' => (float) $payment->unallocated_amount,

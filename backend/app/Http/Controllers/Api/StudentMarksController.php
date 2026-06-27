@@ -29,14 +29,13 @@ class StudentMarksController extends Controller
 
         $query = StudentMark::query()
             ->with([
-                'student:id,first_name,middle_name,last_name,admission_number',
+                'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
                 'unit:id,code,name',
-                'academicSession:id,name',
                 'recordedBy:id,first_name,last_name',
             ]);
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
-            $query->where('academic_session_id', $sessionId);
+            $query->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $sessionId));
         }
         if ($unitId = $validated['unit_id'] ?? null) {
             $query->where('unit_id', $unitId);
@@ -51,12 +50,37 @@ class StudentMarksController extends Controller
             }
         }
         if ($studentId = $validated['student_id'] ?? null) {
-            $query->where('student_id', $studentId);
+            $query->whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $studentId));
         }
 
         $marks = $query->latest()->paginate($request->get('per_page', 50));
 
-        return response()->json(array_merge([], ($marks)->toArray()), 200);
+        $transformed = $marks->getCollection()->map(fn ($m) => [
+            'id' => $m->id,
+            'student' => $m->academicSessionEnrolment?->student ? [
+                'id' => $m->academicSessionEnrolment->student->id,
+                'admission_number' => $m->academicSessionEnrolment->student->admission_number,
+                'first_name' => $m->academicSessionEnrolment->student->first_name,
+                'middle_name' => $m->academicSessionEnrolment->student->middle_name,
+                'last_name' => $m->academicSessionEnrolment->student->last_name,
+            ] : null,
+            'unit' => $m->unit ? ['id' => $m->unit->id, 'code' => $m->unit->code, 'name' => $m->unit->name] : null,
+            'assessment_type' => $m->assessment_type,
+            'assessment_number' => $m->assessment_number,
+            'score' => $m->score,
+            'marks' => $m->marks,
+            'is_published' => $m->is_published,
+            'recorded_by' => $m->recordedBy ? trim(collect([$m->recordedBy->first_name, $m->recordedBy->middle_name, $m->recordedBy->last_name])->filter()->implode(' ')) : null,
+            'created_at' => $m->created_at,
+        ]);
+
+        return response()->json([
+            'data' => $transformed,
+            'total' => $marks->total(),
+            'last_page' => $marks->lastPage(),
+            'per_page' => $marks->perPage(),
+            'current_page' => $marks->currentPage(),
+        ], 200);
     }
 
     public function store(Request $request): JsonResponse
@@ -68,6 +92,8 @@ class StudentMarksController extends Controller
             'assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
             'score' => 'required|integer|min:0|max:100',
         ]);
+
+        $student = Student::where('admission_number', $validated['student_admission_number'])->firstOrFail();
 
         if (empty($validated['academic_session_id'])) {
             $session = AcademicSession::query()
@@ -82,27 +108,32 @@ class StudentMarksController extends Controller
             $validated['academic_session_id'] = $session->id;
         }
 
-        $user = $request->user();
-        $staffId = null;
-        if ($user && $user->staff) {
-            $staffId = $user->staff->id;
+        $enrolment = AcademicSessionEnrolment::where('student_id', $student->id)
+            ->where('academic_session_id', $validated['academic_session_id'])
+            ->first();
+
+        if (!$enrolment) {
+            return response()->json(['message' => 'Student is not enrolled in this academic session.'], 422);
         }
 
-        $student = Student::where('admission_number', $validated['student_admission_number'])->firstOrFail();
-        $registration = $this->resolveUnitRegistration(
-            $validated['academic_session_id'],
-            $student->id,
-            $validated['unit_id'],
-        );
+        $registration = StudentUnitRegistration::where('academic_session_enrolment_id', $enrolment->id)
+            ->where('unit_id', $validated['unit_id'])
+            ->first();
+
+        if (!$registration) {
+            return response()->json(['message' => 'Student is not enrolled for this unit in the selected session.'], 422);
+        }
+
+        $user = $request->user();
+        $staffId = $user?->staff?->id;
+
         [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($validated['assessment_type']);
 
-        $exists = StudentMark::where([
-            'academic_session_id' => $validated['academic_session_id'],
-            'student_id' => $student->id,
-            'unit_id' => $validated['unit_id'],
-            'assessment_type' => $assessmentType,
-            'assessment_number' => $assessmentNumber,
-        ])->exists();
+        $exists = StudentMark::where('academic_session_enrolment_id', $enrolment->id)
+            ->where('unit_id', $validated['unit_id'])
+            ->where('assessment_type', $assessmentType)
+            ->where('assessment_number', $assessmentNumber)
+            ->exists();
 
         if ($exists) {
             return response()->json([
@@ -111,9 +142,7 @@ class StudentMarksController extends Controller
         }
 
         $mark = StudentMark::create([
-            'academic_session_id' => $validated['academic_session_id'],
-            'academic_session_enrolment_id' => $registration->academic_session_enrolment_id,
-            'student_id' => $student->id,
+            'academic_session_enrolment_id' => $enrolment->id,
             'unit_id' => $validated['unit_id'],
             'assessment_type' => $assessmentType,
             'assessment_number' => $assessmentNumber,
@@ -122,11 +151,7 @@ class StudentMarksController extends Controller
             'recorded_by_staff_id' => $staffId,
         ]);
 
-        $mark->load([
-            'student:id,first_name,middle_name,last_name,admission_number',
-            'unit:id,code,name',
-            'academicSession:id,name',
-        ]);
+        $mark->load(['academicSessionEnrolment.student.user:id,first_name,middle_name,last_name', 'unit:id,code,name']);
 
         return response()->json([ 'data' => $mark], 201);
     }
@@ -143,10 +168,7 @@ class StudentMarksController extends Controller
         ]);
 
         $user = $request->user();
-        $staffId = null;
-        if ($user && $user->staff) {
-            $staffId = $user->staff->id;
-        }
+        $staffId = $user?->staff?->id;
 
         $created = [];
         $errors = [];
@@ -160,26 +182,31 @@ class StudentMarksController extends Controller
                     continue;
                 }
 
-                $registration = StudentUnitRegistration::query()
+                $enrolment = AcademicSessionEnrolment::where('student_id', $student->id)
                     ->where('academic_session_id', $entry['academic_session_id'])
-                    ->where('student_id', $student->id)
+                    ->first();
+
+                if (!$enrolment) {
+                    $errors[] = "Student {$entry['student_admission_number']} is not enrolled in the session.";
+                    continue;
+                }
+
+                $registration = StudentUnitRegistration::where('academic_session_enrolment_id', $enrolment->id)
                     ->where('unit_id', $entry['unit_id'])
                     ->first();
 
                 if (!$registration) {
-                    $errors[] = "Student {$entry['student_admission_number']} is not enrolled for this unit in the selected session.";
+                    $errors[] = "Student {$entry['student_admission_number']} is not enrolled for this unit.";
                     continue;
                 }
 
                 [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($entry['assessment_type']);
 
-                $exists = StudentMark::where([
-                    'academic_session_id' => $entry['academic_session_id'],
-                    'student_id' => $student->id,
-                    'unit_id' => $entry['unit_id'],
-                    'assessment_type' => $assessmentType,
-                    'assessment_number' => $assessmentNumber,
-                ])->exists();
+                $exists = StudentMark::where('academic_session_enrolment_id', $enrolment->id)
+                    ->where('unit_id', $entry['unit_id'])
+                    ->where('assessment_type', $assessmentType)
+                    ->where('assessment_number', $assessmentNumber)
+                    ->exists();
 
                 if ($exists) {
                     $errors[] = "Score exists for student {$entry['student_admission_number']} - unit {$entry['unit_id']} - {$entry['assessment_type']}";
@@ -187,9 +214,7 @@ class StudentMarksController extends Controller
                 }
 
                 $created[] = StudentMark::create([
-                    'academic_session_id' => $entry['academic_session_id'],
-                    'academic_session_enrolment_id' => $registration->academic_session_enrolment_id,
-                    'student_id' => $student->id,
+                    'academic_session_enrolment_id' => $enrolment->id,
                     'unit_id' => $entry['unit_id'],
                     'assessment_type' => $assessmentType,
                     'assessment_number' => $assessmentNumber,
@@ -215,9 +240,8 @@ class StudentMarksController extends Controller
     public function show(StudentMark $studentMark): JsonResponse
     {
         $studentMark->load([
-            'student:id,first_name,middle_name,last_name,admission_number',
+            'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
             'unit:id,code,name',
-            'academicSession:id,name',
             'recordedBy:id,first_name,last_name',
         ]);
 
@@ -243,9 +267,8 @@ class StudentMarksController extends Controller
         $studentMark->update($validated);
 
         $studentMark->load([
-            'student:id,first_name,middle_name,last_name,admission_number',
+            'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
             'unit:id,code,name',
-            'academicSession:id,name',
         ]);
 
         return response()->json([ 'data' => $studentMark]);
@@ -273,12 +296,15 @@ class StudentMarksController extends Controller
 
         [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($validated['assessment_type']);
 
-        $query = StudentMark::where([
-            'unit_id' => $validated['unit_id'],
-            'assessment_type' => $assessmentType,
-            'assessment_number' => $assessmentNumber,
-            'academic_session_id' => $validated['academic_session_id'],
-        ]);
+        $enrolmentIds = AcademicSessionEnrolment::where('academic_session_id', $validated['academic_session_id'])
+            ->pluck('id');
+
+        $query = StudentMark::whereIn('academic_session_enrolment_id', $enrolmentIds)
+            ->where([
+                'unit_id' => $validated['unit_id'],
+                'assessment_type' => $assessmentType,
+                'assessment_number' => $assessmentNumber,
+            ]);
 
         $count = $query->update(['is_published' => $validated['publish']]);
 
@@ -303,7 +329,7 @@ class StudentMarksController extends Controller
         $query = StudentMark::query();
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
-            $query->where('academic_session_id', $sessionId);
+            $query->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $sessionId));
         }
         if ($unitId = $validated['unit_id'] ?? null) {
             $query->where('unit_id', $unitId);
@@ -318,7 +344,7 @@ class StudentMarksController extends Controller
             }
         }
         if ($studentId = $validated['student_id'] ?? null) {
-            $query->where('student_id', $studentId);
+            $query->whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $studentId));
         }
 
         $count = $query->update(['is_published' => $validated['publish']]);
@@ -337,27 +363,15 @@ class StudentMarksController extends Controller
             'academic_session_id' => 'required|string|exists:academic_sessions,id',
         ]);
 
-        $user = $request->user();
-
-        if ($user && $user->staff) {
-            $units = Unit::query()
-                ->whereExists(function ($q) use ($validated) {
-                    $q->select(DB::raw(1))
-                        ->from('student_unit_registrations')
-                        ->whereColumn('student_unit_registrations.unit_id', 'units.id')
-                        ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id']);
-                })
-                ->get(['id', 'code', 'name']);
-        } else {
-            $units = Unit::query()
-                ->whereExists(function ($q) use ($validated) {
-                    $q->select(DB::raw(1))
-                        ->from('student_unit_registrations')
-                        ->whereColumn('student_unit_registrations.unit_id', 'units.id')
-                        ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id']);
-                })
-                ->get(['id', 'code', 'name']);
-        }
+        $units = Unit::query()
+            ->whereExists(function ($q) use ($validated) {
+                $q->select(DB::raw(1))
+                    ->from('student_unit_registrations')
+                    ->join('academic_session_enrolments', 'academic_session_enrolments.id', '=', 'student_unit_registrations.academic_session_enrolment_id')
+                    ->whereColumn('student_unit_registrations.unit_id', 'units.id')
+                    ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
+            })
+            ->get(['id', 'code', 'name']);
 
         return response()->json([ 'data' => $units]);
     }
@@ -372,10 +386,9 @@ class StudentMarksController extends Controller
         $query = Student::query()
             ->select('students.id', 'students.admission_number', 'users.first_name', 'users.middle_name', 'users.last_name')
             ->join('users', 'users.id', '=', 'students.user_id')
-            ->join('student_unit_registrations', function ($j) use ($validated) {
-                $j->on('student_unit_registrations.student_id', '=', 'students.id')
-                    ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id']);
-            });
+            ->join('academic_session_enrolments', 'academic_session_enrolments.student_id', '=', 'students.id')
+            ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
+            ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
 
         if ($unitId = $validated['unit_id'] ?? null) {
             $query->where('student_unit_registrations.unit_id', $unitId);
@@ -409,11 +422,10 @@ class StudentMarksController extends Controller
         $students = Student::query()
             ->select('students.id', 'students.admission_number', 'users.first_name', 'users.middle_name', 'users.last_name')
             ->join('users', 'users.id', '=', 'students.user_id')
-            ->join('student_unit_registrations', function ($j) use ($validated) {
-                $j->on('student_unit_registrations.student_id', '=', 'students.id')
-                    ->where('student_unit_registrations.academic_session_id', $validated['academic_session_id'])
-                    ->where('student_unit_registrations.unit_id', $validated['unit_id']);
-            })
+            ->join('academic_session_enrolments', 'academic_session_enrolments.student_id', '=', 'students.id')
+            ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
+            ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id'])
+            ->where('student_unit_registrations.unit_id', $validated['unit_id'])
             ->distinct();
 
         if ($studentId = $validated['student_id'] ?? null) {
@@ -422,16 +434,20 @@ class StudentMarksController extends Controller
 
         $students = $students->get();
 
+        $enrolments = AcademicSessionEnrolment::where('academic_session_id', $validated['academic_session_id'])
+            ->get(['id', 'student_id']);
+        $studentEnrolments = $enrolments->groupBy('student_id')->map(fn ($group) => $group->pluck('id'));
+
         $marks = StudentMark::query()
-            ->where('academic_session_id', $validated['academic_session_id'])
+            ->whereIn('academic_session_enrolment_id', $enrolments->pluck('id'))
             ->where('unit_id', $validated['unit_id'])
             ->get();
 
         $assessmentTypes = $marks->pluck('assessment_type')->unique()->values();
         $assessmentNumbers = $marks->pluck('assessment_number')->unique()->sort()->values();
 
-        $marksheet = $students->map(function ($student) use ($marks, $assessmentTypes) {
-            $studentMarks = $marks->where('student_id', $student->id);
+        $marksheet = $students->map(function ($student) use ($marks, $studentEnrolments, $assessmentTypes) {
+            $studentMarks = $marks->whereIn('academic_session_enrolment_id', $studentEnrolments->get($student->id, collect()));
 
             $types = [];
             $total = 0;
@@ -506,11 +522,10 @@ class StudentMarksController extends Controller
             ->with('unit:id,code,name')
             ->get();
 
-        $results = $unitRegistrations->map(function ($reg) use ($student, $sessionEnrolment) {
+        $results = $unitRegistrations->map(function ($reg) use ($sessionEnrolment) {
             $marks = StudentMark::query()
-                ->where('student_id', $student->id)
+                ->where('academic_session_enrolment_id', $sessionEnrolment->id)
                 ->where('unit_id', $reg->unit_id)
-                ->where('academic_session_id', $sessionEnrolment->academic_session_id)
                 ->where('is_published', true)
                 ->get();
 
@@ -554,9 +569,12 @@ class StudentMarksController extends Controller
 
     private function resolveUnitRegistration(string $sessionId, string $studentId, string $unitId): StudentUnitRegistration
     {
-        $registration = StudentUnitRegistration::query()
+        $enrolment = AcademicSessionEnrolment::where('student_id', $studentId)
             ->where('academic_session_id', $sessionId)
-            ->where('student_id', $studentId)
+            ->firstOrFail();
+
+        $registration = StudentUnitRegistration::query()
+            ->where('academic_session_enrolment_id', $enrolment->id)
             ->where('unit_id', $unitId)
             ->first();
 
@@ -581,9 +599,12 @@ class StudentMarksController extends Controller
             return response()->json([ 'message' => 'Student profile not found.'], 404);
         }
 
-        $sessionIds = StudentMark::query()
-            ->where('student_id', $student->id)
+        $enrolmentIds = StudentMark::query()
+            ->whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $student->id))
             ->distinct()
+            ->pluck('academic_session_enrolment_id');
+
+        $sessionIds = AcademicSessionEnrolment::whereIn('id', $enrolmentIds)
             ->pluck('academic_session_id');
 
         $sessions = AcademicSession::whereIn('id', $sessionIds)

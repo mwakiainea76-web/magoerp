@@ -20,6 +20,8 @@ return new class extends Migration
             $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['student_id', 'status']);
         });
     }
 

@@ -46,7 +46,6 @@ class CoursesController extends Controller
                         ->where('code', 'like', "%{$search}%")
                         ->orWhere('initials', 'like', "%{$search}%")
                         ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('duration', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
                 });
             })
@@ -219,7 +218,8 @@ class CoursesController extends Controller
             'code' => $course->code,
             'initials' => $course->initials,
             'name' => $course->name,
-            'duration' => $course->duration,
+            'duration_months' => $course->duration_months,
+            'duration_label' => $course->duration_label,
             'description' => $course->description,
             'is_active' => $course->is_active,
             'certification_authority_id' => $course->certification_authority_id,

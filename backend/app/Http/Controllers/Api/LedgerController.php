@@ -19,7 +19,7 @@ class LedgerController extends Controller
         $studentId = (string) $request->string('student_id', '');
 
         $transactions = LedgerTransaction::query()
-            ->with(['student', 'invoice', 'academicSession'])
+            ->with(['student', 'invoice', 'academicSession', 'payment'])
             ->when($studentId !== '', fn ($q) => $q->where('student_id', $studentId))
             ->latest('transaction_date')
             ->paginate(50)
@@ -43,7 +43,7 @@ class LedgerController extends Controller
 
         $transactions = LedgerTransaction::query()
             ->where('student_id', $student->id)
-            ->with(['invoice', 'academicSession'])
+            ->with(['invoice', 'academicSession', 'payment'])
             ->orderBy('transaction_date')
             ->orderBy('id')
             ->get()
@@ -57,6 +57,8 @@ class LedgerController extends Controller
     {
         $data = [
             'id' => $transaction->id,
+            'payment_id' => $transaction->payment_id,
+            'payment_ref' => $transaction->payment?->reference,
             'invoice_number' => $transaction->invoice?->invoice_number,
             'session_name' => $transaction->academicSession?->name,
             'type' => $transaction->type,

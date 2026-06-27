@@ -2,10 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\staffs;
-use App\Models\Student;
 use App\Models\StudentMark;
 use App\Models\Unit;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -17,9 +15,7 @@ class StudentMarkFactory extends Factory
     public function definition(): array
     {
         return [
-            'academic_session_id' => AcademicSession::factory(),
             'academic_session_enrolment_id' => AcademicSessionEnrolment::factory(),
-            'student_id' => Student::factory(),
             'unit_id' => Unit::factory(),
             'assessment_type' => fake()->randomElement(['CAT', 'PRAC']),
             'assessment_number' => fake()->numberBetween(1, 3),

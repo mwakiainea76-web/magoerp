@@ -33,7 +33,7 @@ class AcademicTimetablesController extends Controller
                 'unit:id,code,name,course_curriculum_id',
                 'unit.courseCurriculum.course:id,code,name,initials',
                 'unit.courseCurriculum.curriculum:id,code,name',
-                'trainer:id,first_name,last_name,employee_number',
+                'trainer.user',
                 'lectureRoom:id,name,code',
                 'academicSession:id,name',
             ]);
@@ -77,7 +77,7 @@ class AcademicTimetablesController extends Controller
         ]);
 
         $query = AcademicTimetable::query()
-            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code']);
+            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer.user', 'lectureRoom:id,name,code']);
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
             $query->where('academic_session_id', $sessionId);
@@ -155,7 +155,7 @@ class AcademicTimetablesController extends Controller
             'created_by' => $user?->id,
         ]);
 
-        $timetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code', 'academicSession:id,name']);
+        $timetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer.user', 'lectureRoom:id,name,code', 'academicSession:id,name']);
 
         return response()->json([ 'data' => $this->transform($timetable)], 201);
     }
@@ -166,7 +166,7 @@ class AcademicTimetablesController extends Controller
             'unit:id,code,name,course_curriculum_id',
             'unit.courseCurriculum.course:id,code,name,initials',
             'unit.courseCurriculum.curriculum:id,code,name',
-            'trainer:id,first_name,last_name,employee_number',
+            'trainer.user',
             'lectureRoom:id,name,code',
             'academicSession:id,name',
         ]);
@@ -196,7 +196,7 @@ class AcademicTimetablesController extends Controller
         $validated['updated_by'] = $user?->id;
         $academicTimetable->update($validated);
 
-        $academicTimetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code', 'academicSession:id,name']);
+        $academicTimetable->load(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer.user', 'lectureRoom:id,name,code', 'academicSession:id,name']);
 
         return response()->json([ 'data' => $this->transform($academicTimetable)]);
     }
@@ -280,11 +280,13 @@ class AcademicTimetablesController extends Controller
     {
         return response()->json([
             'data' => staffs::query()
-                ->where('status', true)
-                ->get(['id', 'first_name', 'last_name', 'employee_number'])
+                ->select('staffs.id', 'users.first_name', 'users.middle_name', 'users.last_name', 'staffs.employee_number')
+                ->join('users', 'users.id', '=', 'staffs.user_id')
+                ->where('staffs.status', true)
+                ->get()
                 ->map(fn ($s) => [
                     'id' => $s->id,
-                    'name' => trim($s->first_name . ' ' . $s->last_name),
+                    'name' => trim(collect([$s->first_name, $s->middle_name, $s->last_name])->filter()->implode(' ')),
                     'employee_number' => $s->employee_number,
                 ]),
         ]);
@@ -308,7 +310,7 @@ class AcademicTimetablesController extends Controller
         $timetables = AcademicTimetable::query()
             ->whereIn('unit_id', $unitIds)
             ->where('academic_session_id', $sessionEnrolment->academic_session_id)
-            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer:id,first_name,last_name,employee_number', 'lectureRoom:id,name,code'])
+            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer.user', 'lectureRoom:id,name,code'])
             ->orderBy('day_of_week')
             ->orderBy('start_time')
             ->get();
@@ -325,7 +327,7 @@ class AcademicTimetablesController extends Controller
     {
         $timetables = AcademicTimetable::query()
             ->where('trainer_staff_id', $staff->id)
-            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'lectureRoom:id,name,code', 'academicSession:id,name'])
+            ->with(['unit:id,code,name,course_curriculum_id', 'unit.courseCurriculum.course:id,code,name,initials', 'unit.courseCurriculum.curriculum:id,code,name', 'trainer.user', 'lectureRoom:id,name,code', 'academicSession:id,name'])
             ->orderBy('day_of_week')
             ->orderBy('start_time')
             ->get();

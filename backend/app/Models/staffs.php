@@ -52,6 +52,21 @@ class staffs extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function getFirstNameAttribute()
+    {
+        return $this->user?->first_name;
+    }
+
+    public function getMiddleNameAttribute()
+    {
+        return $this->user?->middle_name;
+    }
+
+    public function getLastNameAttribute()
+    {
+        return $this->user?->last_name;
+    }
+
     public function department(): BelongsTo
     {
         return $this->belongsTo(departments::class, 'department_id');

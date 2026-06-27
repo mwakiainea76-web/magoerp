@@ -64,8 +64,7 @@ class StudentDashboardController extends Controller
         $totalFee = 0;
 
         if ($course && $currentSession && $currentSessionEnrolment) {
-            $courseCurriculumId = $student->course_curriculum_id
-                ?? $courseEnrolment?->course_curriculum_id;
+            $courseCurriculumId = $courseEnrolment?->course_curriculum_id;
 
             $courseInvoiceTemplate = $courseCurriculumId
                 ? CourseInvoiceTemplate::query()
@@ -96,27 +95,26 @@ class StudentDashboardController extends Controller
 
         $invoiceBaseQuery = Invoice::query()
             ->where('student_id', $student->id)
-            ->where('status', '!=', 'cancelled');
+            ->where('status', '!=', 'cancelled')
+            ->select('invoices.*')
+            ->selectRaw('COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
+            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
 
-        $outstandingBalance = (float) (clone $invoiceBaseQuery)
+        $invoices = $invoiceBaseQuery->get();
+        $outstandingBalance = (float) $invoices->where('balance_due', '>', 0)->sum('balance_due');
+        $totalPaid = (float) $invoices->sum('paid_amount');
+
+        $nextDueInvoice = $invoices
             ->where('balance_due', '>', 0)
-            ->sum('balance_due');
-
-        $totalPaid = (float) (clone $invoiceBaseQuery)
-            ->sum('paid_amount');
-
-        $nextDueInvoice = (clone $invoiceBaseQuery)
-            ->where('balance_due', '>', 0)
-            ->orderBy('due_date')
-            ->first(['due_date']);
+            ->sortBy('due_date')
+            ->first();
 
         $availableUnits = collect();
         $registeredUnitIds = collect();
 
         if ($currentSessionEnrolment) {
             $registeredUnitIds = StudentUnitRegistration::query()
-                ->where('academic_session_id', $currentSessionEnrolment->academic_session_id)
-                ->where('student_id', $student->id)
+                ->where('academic_session_enrolment_id', $currentSessionEnrolment->id)
                 ->pluck('unit_id');
 
             $courseCurriculumIds = CourseCurriculum::query()
@@ -163,7 +161,7 @@ class StudentDashboardController extends Controller
                     'id' => $course->id,
                     'code' => $course->code,
                     'name' => $course->name,
-                    'duration' => $course->duration,
+                    'duration' => $course->duration_label,
                     'level' => $course->level?->name,
                     'curriculum' => $courseEnrolment?->courseCurriculum?->curriculum ? [
                         'id' => $courseEnrolment->courseCurriculum->curriculum->id,

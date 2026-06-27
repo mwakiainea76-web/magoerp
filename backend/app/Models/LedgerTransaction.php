@@ -17,6 +17,7 @@ class LedgerTransaction extends Model
     protected $fillable = [
         'student_id',
         'invoice_id',
+        'payment_id',
         'academic_session_id',
         'type',
         'debit',
@@ -45,6 +46,11 @@ class LedgerTransaction extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
     }
 
     public function academicSession(): BelongsTo

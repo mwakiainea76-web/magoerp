@@ -7,10 +7,10 @@ use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\CourseInvoiceTemplate;
 use App\Models\Invoice;
-use App\Models\InvoiceComponent;
 use App\Models\InvoiceItem;
 use App\Models\InvoiceTemplate;
 use App\Models\InvoiceTemplateItem;
+use App\Models\LedgerTransaction;
 use App\Models\Payment;
 use App\Models\PaymentAllocation;
 use App\Models\Student;
@@ -52,7 +52,8 @@ class FinanceSeeder extends Seeder
             $courseCurriculum = CourseCurriculum::where('course_id', $course->id)->where('is_active', true)->first();
             if (!$courseCurriculum) continue;
 
-            for ($year = 1; $year <= $course->duration; $year++) {
+            $totalYears = $course->duration_months ? intdiv($course->duration_months, 12) : 1;
+            for ($year = 1; $year <= $totalYears; $year++) {
                 for ($sessionNum = 1; $sessionNum <= 2; $sessionNum++) {
                     CourseInvoiceTemplate::updateOrCreate(
                         [
@@ -83,8 +84,6 @@ class FinanceSeeder extends Seeder
                     'issue_date' => now()->toDateString(),
                     'due_date' => now()->addDays(30)->toDateString(),
                     'amount_due' => 57500,
-                    'paid_amount' => 0,
-                    'balance_due' => 57500,
                 ]
             );
 
@@ -92,18 +91,10 @@ class FinanceSeeder extends Seeder
                 InvoiceItem::updateOrCreate(
                     ['invoice_id' => $invoice->id, 'invoice_template_item_id' => $templateItem->id],
                     [
-                        'description' => $templateItem->name,
-                        'unit_amount' => $templateItem->amount,
-                        'quantity' => 1,
-                        'total_amount' => $templateItem->amount,
-                    ]
-                );
-
-                InvoiceComponent::updateOrCreate(
-                    ['invoice_id' => $invoice->id, 'invoice_template_item_id' => $templateItem->id],
-                    [
                         'name' => $templateItem->name,
                         'amount' => $templateItem->amount,
+                        'quantity' => 1,
+                        'total_amount' => $templateItem->amount,
                         'snapshot_data' => [
                             'template_code' => $template->code,
                             'template_name' => $template->name,
@@ -117,7 +108,6 @@ class FinanceSeeder extends Seeder
             }
 
             $payment = Payment::create([
-                'invoice_id' => $invoice->id,
                 'student_id' => $student->id,
                 'amount' => 30000,
                 'payment_date' => now()->toDateString(),
@@ -131,6 +121,20 @@ class FinanceSeeder extends Seeder
                 'invoice_id' => $invoice->id,
                 'amount' => 30000,
                 'allocated_at' => now()->toDateString(),
+            ]);
+
+            LedgerTransaction::create([
+                'student_id' => $student->id,
+                'invoice_id' => $invoice->id,
+                'payment_id' => $payment->id,
+                'academic_session_id' => $session->id,
+                'type' => 'payment',
+                'debit' => 0,
+                'credit' => 30000,
+                'reference' => $payment->reference,
+                'description' => 'Payment via ' . $payment->method,
+                'transaction_date' => $payment->payment_date,
+                'created_by' => null,
             ]);
 
             $invoice->recalculateTotals();

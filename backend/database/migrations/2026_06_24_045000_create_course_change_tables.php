@@ -25,8 +25,12 @@ return new class extends Migration
         Schema::create('course_change_logs', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
-            $table->string('old_admission_number');
-            $table->string('new_admission_number');
+            $table->string('old_admission_number', 50)->nullable();
+            $table->string('new_admission_number', 50)->nullable();
+            $table->foreignUuid('old_course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
+            $table->foreignUuid('new_course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
+            $table->string('old_status', 50)->nullable();
+            $table->string('new_status', 50)->nullable();
             $table->foreignUuid('processed_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamp('changed_at');
             $table->text('notes')->nullable();

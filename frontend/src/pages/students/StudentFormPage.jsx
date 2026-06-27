@@ -38,7 +38,6 @@ const studentSchema = yup.object({
     .string()
     .required("Course is required")
     .matches(uuidPattern, "Select a valid course"),
-  enrollment_date: yup.date().nullable(),
 
   is_pwd: yup.boolean().required(),
   disability_type: yup.string().when("is_pwd", {
@@ -78,7 +77,6 @@ function normalizePayload(values) {
     alternative_phone_number: values.alternative_phone_number.trim(),
     county: values.county.trim(),
     course_id: values.course_id || null,
-    enrollment_date: values.enrollment_date,
 
     is_pwd: values.is_pwd,
     disability_type: values.is_pwd ? values.disability_type.trim() : null,
@@ -138,7 +136,6 @@ export function StudentFormPage() {
       alternative_phone_number: "",
       county: "",
       course_id: "",
-      enrollment_date: "",
       is_pwd: false,
       disability_type: "",
       disability_description: "",
@@ -186,7 +183,6 @@ export function StudentFormPage() {
               alternative_phone_number: s.alternative_phone_number ?? "",
               county: s.county ?? "",
               course_id: s.course_id ?? "",
-              enrollment_date: s.enrollment_date ?? "",
               is_pwd: s.is_pwd ?? false,
               disability_type: s.disability_type ?? "",
               disability_description: s.disability_description ?? "",
@@ -378,14 +374,7 @@ export function StudentFormPage() {
               />
             </div>
 
-            <FormInput
-              id="enrollment_date"
-              label="Enrollment Date"
-              type="date"
-              error={errors.enrollment_date?.message}
-              {...register("enrollment_date")}
-            />
-          </div>
+            </div>
         </div>
 
         {/* Section 2: Personal Information */}

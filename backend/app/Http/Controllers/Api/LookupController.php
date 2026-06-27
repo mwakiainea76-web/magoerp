@@ -408,14 +408,16 @@ class LookupController extends Controller
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
-                        ->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->whereHas('user', function ($uq) use ($search) {
+                            $uq->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('middle_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        })
                         ->orWhere('admission_number', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('first_name')
-            ->orderBy('last_name')
+            ->orderBy(User::select('first_name')->whereColumn('users.id', 'students.user_id'))
+            ->orderBy(User::select('last_name')->whereColumn('users.id', 'students.user_id'))
             ->limit($limit)
             ->get()
             ->map(function (Student $student) {

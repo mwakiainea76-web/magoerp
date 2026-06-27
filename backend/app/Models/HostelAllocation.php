@@ -13,9 +13,6 @@ class HostelAllocation extends Model
 
     protected $fillable = [
         'academic_session_enrolment_id',
-        'student_id',
-        'academic_session_id',
-        'hostel_id',
         'hostel_room_id',
         'hostel_bed_id',
         'hostel_fee_amount',
@@ -35,33 +32,18 @@ class HostelAllocation extends Model
 
     public $incrementing = false;
 
-    public function enrolment(): BelongsTo
+    public function academicSessionEnrolment(): BelongsTo
     {
         return $this->belongsTo(AcademicSessionEnrolment::class, 'academic_session_enrolment_id');
     }
 
-    public function student(): BelongsTo
+    public function hostelBed(): BelongsTo
     {
-        return $this->belongsTo(Student::class);
-    }
-
-    public function academicSession(): BelongsTo
-    {
-        return $this->belongsTo(AcademicSession::class);
-    }
-
-    public function hostel(): BelongsTo
-    {
-        return $this->belongsTo(Hostel::class);
+        return $this->belongsTo(HostelBed::class, 'hostel_bed_id');
     }
 
     public function room(): BelongsTo
     {
         return $this->belongsTo(HostelRoom::class, 'hostel_room_id');
-    }
-
-    public function bed(): BelongsTo
-    {
-        return $this->belongsTo(HostelBed::class, 'hostel_bed_id');
     }
 }

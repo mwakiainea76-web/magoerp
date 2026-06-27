@@ -43,11 +43,14 @@ class AcademicSessionEnrolmentsController extends Controller
         $enrolments = AcademicSessionEnrolment::query()
             ->with(['student', 'academicSession'])
             ->when($search !== '', function ($query) use ($search) {
-                $query->whereHas('student', function ($sq) use ($search) {
-                    $sq->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('middle_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('admission_number', 'like', "%{$search}%");
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('student.user', function ($uq) use ($search) {
+                        $uq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('middle_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    })->orWhereHas('student', function ($sq) use ($search) {
+                        $sq->where('admission_number', 'like', "%{$search}%");
+                    });
                 });
             })
             ->when($sessionId !== '', fn ($q) => $q->where('academic_session_id', $sessionId))
@@ -286,8 +289,7 @@ class AcademicSessionEnrolmentsController extends Controller
         if (!$sessionEnrolment->academicSession?->is_active) {
             return response()->json([ 'status_code' => 422, 'message' => 'You can only register units for an active academic session.'], 422);
         }
-        $courseCurriculumId = $student->course_curriculum_id
-            ?? CourseEnrolment::query()
+        $courseCurriculumId = CourseEnrolment::query()
                 ->where('student_id', $student->id)
                 ->where('status', 'enrolled')
                 ->latest()
@@ -321,12 +323,8 @@ class AcademicSessionEnrolmentsController extends Controller
         foreach ($requestedUnitIds as $unitId) {
             $registration = StudentUnitRegistration::firstOrCreate(
                 [
-                    'academic_session_id' => $sessionEnrolment->academic_session_id,
-                    'student_id' => $student->id,
-                    'unit_id' => $unitId,
-                ],
-                [
                     'academic_session_enrolment_id' => $sessionEnrolment->id,
+                    'unit_id' => $unitId,
                 ],
             );
 
@@ -383,14 +381,17 @@ class AcademicSessionEnrolmentsController extends Controller
 
     private function transformInvoice(Invoice $invoice): array
     {
+        $paidAmount = (float) $invoice->paymentAllocations()->sum('amount');
+        $amountDue = (float) $invoice->amount_due;
+
         return [
             'id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
             'invoice_type' => $invoice->invoice_type,
             'status' => $invoice->status,
-            'amount_due' => (float) $invoice->amount_due,
-            'paid_amount' => (float) $invoice->paid_amount,
-            'balance_due' => (float) $invoice->balance_due,
+            'amount_due' => $amountDue,
+            'paid_amount' => $paidAmount,
+            'balance_due' => max(0, $amountDue - $paidAmount),
             'due_date' => $invoice->due_date?->format('Y-m-d'),
         ];
     }

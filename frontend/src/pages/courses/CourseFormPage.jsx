@@ -18,7 +18,7 @@ const courseSchema = yup.object({
   code: yup.string().required("Course code is required").max(50, "Max 50 characters"),
   initials: yup.string().required("Initials are required").max(20, "Max 20 characters"),
   name: yup.string().required("Course name is required").max(255, "Max 255 characters"),
-  duration: yup.string().nullable().max(100, "Max 100 characters"),
+  duration_months: yup.number().required("Duration is required").min(1, "Min 1").max(600, "Max 600").typeError("Must be a number"),
   description: yup.string().nullable().max(2000, "Max 2000 characters"),
   is_active: yup.boolean().required(),
   certification_authority_id: yup.string().required("Certification authority is required"),
@@ -32,7 +32,7 @@ function normalizePayload(values) {
     code: values.code.trim(),
     initials: values.initials.trim(),
     name: values.name.trim(),
-    duration: values.duration?.trim() || null,
+    duration_months: values.duration_months ? Number(values.duration_months) : null,
     description: values.description?.trim() || null,
     is_active: Boolean(values.is_active),
     certification_authority_id: values.certification_authority_id,
@@ -74,7 +74,7 @@ export function CourseFormPage() {
       code: "",
       initials: "",
       name: "",
-      duration: "",
+      duration_months: "",
       description: "",
       is_active: true,
       certification_authority_id: "",
@@ -120,7 +120,7 @@ export function CourseFormPage() {
           code: course.code ?? "",
           initials: course.initials ?? "",
           name: course.name ?? "",
-          duration: course.duration ?? "",
+          duration_months: course.duration_months ?? "",
           description: course.description ?? "",
           is_active: course.is_active ?? true,
           certification_authority_id: course.certification_authority_id ?? "",
@@ -279,11 +279,14 @@ export function CourseFormPage() {
               />
 
               <FormInput
-                id="duration"
-                label="Duration (in Months)"
+                id="duration_months"
+                label="Duration (Total Months)"
+                type="number"
+                min={1}
+                max={600}
                 placeholder="e.g. 36"
-                error={errors.duration?.message}
-                {...register("duration")}
+                error={errors.duration_months?.message}
+                {...register("duration_months")}
               />
 
               <Controller

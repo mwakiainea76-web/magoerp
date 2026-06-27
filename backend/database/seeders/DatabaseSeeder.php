@@ -91,6 +91,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             TimetableFeatureSeeder::class,
             SystemConfigurationSeeder::class,
+            StudentAccountSeeder::class,
             HostelAllocationSeeder::class,
             MarksSeeder::class,
             ComplaintsSeeder::class,

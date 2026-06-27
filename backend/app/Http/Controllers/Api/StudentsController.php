@@ -27,7 +27,7 @@ class StudentsController extends Controller
         $search = trim((string) $request->string('q', ''));
         $sortBy = (string) $request->string('sort_by', 'created_at');
         $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
-        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+        $perPage = max(1, min((int) $request->integer('per_page', $search === '' ? 6 : 10), 100));
 
         $sortableColumns = [
             'admission_number' => 'admission_number',
@@ -90,7 +90,6 @@ class StudentsController extends Controller
             $course = Course::query()
                 ->lockForUpdate()
                 ->findOrFail($request->course_id);
-            $enrollmentDate = Carbon::parse($request->enrollment_date ?? now());
             $admissionNumber = $this->nextAdmissionNumber($course);
 
             $user = User::create([
@@ -125,19 +124,9 @@ class StudentsController extends Controller
 
             $user->assignRole('student');
 
-            $activeCourseCurriculum = \App\Models\CourseCurriculum::query()
-                ->where('course_id', $course->id)
-                ->where('is_active', true)
-                ->first();
-
             $student = Student::create([
                 'user_id' => $user->id,
                 'admission_number' => $admissionNumber,
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'last_name' => $request->last_name,
-                'course_curriculum_id' => $activeCourseCurriculum?->id,
-                'enrollment_date' => $enrollmentDate->toDateString(),
                 'status' => $request->status,
                 'created_by' => $request->user()->id,
                 'updated_by' => $request->user()->id,
@@ -145,7 +134,7 @@ class StudentsController extends Controller
 
             \App\Http\Controllers\Api\CourseEnrolmentsController::createForStudent($student, $request->user()->id, $course->id);
 
-            $student->load(['user', 'courseEnrolments.courseCurriculum.course']);
+            $student->load(['user', 'courseEnrolments.courseCurriculum.course', 'activeEnrolment.courseCurriculum.course']);
 
             return $student;
         });
@@ -199,10 +188,6 @@ class StudentsController extends Controller
             ]);
 
             $student->update([
-                'first_name' => $request->first_name,
-                'middle_name' => $request->middle_name,
-                'last_name' => $request->last_name,
-                'enrollment_date' => $request->enrollment_date ?? now()->format('Y-m-d'),
                 'status' => $request->status,
                 'updated_by' => $request->user()->id,
             ]);
@@ -254,7 +239,7 @@ class StudentsController extends Controller
                 'admission_number' => $student->admission_number,
                 'email' => $user?->email,
                 'phone' => $user?->phone_number,
-                'admission_date' => $student->enrollment_date?->format('F d, Y'),
+                'admission_date' => $enrolment?->enrolment_date?->format('F d, Y'),
                 'gender' => $user?->gender,
                 'nationality' => $user?->nationality,
 
@@ -266,7 +251,7 @@ class StudentsController extends Controller
                 'curriculum_name' => $enrolment?->courseCurriculum?->curriculum?->name,
                 'academic_session' => $enrolment?->academicSession?->name,
                 'enrolment_status' => $enrolment?->status,
-                'duration' => $course?->duration,
+                'duration' => $course?->duration_label,
 
                 'portal_url' => url('/'),
                 'login_id' => $user?->login_id,
@@ -310,7 +295,7 @@ class StudentsController extends Controller
             'course_code' => $course?->code,
             'course_initials' => $course?->initials,
 
-            'enrollment_date' => $student->enrollment_date?->format('Y-m-d'),
+            'enrollment_date' => $activeEnrolment?->enrolment_date?->format('Y-m-d'),
 
             'is_pwd' => $user?->is_pwd,
             'disability_type' => $user?->disability_type,

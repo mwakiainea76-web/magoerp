@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('code', 50)->unique();
             $table->string('initials', 20);
             $table->string('name', 255);
-            $table->string('duration', 100)->nullable();
+            $table->unsignedSmallInteger('duration_months')->nullable();
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->foreignUuid('certification_authority_id')->nullable()->constrained('certification_authorities')->nullOnDelete();

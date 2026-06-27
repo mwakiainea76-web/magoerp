@@ -173,7 +173,6 @@ export function StudentsPage() {
                 <SortableTh sortKey="admission_number" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Admission #</SortableTh>
                 <SortableTh sortKey="first_name" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Full Name</SortableTh>
                 <Th>Course</Th>
-                <Th>Enrollment Date</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Actions</Th>
               </tr>
@@ -187,7 +186,6 @@ export function StudentsPage() {
                   <Td>{student.admission_number}</Td>
                   <Td>{student.full_name}</Td>
                   <Td>{student.course_name || "—"}</Td>
-                  <Td>{student.enrollment_date ?? "—"}</Td>
                   <Td>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       student.status

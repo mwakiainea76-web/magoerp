@@ -24,8 +24,6 @@ class InvoiceFactory extends Factory
             'issue_date' => now()->toDateString(),
             'due_date' => now()->addDays(30)->toDateString(),
             'amount_due' => $amount,
-            'paid_amount' => 0,
-            'balance_due' => $amount,
             'idempotency_key' => fake()->uuid(),
             'notes' => fake()->optional()->sentence(),
             'created_by' => null,

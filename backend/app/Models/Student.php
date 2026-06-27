@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
@@ -16,15 +17,12 @@ class Student extends Model
     protected $fillable = [
         'user_id',
         'admission_number',
-        'course_curriculum_id',
-        'enrollment_date',
         'status',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
-        'enrollment_date' => 'date',
         'status' => 'boolean',
     ];
 
@@ -37,11 +35,6 @@ class Student extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function courseCurriculum(): BelongsTo
-    {
-        return $this->belongsTo(CourseCurriculum::class);
-    }
-
     public function sessionEnrolments(): HasMany
     {
         return $this->hasMany(AcademicSessionEnrolment::class);
@@ -50,6 +43,11 @@ class Student extends Model
     public function courseEnrolments(): HasMany
     {
         return $this->hasMany(CourseEnrolment::class);
+    }
+
+    public function activeEnrolment(): HasOne
+    {
+        return $this->hasOne(CourseEnrolment::class)->where('status', 'enrolled');
     }
 
     public function createdBy(): BelongsTo

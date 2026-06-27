@@ -20,7 +20,7 @@ class ComplaintsController extends Controller
 
         $complaints = Complaint::query()
             ->where('student_id', $student->id)
-            ->with('escalatedTo:id,first_name,last_name')
+            ->with('escalatedTo.user:id,first_name,last_name')
             ->latest()
             ->get()
             ->map(fn ($c) => $this->transform($c));
@@ -60,8 +60,8 @@ class ComplaintsController extends Controller
 
         $query = Complaint::query()
             ->with([
-                'student:id,first_name,middle_name,last_name,admission_number',
-                'escalatedTo:id,first_name,last_name',
+                'student.user:id,first_name,middle_name,last_name',
+                'escalatedTo.user:id,first_name,last_name',
             ]);
 
         if ($status = $validated['status'] ?? null) {
@@ -78,8 +78,8 @@ class ComplaintsController extends Controller
     public function show(Complaint $complaint): JsonResponse
     {
         $complaint->load([
-            'student:id,first_name,middle_name,last_name,admission_number',
-            'escalatedTo:id,first_name,last_name,employee_number',
+            'student.user:id,first_name,middle_name,last_name',
+            'escalatedTo.user:id,first_name,last_name',
         ]);
 
         return response()->json([ 'data' => $this->transform($complaint)]);
@@ -99,7 +99,7 @@ class ComplaintsController extends Controller
             'admin_notes' => $validated['admin_notes'] ?? $complaint->admin_notes,
         ]);
 
-        $complaint->load(['student:id,first_name,middle_name,last_name,admission_number', 'escalatedTo:id,first_name,last_name']);
+        $complaint->load(['student.user:id,first_name,middle_name,last_name', 'escalatedTo.user:id,first_name,last_name']);
 
         return response()->json([ 'data' => $this->transform($complaint)]);
     }
@@ -116,7 +116,7 @@ class ComplaintsController extends Controller
             'resolved_at' => now(),
         ]);
 
-        $complaint->load(['student:id,first_name,middle_name,last_name,admission_number', 'escalatedTo:id,first_name,last_name']);
+        $complaint->load(['student.user:id,first_name,middle_name,last_name', 'escalatedTo.user:id,first_name,last_name']);
 
         return response()->json([ 'data' => $this->transform($complaint)]);
     }
@@ -132,7 +132,7 @@ class ComplaintsController extends Controller
             'admin_notes' => $validated['admin_notes'] ?? $complaint->admin_notes,
         ]);
 
-        $complaint->load(['student:id,first_name,middle_name,last_name,admission_number', 'escalatedTo:id,first_name,last_name']);
+        $complaint->load(['student.user:id,first_name,middle_name,last_name', 'escalatedTo.user:id,first_name,last_name']);
 
         return response()->json([ 'data' => $this->transform($complaint)]);
     }
@@ -142,7 +142,8 @@ class ComplaintsController extends Controller
         return response()->json([
             'data' => staffs::query()
                 ->where('status', true)
-                ->get(['id', 'first_name', 'last_name', 'employee_number'])
+                ->with('user:id,first_name,last_name')
+                ->get(['id', 'user_id', 'employee_number'])
                 ->map(fn ($s) => [
                     'id' => $s->id,
                     'name' => trim($s->first_name . ' ' . $s->last_name),

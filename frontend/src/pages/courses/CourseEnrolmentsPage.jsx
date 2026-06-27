@@ -259,7 +259,6 @@ export function CourseEnrolmentsPage() {
                 <Th>Admission #</Th>
                 <Th>Course</Th>
                 <Th>Curriculum</Th>
-                <Th>Session</Th>
                 <SortableTh sortKey="enrolment_date" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Enrolled</SortableTh>
                 <SortableTh sortKey="status" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Status</SortableTh>
                 <Th className="text-right">Actions</Th>
@@ -275,7 +274,6 @@ export function CourseEnrolmentsPage() {
                   <Td>{enrolment.admission_number}</Td>
                   <Td>{enrolment.course_name ?? "—"}</Td>
                   <Td>{enrolment.curriculum_name ?? "—"}</Td>
-                  <Td>{enrolment.academic_session_name ?? "—"}</Td>
                   <Td>{enrolment.enrolment_date ?? "—"}</Td>
                   <Td>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[enrolment.status] ?? "bg-slate-100 text-slate-600"}`}>

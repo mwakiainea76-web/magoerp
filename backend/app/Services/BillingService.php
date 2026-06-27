@@ -8,7 +8,6 @@ use App\Models\CourseInvoiceTemplate;
 use App\Models\InvoiceAdjustment;
 use App\Models\Hostel;
 use App\Models\Invoice;
-use App\Models\InvoiceComponent;
 use App\Models\InvoiceItem;
 use App\Models\LedgerTransaction;
 use App\Models\Payment;
@@ -25,8 +24,7 @@ class BillingService
         $billingPeriod = SystemConfiguration::getValue('billing_period', 'session');
 
         return DB::transaction(function () use ($student, $createdBy, $session, $billingPeriod, $invoiceTemplateId) {
-            $courseCurriculumId = $student->course_curriculum_id
-                ?? $student->courseEnrolments()
+            $courseCurriculumId = $student->courseEnrolments()
                     ->where('status', 'enrolled')
                     ->latest()
                     ->value('course_curriculum_id');
@@ -120,8 +118,6 @@ class BillingService
                 'issue_date' => now()->toDateString(),
                 'due_date' => now()->addDays(30)->toDateString(),
                 'amount_due' => 0,
-                'paid_amount' => 0,
-                'balance_due' => 0,
                 'idempotency_key' => $idempotencyKey,
                 'created_by' => $createdBy,
             ]);
@@ -130,18 +126,11 @@ class BillingService
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
                     'invoice_template_item_id' => $item->id,
-                    'description' => $item->name,
-                    'unit_amount' => $item->amount,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'amount' => $item->amount,
                     'quantity' => 1,
                     'total_amount' => $item->amount,
-                ]);
-
-                InvoiceComponent::create([
-                    'invoice_id' => $invoice->id,
-                    'invoice_template_item_id' => $item->id,
-                    'name' => $item->name,
-                    'amount' => $item->amount,
-                    'description' => $item->description,
                     'snapshot_data' => [
                         'template_code' => $courseInvoiceTemplate->invoiceTemplate->code,
                         'template_name' => $courseInvoiceTemplate->invoiceTemplate->name,
@@ -214,7 +203,9 @@ class BillingService
                 'notes' => $notes,
             ]);
 
-            $allocationAmount = min($amount, (float) $invoice->balance_due);
+            $allocatedTotal = (float) $invoice->paymentAllocations()->sum('amount');
+            $balanceDue = (float) $invoice->amount_due - $allocatedTotal;
+            $allocationAmount = min($amount, max(0, $balanceDue));
 
             if ($allocationAmount > 0) {
                 PaymentAllocation::create([
@@ -239,6 +230,39 @@ class BillingService
                     'created_by' => $createdBy,
                 ]);
             }
+
+            return $payment;
+        });
+    }
+
+    public function recordStudentPayment(Student $student, float $amount, string $method, string $createdBy, ?string $reference = null, ?string $paymentDate = null, ?string $notes = null): Payment
+    {
+        if ($amount <= 0) {
+            throw ValidationException::withMessages(['amount' => 'Amount must be greater than zero.']);
+        }
+
+        return DB::transaction(function () use ($student, $amount, $method, $createdBy, $reference, $paymentDate, $notes) {
+            $payment = Payment::create([
+                'student_id' => $student->id,
+                'amount' => $amount,
+                'payment_date' => $paymentDate ?? now()->toDateString(),
+                'method' => $method,
+                'reference' => $reference,
+                'status' => 'completed',
+                'created_by' => $createdBy,
+                'notes' => $notes,
+            ]);
+
+            LedgerTransaction::create([
+                'student_id' => $student->id,
+                'type' => 'payment',
+                'debit' => 0,
+                'credit' => $amount,
+                'reference' => $reference,
+                'description' => 'Student payment recorded.',
+                'transaction_date' => now()->toDateString(),
+                'created_by' => $createdBy,
+            ]);
 
             return $payment;
         });
@@ -303,8 +327,6 @@ class BillingService
                 'issue_date' => now()->toDateString(),
                 'due_date' => now()->addDays(14)->toDateString(),
                 'amount_due' => 0,
-                'paid_amount' => 0,
-                'balance_due' => 0,
                 'notes' => "Hostel Accommodation - {$hostel->name} ({$hostel->code})",
                 'idempotency_key' => "student-hostel-booking:{$student->id}:{$hostel->id}:{$targetSession->id}",
                 'created_by' => $createdBy,
@@ -313,18 +335,10 @@ class BillingService
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
                 'invoice_template_item_id' => null,
-                'description' => "Hostel Accommodation Fee - {$hostel->name}",
-                'unit_amount' => (float) $hostel->session_fee_amount,
-                'quantity' => 1,
-                'total_amount' => (float) $hostel->session_fee_amount,
-            ]);
-
-            InvoiceComponent::create([
-                'invoice_id' => $invoice->id,
-                'invoice_template_item_id' => null,
                 'name' => "Hostel Accommodation - {$hostel->name}",
                 'amount' => (float) $hostel->session_fee_amount,
-                'description' => "Hostel accommodation fee for {$hostel->name} ({$hostel->code})",
+                'quantity' => 1,
+                'total_amount' => (float) $hostel->session_fee_amount,
                 'snapshot_data' => [
                     'hostel_id' => $hostel->id,
                     'hostel_code' => $hostel->code,
@@ -356,7 +370,8 @@ class BillingService
 
     protected function applyAvailableCredits(Invoice $invoice, ?string $createdBy): void
     {
-        $remaining = (float) $invoice->balance_due;
+        $allocatedTotal = (float) $invoice->paymentAllocations()->sum('amount');
+        $remaining = (float) $invoice->amount_due - $allocatedTotal;
         if ($remaining <= 0) return;
 
         $creditPayments = Payment::query()
@@ -391,7 +406,8 @@ class BillingService
             ]);
 
             $invoice->recalculateTotals();
-            $remaining = (float) $invoice->balance_due;
+            $paidTotal = (float) $invoice->paymentAllocations()->sum('amount');
+            $remaining = (float) $invoice->amount_due - $paidTotal;
         }
     }
 }

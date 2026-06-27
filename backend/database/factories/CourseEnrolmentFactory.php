@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\AcademicSession;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
 use App\Models\Student;
@@ -17,7 +16,7 @@ class CourseEnrolmentFactory extends Factory
         return [
             'student_id' => Student::factory(),
             'course_curriculum_id' => CourseCurriculum::factory(),
-            'academic_session_id' => AcademicSession::factory(),
+            'academic_session_id' => \App\Models\AcademicSession::factory(),
             'enrolment_date' => now()->toDateString(),
             'status' => 'enrolled',
             'created_by' => null,

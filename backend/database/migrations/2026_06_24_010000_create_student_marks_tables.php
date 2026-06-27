@@ -10,12 +10,6 @@ return new class extends Migration
     {
         Schema::create('student_unit_registrations', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('academic_session_id')
-                ->constrained('academic_sessions')
-                ->cascadeOnDelete();
-            $table->foreignUuid('student_id')
-                ->constrained('students')
-                ->cascadeOnDelete();
             $table->foreignUuid('academic_session_enrolment_id')
                 ->constrained('academic_session_enrolments')
                 ->cascadeOnDelete();
@@ -24,20 +18,13 @@ return new class extends Migration
                 ->cascadeOnDelete();
             $table->timestamps();
 
-            $table->unique(['academic_session_id', 'student_id', 'unit_id'], 'stu_reg_unique');
-            $table->index(['academic_session_enrolment_id', 'unit_id'], 'stu_reg_enrolment_unit_index');
+            $table->unique(['academic_session_enrolment_id', 'unit_id'], 'stu_reg_unique');
         });
 
         Schema::create('student_marks', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('academic_session_id')
-                ->constrained('academic_sessions')
-                ->cascadeOnDelete();
             $table->foreignUuid('academic_session_enrolment_id')
                 ->constrained('academic_session_enrolments')
-                ->cascadeOnDelete();
-            $table->foreignUuid('student_id')
-                ->constrained('students')
                 ->cascadeOnDelete();
             $table->foreignUuid('unit_id')
                 ->constrained('units')
@@ -53,11 +40,9 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->timestamps();
 
-            $table->unique(['academic_session_id', 'student_id', 'unit_id', 'assessment_type', 'assessment_number'], 'marks_unique_assessment');
-            $table->index(['academic_session_id', 'recorded_by_staff_id']);
-            $table->index(['unit_id', 'academic_session_id']);
+            $table->unique(['academic_session_enrolment_id', 'unit_id', 'assessment_type', 'assessment_number'], 'marks_unique_assessment');
             $table->index(['academic_session_enrolment_id']);
-            $table->index(['unit_id', 'assessment_type', 'assessment_number', 'academic_session_id', 'academic_session_enrolment_id', 'student_id'], 'marks_lookup_index');
+            $table->index(['unit_id', 'assessment_type', 'assessment_number', 'academic_session_enrolment_id'], 'marks_lookup_index');
         });
     }
 

@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\AcademicSession;
 use App\Models\Invoice;
 use App\Models\LedgerTransaction;
+use App\Models\Payment;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -19,6 +20,7 @@ class LedgerTransactionFactory extends Factory
         return [
             'student_id' => Student::factory(),
             'invoice_id' => Invoice::factory(),
+            'payment_id' => $isDebit ? null : Payment::factory(),
             'academic_session_id' => AcademicSession::factory(),
             'type' => $isDebit ? 'debit' : 'credit',
             'debit' => $isDebit ? fake()->randomFloat(2, 1000, 50000) : 0,

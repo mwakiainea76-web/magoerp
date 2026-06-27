@@ -19,6 +19,7 @@ return new class extends Migration
             $table->foreignUuid('recorded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
+            $table->index(['student_id', 'effective_date']);
         });
     }
 

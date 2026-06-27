@@ -17,7 +17,7 @@ class Course extends Model
         'code',
         'initials',
         'name',
-        'duration',
+        'duration_months',
         'description',
         'is_active',
         'certification_authority_id',
@@ -29,6 +29,7 @@ class Course extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'duration_months' => 'integer',
     ];
 
     protected $keyType = 'string';
@@ -70,5 +71,27 @@ class Course extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function getDurationLabelAttribute(): string
+    {
+        if (!$this->duration_months) {
+            return 'N/A';
+        }
+        $years = intdiv($this->duration_months, 12);
+        $months = $this->duration_months % 12;
+        $parts = [];
+        if ($years) {
+            $parts[] = $years . ' ' . ($years === 1 ? 'year' : 'years');
+        }
+        if ($months) {
+            $parts[] = $months . ' ' . ($months === 1 ? 'month' : 'months');
+        }
+        return implode(' ', $parts) ?: 'N/A';
+    }
+
+    public function getDurationYearsAttribute(): int
+    {
+        return $this->duration_months ? intdiv($this->duration_months, 12) : 0;
     }
 }

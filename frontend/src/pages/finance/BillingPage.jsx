@@ -24,6 +24,7 @@ import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
 import { useAdjustmentsApi } from "@/hooks/useAdjustmentsApi";
+import { useStudentsApi } from "@/hooks/useStudentsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const paymentMethods = [
@@ -47,7 +48,7 @@ const invoiceSchema = yup.object({
 });
 
 const paymentSchema = yup.object({
-  invoice_id: yup.string().required("Select an invoice"),
+  student_id: yup.string().required("Select a student"),
   amount: yup
     .number()
     .typeError("Amount is required")
@@ -55,7 +56,6 @@ const paymentSchema = yup.object({
     .required("Amount is required"),
   method: yup.string().required("Select a payment method"),
   reference: yup.string().nullable(),
-  payment_date: yup.string().nullable(),
   notes: yup.string().nullable(),
 });
 
@@ -118,6 +118,7 @@ export function BillingPage() {
   const invoicesApi = useInvoicesApi();
   const paymentsApi = usePaymentsApi();
   const adjustmentsApi = useAdjustmentsApi();
+  const studentsApi = useStudentsApi();
 
   const [invoices, setInvoices] = useState([]);
   const [meta, setMeta] = useState(initialMeta);
@@ -135,30 +136,23 @@ export function BillingPage() {
   const [selectedInvoiceTemplate, setSelectedInvoiceTemplate] = useState(null);
   const [availableTemplates, setAvailableTemplates] = useState([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
-  const [selectedPaymentInvoice, setSelectedPaymentInvoice] = useState(null);
   const [selectedAdjustmentInvoice, setSelectedAdjustmentInvoice] = useState(null);
 
   function fetchStudents(query) {
-    return invoicesApi
-      .list({ q: query, per_page: 20 })
-      .then((res) => {
-        const seen = new Set();
-        const unique = (res.data ?? []).filter((s) => {
-          if (seen.has(s.student_id)) return false;
-          seen.add(s.student_id);
-          return true;
-        });
-        return unique.map((s) => ({
-          id: s.student_id,
-          label: `${s.admission_number} - ${s.student_name}`,
-        }));
-      })
+    return studentsApi
+      .list({ q: query, per_page: 6 })
+      .then((res) =>
+        (res.data ?? []).map((s) => ({
+          id: s.id,
+          label: `${s.admission_number} - ${s.full_name}`,
+        })),
+      )
       .catch(() => []);
   }
 
   function fetchInvoices(query) {
     return invoicesApi
-      .list({ q: query, per_page: 20 })
+      .list({ q: query, per_page: 6 })
       .then((res) =>
         (res.data ?? []).map((i) => ({
           id: i.id,
@@ -213,11 +207,10 @@ export function BillingPage() {
   const paymentForm = useForm({
     resolver: yupResolver(paymentSchema),
     defaultValues: {
-      invoice_id: "",
+      student_id: "",
       amount: "",
       method: "",
       reference: "",
-      payment_date: "",
       notes: "",
     },
   });
@@ -242,14 +235,12 @@ export function BillingPage() {
 
   function resetPaymentForm() {
     paymentForm.reset({
-      invoice_id: "",
+      student_id: "",
       amount: "",
       method: "",
       reference: "",
-      payment_date: "",
       notes: "",
     });
-    setSelectedPaymentInvoice(null);
     setFormError("");
   }
 
@@ -279,9 +270,10 @@ export function BillingPage() {
     setIsAdjustmentModalOpen(true);
   }
 
-  async function onStudentSelected(studentId) {
+  async function onStudentSelected(studentId, option) {
     invoiceForm.setValue("student_id", studentId, { shouldValidate: true });
     invoiceForm.setValue("invoice_template_id", "");
+    setSelectedStudent(option ?? null);
     setSelectedInvoiceTemplate(null);
     setAvailableTemplates([]);
 
@@ -329,11 +321,10 @@ export function BillingPage() {
 
     try {
       await paymentsApi.store({
-        invoice_id: data.invoice_id,
+        student_id: data.student_id,
         amount: data.amount,
         method: data.method,
         reference: data.reference || null,
-        payment_date: data.payment_date || null,
         notes: data.notes || null,
       });
       toast.success("Payment recorded successfully.");
@@ -588,20 +579,19 @@ export function BillingPage() {
               </div>
             ) : null}
 
-            <LookupSelect
-              label="Invoice"
-              placeholder="Search by invoice number or student name"
-              required
-              value={paymentForm.watch("invoice_id")}
-              onChange={(id) => {
-                paymentForm.setValue("invoice_id", id, { shouldValidate: true });
-              }}
-              selectedOption={selectedPaymentInvoice}
-              fetchOptions={fetchInvoices}
-              error={paymentForm.formState.errors.invoice_id?.message}
-            />
-
             <div className="grid gap-4 sm:grid-cols-2">
+              <LookupSelect
+                label="Student"
+                placeholder="Search by admission number or name"
+                required
+                value={paymentForm.watch("student_id")}
+                onChange={(id, option) => {
+                  paymentForm.setValue("student_id", id, { shouldValidate: true });
+                }}
+                fetchOptions={fetchStudents}
+                error={paymentForm.formState.errors.student_id?.message}
+              />
+
               <FormInput
                 id="payment-amount"
                 label="Amount"
@@ -613,7 +603,9 @@ export function BillingPage() {
                 error={paymentForm.formState.errors.amount?.message}
                 {...paymentForm.register("amount")}
               />
+            </div>
 
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[13px] font-medium text-slate-600">
                   Payment Method <span className="text-red-400">*</span>
@@ -635,22 +627,13 @@ export function BillingPage() {
                   </p>
                 ) : null}
               </div>
-            </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
               <FormInput
                 id="payment-reference"
                 label="Reference"
                 placeholder="Transaction code (optional)"
                 error={paymentForm.formState.errors.reference?.message}
                 {...paymentForm.register("reference")}
-              />
-              <FormInput
-                id="payment-date"
-                label="Payment Date"
-                type="date"
-                error={paymentForm.formState.errors.payment_date?.message}
-                {...paymentForm.register("payment_date")}
               />
             </div>
 

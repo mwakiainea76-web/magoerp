@@ -25,8 +25,6 @@ class Invoice extends Model
         'issue_date',
         'due_date',
         'amount_due',
-        'paid_amount',
-        'balance_due',
         'idempotency_key',
         'notes',
         'created_by',
@@ -36,8 +34,6 @@ class Invoice extends Model
         'issue_date' => 'date',
         'due_date' => 'date',
         'amount_due' => 'decimal:2',
-        'paid_amount' => 'decimal:2',
-        'balance_due' => 'decimal:2',
     ];
 
     protected $keyType = 'string';
@@ -66,16 +62,6 @@ class Invoice extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InvoiceItem::class);
-    }
-
-    public function components(): HasMany
-    {
-        return $this->hasMany(InvoiceComponent::class);
-    }
-
-    public function payments(): HasMany
-    {
-        return $this->hasMany(Payment::class);
     }
 
     public function paymentAllocations(): HasMany
@@ -111,8 +97,6 @@ class Invoice extends Model
 
         $this->forceFill([
             'amount_due' => $amountDue,
-            'paid_amount' => $paidAmount,
-            'balance_due' => max(0, $balanceDue),
             'status' => $balanceDue <= 0 ? 'paid' : ($paidAmount > 0 ? 'partial' : 'issued'),
         ]);
 

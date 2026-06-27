@@ -29,7 +29,7 @@ class InvoicesController extends Controller
         $status = (string) $request->string('status', 'all');
         $sortBy = (string) $request->string('sort_by', 'created_at');
         $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
-        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+        $perPage = max(1, min((int) $request->integer('per_page', $search === '' ? 6 : 10), 100));
 
         $sortableColumns = [
             'invoice_number' => 'invoice_number',
@@ -38,7 +38,6 @@ class InvoicesController extends Controller
             'issue_date' => 'issue_date',
             'due_date' => 'due_date',
             'amount_due' => 'amount_due',
-            'balance_due' => 'balance_due',
             'created_at' => 'created_at',
         ];
 
@@ -88,8 +87,7 @@ class InvoicesController extends Controller
     {
         abort_unless(request()->user()?->can('finance.view'), 403);
 
-        $courseCurriculumId = $student->course_curriculum_id
-            ?? $student->courseEnrolments()
+        $courseCurriculumId = $student->courseEnrolments()
                 ->where('status', 'enrolled')
                 ->latest()
                 ->value('course_curriculum_id');
@@ -101,10 +99,12 @@ class InvoicesController extends Controller
         $templates = CourseInvoiceTemplate::query()
             ->where('course_curriculum_id', $courseCurriculumId)
             ->where('is_approved', true)
+            ->whereHas('invoiceTemplate', fn ($q) => $q->where('is_active', true))
             ->with(['invoiceTemplate' => function ($q) {
-                $q->with(['activeItems' => function ($q) {
-                    $q->where('amount', '>', 0);
-                }]);
+                $q->where('is_active', true)
+                    ->with(['activeItems' => function ($q) {
+                        $q->where('amount', '>', 0);
+                    }]);
             }])
             ->get()
             ->filter(fn ($cit) => $cit->invoiceTemplate && $cit->invoiceTemplate->activeItems->isNotEmpty())
@@ -189,19 +189,19 @@ class InvoicesController extends Controller
 
         $baseQuery = Invoice::query()
             ->where('student_id', $student->id)
-            ->where('status', '!=', 'cancelled');
+            ->where('status', '!=', 'cancelled')
+            ->select('invoices.*')
+            ->selectRaw('COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
+            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
 
-        $outstanding = (float) (clone $baseQuery)
+        $invoices = $baseQuery->get();
+        $outstanding = (float) $invoices->sum('balance_due');
+        $totalPaid = (float) $invoices->sum('paid_amount');
+
+        $nextDueInvoice = $invoices
             ->where('balance_due', '>', 0)
-            ->sum('balance_due');
-
-        $totalPaid = (float) (clone $baseQuery)
-            ->sum('paid_amount');
-
-        $nextDueInvoice = (clone $baseQuery)
-            ->where('balance_due', '>', 0)
-            ->orderBy('due_date')
-            ->first(['due_date']);
+            ->sortBy('due_date')
+            ->first();
 
         return response()->json([
             'status_code' => 200,
@@ -213,6 +213,9 @@ class InvoicesController extends Controller
 
     private function transform(Invoice $invoice): array
     {
+        $paidAmount = (float) $invoice->paymentAllocations()->sum('amount');
+        $amountDue = (float) $invoice->amount_due;
+
         return [
             'id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
@@ -224,9 +227,9 @@ class InvoicesController extends Controller
             'status' => $invoice->status,
             'issue_date' => $invoice->issue_date?->format('Y-m-d'),
             'due_date' => $invoice->due_date?->format('Y-m-d'),
-            'amount_due' => (float) $invoice->amount_due,
-            'paid_amount' => (float) $invoice->paid_amount,
-            'balance_due' => (float) $invoice->balance_due,
+            'amount_due' => $amountDue,
+            'paid_amount' => $paidAmount,
+            'balance_due' => max(0, $amountDue - $paidAmount),
             'created_at' => $invoice->created_at,
         ];
     }
@@ -236,8 +239,9 @@ class InvoicesController extends Controller
         return array_merge($this->transform($invoice), [
             'items' => $invoice->items->map(fn ($item) => [
                 'id' => $item->id,
+                'name' => $item->name,
                 'description' => $item->description,
-                'unit_amount' => (float) $item->unit_amount,
+                'amount' => (float) $item->amount,
                 'quantity' => $item->quantity,
                 'total_amount' => (float) $item->total_amount,
             ])->values()->all(),

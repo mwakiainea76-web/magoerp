@@ -12,9 +12,7 @@ class StudentMark extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'academic_session_id',
         'academic_session_enrolment_id',
-        'student_id',
         'unit_id',
         'assessment_type',
         'assessment_number',
@@ -35,19 +33,9 @@ class StudentMark extends Model
 
     public $incrementing = false;
 
-    public function academicSession(): BelongsTo
-    {
-        return $this->belongsTo(AcademicSession::class);
-    }
-
     public function academicSessionEnrolment(): BelongsTo
     {
         return $this->belongsTo(AcademicSessionEnrolment::class);
-    }
-
-    public function student(): BelongsTo
-    {
-        return $this->belongsTo(Student::class);
     }
 
     public function unit(): BelongsTo

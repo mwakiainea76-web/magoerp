@@ -58,9 +58,9 @@ class CertificationSeeder extends Seeder
         $ictDiploma2024 = Curriculum::where('code', '2024')->first();
 
         $courses = [
-            ['code' => 'DICT', 'initials' => 'DICT', 'name' => 'Diploma in Information Communication Technology', 'duration' => 3, 'level_id' => $diplomaLevel->id, 'dept_id' => $ictDept->id],
-            ['code' => 'DBM', 'initials' => 'DBM', 'name' => 'Diploma in Business Management', 'duration' => 3, 'level_id' => $diplomaLevel->id, 'dept_id' => $busDept->id],
-            ['code' => 'CICT', 'initials' => 'CICT', 'name' => 'Certificate in Information Communication Technology', 'duration' => 2, 'level_id' => $certLevel->id, 'dept_id' => $ictDept->id],
+            ['code' => 'DICT', 'initials' => 'DICT', 'name' => 'Diploma in Information Communication Technology', 'duration_months' => 36, 'level_id' => $diplomaLevel->id, 'dept_id' => $ictDept->id],
+            ['code' => 'DBM', 'initials' => 'DBM', 'name' => 'Diploma in Business Management', 'duration_months' => 36, 'level_id' => $diplomaLevel->id, 'dept_id' => $busDept->id],
+            ['code' => 'CICT', 'initials' => 'CICT', 'name' => 'Certificate in Information Communication Technology', 'duration_months' => 24, 'level_id' => $certLevel->id, 'dept_id' => $ictDept->id],
         ];
 
         $courseIds = [];
@@ -70,7 +70,7 @@ class CertificationSeeder extends Seeder
                 [
                     'initials' => $c['initials'],
                     'name' => $c['name'],
-                    'duration' => $c['duration'],
+                    'duration_months' => $c['duration_months'],
                     'certification_authority_id' => $authority->id,
                     'certification_level_id' => $c['level_id'],
                     'department_id' => $c['dept_id'],

@@ -23,7 +23,7 @@ class CourseFactory extends Factory
             'code' => $code,
             'initials' => $code,
             'name' => "{$code} Test Course",
-            'duration' => fake()->randomElement(['1 year', '2 years', '3 years']),
+            'duration_months' => fake()->randomElement([24, 36, 48, 60]),
             'description' => fake()->optional()->sentence(),
             'is_active' => true,
             'certification_authority_id' => CertificationAuthority::factory(),

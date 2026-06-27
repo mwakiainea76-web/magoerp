@@ -16,15 +16,18 @@ class InvoiceItem extends Model
     protected $fillable = [
         'invoice_id',
         'invoice_template_item_id',
+        'name',
         'description',
-        'unit_amount',
+        'amount',
         'quantity',
         'total_amount',
+        'snapshot_data',
     ];
 
     protected $casts = [
-        'unit_amount' => 'decimal:2',
+        'amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'snapshot_data' => 'array',
     ];
 
     protected $keyType = 'string';

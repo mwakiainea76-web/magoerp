@@ -16,10 +16,12 @@ class CourseChangeLogFactory extends Factory
     {
         return [
             'student_id' => Student::factory(),
-            'old_admission_number' => fake()->unique()->regexify('[A-Z0-9]{10}'),
-            'new_admission_number' => fake()->unique()->regexify('[A-Z0-9]{10}'),
+            'old_admission_number' => fake()->regexify('[A-Z]{4}/\d{3}/\d{2}'),
+            'new_admission_number' => fake()->regexify('[A-Z]{4}/\d{3}/\d{2}'),
             'old_course_curriculum_id' => CourseCurriculum::factory(),
             'new_course_curriculum_id' => CourseCurriculum::factory(),
+            'old_status' => 'enrolled',
+            'new_status' => 'transferred',
             'processed_by' => User::factory(),
             'changed_at' => fake()->dateTimeThisYear(),
             'notes' => fake()->optional()->sentence(),

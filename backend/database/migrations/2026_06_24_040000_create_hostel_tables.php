@@ -52,9 +52,6 @@ return new class extends Migration
             $table->foreignUuid('academic_session_enrolment_id')
                 ->constrained('academic_session_enrolments')
                 ->cascadeOnDelete();
-            $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
-            $table->foreignUuid('academic_session_id')->constrained('academic_sessions')->cascadeOnDelete();
-            $table->foreignUuid('hostel_id')->constrained('hostels')->cascadeOnDelete();
             $table->foreignUuid('hostel_room_id')->constrained('hostel_rooms')->cascadeOnDelete();
             $table->foreignUuid('hostel_bed_id')->constrained('hostel_beds')->cascadeOnDelete();
             $table->decimal('hostel_fee_amount', 12, 2)->default(0);
@@ -65,11 +62,8 @@ return new class extends Migration
             $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
 
-            $table->unique(['academic_session_enrolment_id', 'academic_session_id'], 'ha_enrolment_session_unique');
-            $table->unique(['hostel_bed_id', 'academic_session_id'], 'ha_bed_session_unique');
-            $table->index(['academic_session_id', 'status']);
-            $table->index(['hostel_id', 'status']);
-            $table->index(['student_id', 'academic_session_id', 'status']);
+            $table->unique(['academic_session_enrolment_id', 'hostel_bed_id'], 'ha_ase_id_hb_id_unique');
+            $table->index(['academic_session_enrolment_id', 'status'], 'ha_ase_id_status_idx');
         });
     }
 
