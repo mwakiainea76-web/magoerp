@@ -43,7 +43,7 @@ class DepartmentsController extends Controller
 
         return response()->json([
             'data' => $departments->getCollection()
-                ->map(fn (departments $department) => $this->transformDepartment($department))
+                ->map(fn (departments $department) => $this->transformDepartmentSummary($department))
                 ->values(),
             'meta' => $this->paginationMeta($departments, [
                 'q' => $search,
@@ -134,13 +134,20 @@ class DepartmentsController extends Controller
 
     private function transformDepartment(departments $department): array
     {
+        return [
+            ...$this->transformDepartmentSummary($department),
+            'description' => $department->description,
+        ];
+    }
+
+    private function transformDepartmentSummary(departments $department): array
+    {
         $head = $department->headOfDepartment;
 
         return [
             'id' => $department->id,
             'code' => $department->code,
             'name' => $department->name,
-            'description' => $department->description,
             'head_of_department' => $department->head_of_department,
             'head_of_department_name' => $head
                 ? trim(collect([$head->user?->first_name, $head->user?->last_name])->filter()->implode(' '))
