@@ -95,7 +95,7 @@ class StudentsController extends Controller
             $user = User::create([
                 'login_id' => $admissionNumber,
                 'email' => $request->email,
-                'password' => bcrypt('password'),
+                'password' => bcrypt($request->phone_number),
                 'role' => 'student',
                 'first_name' => $request->first_name,
                 'middle_name' => $request->middle_name,
@@ -118,6 +118,7 @@ class StudentsController extends Controller
                 'next_of_kin_alt_phone' => $request->next_of_kin_alt_phone,
                 'next_of_kin_email' => $request->next_of_kin_email,
                 'next_of_kin_relationship' => $request->next_of_kin_relationship,
+                'must_reset_password' => true,
                 'created_by' => $request->user()->id,
                 'updated_by' => $request->user()->id,
             ]);

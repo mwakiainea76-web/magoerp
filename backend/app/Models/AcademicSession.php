@@ -55,6 +55,11 @@ class AcademicSession extends Model
         return $this->hasMany(AcademicSessionEnrolment::class);
     }
 
+    public function timetables(): HasMany
+    {
+        return $this->hasMany(AcademicTimetable::class, 'academic_session_id');
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

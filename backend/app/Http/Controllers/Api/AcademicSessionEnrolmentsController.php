@@ -43,14 +43,12 @@ class AcademicSessionEnrolmentsController extends Controller
         $enrolments = AcademicSessionEnrolment::query()
             ->with(['student', 'academicSession'])
             ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->whereHas('student.user', function ($uq) use ($search) {
-                        $uq->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('middle_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%");
-                    })->orWhereHas('student', function ($sq) use ($search) {
-                        $sq->where('admission_number', 'like', "%{$search}%");
-                    });
+                $query->whereHas('student', function ($studentQuery) use ($search) {
+                    $studentQuery->where('admission_number', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('email', 'like', "%{$search}%")
+                                ->orWhere('national_id', 'like', "%{$search}%");
+                        });
                 });
             })
             ->when($sessionId !== '', fn ($q) => $q->where('academic_session_id', $sessionId))
@@ -397,4 +395,3 @@ class AcademicSessionEnrolmentsController extends Controller
     }
 
 }
-

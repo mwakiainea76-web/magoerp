@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\StoredepartmentsRequest;
 use App\Http\Requests\UpdatedepartmentsRequest;
 use App\Models\departments;
 use App\Models\staffs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class DepartmentsController extends Controller
 {
     use PaginationMeta;
+
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('institution.view'), 403);
@@ -32,30 +32,19 @@ class DepartmentsController extends Controller
         ];
 
         $departments = departments::query()
-            ->with(['headOfDepartment.user'])
+            ->with($this->departmentRelations())
             ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($innerQuery) use ($search) {
-                    $innerQuery
-                        ->where('code', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereHas('headOfDepartment', function ($staffQuery) use ($search) {
-                            $staffQuery
-                                ->where('employee_number', 'like', "%{$search}%")
-                                ->orWhereHas('user', function ($uq) use ($search) {
-                                    $uq->where('first_name', 'like', "%{$search}%")
-                                       ->orWhere('middle_name', 'like', "%{$search}%")
-                                       ->orWhere('last_name', 'like', "%{$search}%");
-                                });
-                        });
-                });
+                $query->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
             })
             ->orderBy($sortableColumns[$sortBy] ?? 'name', $sortDirection)
             ->paginate($perPage)
             ->withQueryString();
 
         return response()->json([
-            'data' => $departments->getCollection()->map(fn (departments $department) => $this->transformDepartment($department))->values(),
+            'data' => $departments->getCollection()
+                ->map(fn (departments $department) => $this->transformDepartment($department))
+                ->values(),
             'meta' => $this->paginationMeta($departments, [
                 'q' => $search,
                 'sort_by' => $sortBy,
@@ -69,17 +58,18 @@ class DepartmentsController extends Controller
         abort_unless($request->user()?->can('institution.view'), 403);
 
         $staffOptions = staffs::query()
+            ->select(['id', 'user_id', 'employee_number', 'job_title'])
             ->where('status', true)
-            ->with('user')
+            ->with(['user:id,first_name,last_name'])
             ->orderBy(\App\Models\User::select('first_name')->whereColumn('users.id', 'staffs.user_id'))
             ->orderBy(\App\Models\User::select('last_name')->whereColumn('users.id', 'staffs.user_id'))
             ->get()
             ->map(fn (staffs $staff) => [
                 'id' => $staff->id,
                 'employee_number' => $staff->employee_number,
-                'name' => trim($staff->user->first_name . ' ' . $staff->user->last_name),
+                'name' => trim(collect([$staff->user?->first_name, $staff->user?->last_name])->filter()->implode(' ')),
                 'job_title' => $staff->job_title,
-                'label' => trim($staff->user->first_name . ' ' . $staff->user->last_name) . ' (' . $staff->employee_number . ')',
+                'label' => trim(collect([$staff->user?->first_name, $staff->user?->last_name])->filter()->implode(' ')) . ' (' . $staff->employee_number . ')',
             ]);
 
         return response()->json([
@@ -89,13 +79,15 @@ class DepartmentsController extends Controller
 
     public function store(StoredepartmentsRequest $request): JsonResponse
     {
+        $staffId = $request->user()?->staff?->id;
+
         $department = departments::create([
             ...$request->validated(),
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
+            'created_by' => $staffId,
+            'updated_by' => $staffId,
         ]);
 
-        $department->load(['headOfDepartment.user']);
+        $department->load($this->departmentRelations());
 
         return response()->json([
             'message' => 'Department created successfully.',
@@ -107,7 +99,7 @@ class DepartmentsController extends Controller
     {
         abort_unless($request->user()?->can('institution.view'), 403);
 
-        $department->load(['headOfDepartment.user']);
+        $department->load($this->departmentRelations());
 
         return response()->json([
             'data' => $this->transformDepartment($department),
@@ -118,10 +110,10 @@ class DepartmentsController extends Controller
     {
         $department->update([
             ...$request->validated(),
-            'updated_by' => $request->user()->id,
+            'updated_by' => $request->user()?->staff?->id,
         ]);
 
-        $department->load(['headOfDepartment.user']);
+        $department->load($this->departmentRelations());
 
         return response()->json([
             'message' => 'Department updated successfully.',
@@ -150,12 +142,20 @@ class DepartmentsController extends Controller
             'name' => $department->name,
             'description' => $department->description,
             'head_of_department' => $department->head_of_department,
-            'head_of_department_name' => $head ? trim($head->user->first_name . ' ' . $head->user->last_name) : null,
+            'head_of_department_name' => $head
+                ? trim(collect([$head->user?->first_name, $head->user?->last_name])->filter()->implode(' '))
+                : null,
             'head_of_department_employee_number' => $head?->employee_number,
             'created_at' => $department->created_at,
             'updated_at' => $department->updated_at,
         ];
     }
 
-
+    private function departmentRelations(): array
+    {
+        return [
+            'headOfDepartment:id,user_id,employee_number',
+            'headOfDepartment.user:id,first_name,last_name',
+        ];
+    }
 }

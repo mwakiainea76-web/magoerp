@@ -31,7 +31,7 @@ class StudentMarksController extends Controller
             ->with([
                 'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
                 'unit:id,code,name',
-                'recordedBy:id,first_name,last_name',
+                'recordedBy.user:id,first_name,last_name',
             ]);
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
@@ -242,7 +242,7 @@ class StudentMarksController extends Controller
         $studentMark->load([
             'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
             'unit:id,code,name',
-            'recordedBy:id,first_name,last_name',
+            'recordedBy.user:id,first_name,last_name',
         ]);
 
         return response()->json([ 'data' => $studentMark]);
@@ -360,7 +360,7 @@ class StudentMarksController extends Controller
     public function availableUnits(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'academic_session_id' => 'required|string|exists:academic_sessions,id',
+            'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
         ]);
 
         $units = Unit::query()
@@ -368,8 +368,10 @@ class StudentMarksController extends Controller
                 $q->select(DB::raw(1))
                     ->from('student_unit_registrations')
                     ->join('academic_session_enrolments', 'academic_session_enrolments.id', '=', 'student_unit_registrations.academic_session_enrolment_id')
-                    ->whereColumn('student_unit_registrations.unit_id', 'units.id')
-                    ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
+                    ->whereColumn('student_unit_registrations.unit_id', 'units.id');
+                if (($validated['academic_session_id'] ?? null)) {
+                    $q->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
+                }
             })
             ->get(['id', 'code', 'name']);
 
@@ -384,8 +386,8 @@ class StudentMarksController extends Controller
         ]);
 
         $query = Student::query()
-            ->select('students.id', 'students.admission_number', 'users.first_name', 'users.middle_name', 'users.last_name')
-            ->join('users', 'users.id', '=', 'students.user_id')
+            ->with('user:id,first_name,middle_name,last_name')
+            ->select('students.id', 'students.user_id', 'students.admission_number')
             ->join('academic_session_enrolments', 'academic_session_enrolments.student_id', '=', 'students.id')
             ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
             ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
@@ -420,8 +422,8 @@ class StudentMarksController extends Controller
         ]);
 
         $students = Student::query()
-            ->select('students.id', 'students.admission_number', 'users.first_name', 'users.middle_name', 'users.last_name')
-            ->join('users', 'users.id', '=', 'students.user_id')
+            ->with('user:id,first_name,middle_name,last_name')
+            ->select('students.id', 'students.user_id', 'students.admission_number')
             ->join('academic_session_enrolments', 'academic_session_enrolments.student_id', '=', 'students.id')
             ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
             ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id'])
@@ -466,7 +468,7 @@ class StudentMarksController extends Controller
                     ],
                 ]);
 
-                $sum = $typeMarks->sum('marks');
+                $sum = $typeMarks->sum('score');
                 $types[$type] = [
                     'marks' => $numbers,
                     'total' => $sum,

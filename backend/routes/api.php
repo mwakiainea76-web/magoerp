@@ -37,7 +37,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware(['api_token_cookie', 'auth:sanctum'])->group(function () {
+Route::middleware([
+    'api_token_cookie',
+    'auth:sanctum',
+    \App\Http\Middleware\EnsurePasswordResetComplete::class,
+])->group(function () {
     Route::get('/user', function (Request $request) {
         return response()->json([
             
@@ -46,6 +50,7 @@ Route::middleware(['api_token_cookie', 'auth:sanctum'])->group(function () {
     });
 
     Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::get('/lookups/{resource}', LookupController::class);

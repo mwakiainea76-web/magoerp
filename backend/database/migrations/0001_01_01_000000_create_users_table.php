@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('login_id')->unique()->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
+            $table->boolean('must_reset_password')->default(false);
             $table->string('password');
             $table->rememberToken();
             $table->string('role')->default('student');

@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\StoreAcademicYearRequest;
 use App\Http\Requests\UpdateAcademicYearRequest;
 use App\Models\AcademicYear;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class AcademicYearsController extends Controller
 {
     use PaginationMeta;
+
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('institution.view'), 403);
@@ -28,24 +28,24 @@ class AcademicYearsController extends Controller
             'name' => 'name',
             'created_at' => 'created_at',
             'updated_at' => 'updated_at',
+            'start_date' => 'start_date',
+            'end_date' => 'end_date',
         ];
 
         $years = AcademicYear::query()
             ->withCount('sessions')
             ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($innerQuery) use ($search) {
-                    $innerQuery
-                        ->where('code', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%");
-                });
+                $query->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
             })
             ->orderBy($sortableColumns[$sortBy] ?? 'created_at', $sortDirection)
             ->paginate($perPage)
             ->withQueryString();
 
         return response()->json([
-            'data' => $years->getCollection()->map(fn (AcademicYear $year) => $this->transformYear($year))->values(),
+            'data' => $years->getCollection()
+                ->map(fn (AcademicYear $year) => $this->transformYear($year))
+                ->values(),
             'meta' => $this->paginationMeta($years, [
                 'q' => $search,
                 'sort_by' => $sortBy,
@@ -56,11 +56,15 @@ class AcademicYearsController extends Controller
 
     public function store(StoreAcademicYearRequest $request): JsonResponse
     {
+        $staffId = $request->user()?->staff?->id;
+
         $year = AcademicYear::create([
             ...$request->validated(),
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
+            'created_by' => $staffId,
+            'updated_by' => $staffId,
         ]);
+
+        $year->loadCount('sessions');
 
         return response()->json([
             'message' => 'Academic year created successfully.',
@@ -83,8 +87,10 @@ class AcademicYearsController extends Controller
     {
         $academic_year->update([
             ...$request->validated(),
-            'updated_by' => $request->user()->id,
+            'updated_by' => $request->user()?->staff?->id,
         ]);
+
+        $academic_year->loadCount('sessions');
 
         return response()->json([
             'message' => 'Academic year updated successfully.',
@@ -95,6 +101,12 @@ class AcademicYearsController extends Controller
     public function destroy(Request $request, AcademicYear $academic_year): JsonResponse
     {
         abort_unless($request->user()?->can('institution.delete'), 403);
+
+        if ($academic_year->sessions()->exists()) {
+            return response()->json([
+                'message' => 'Cannot delete academic year with linked academic sessions.',
+            ], 409);
+        }
 
         $academic_year->delete();
 
@@ -112,11 +124,10 @@ class AcademicYearsController extends Controller
             'start_date' => $year->start_date?->toDateString(),
             'end_date' => $year->end_date?->toDateString(),
             'description' => $year->description,
-            'is_active' => $year->is_active,
-            'sessions_count' => (int) ($year->sessions_count ?? $year->sessions()->count()),
+            'is_active' => (bool) $year->is_active,
+            'sessions_count' => (int) ($year->sessions_count ?? 0),
             'created_at' => $year->created_at,
             'updated_at' => $year->updated_at,
         ];
     }
-
 }

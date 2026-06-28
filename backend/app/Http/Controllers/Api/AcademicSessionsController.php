@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Http\Controllers\Controller;
-
 use App\Http\Requests\StoreAcademicSessionRequest;
 use App\Http\Requests\UpdateAcademicSessionRequest;
 use App\Models\AcademicSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class AcademicSessionsController extends Controller
 {
     use PaginationMeta;
+
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('institution.view'), 403);
@@ -28,25 +28,18 @@ class AcademicSessionsController extends Controller
         $sortableColumns = [
             'code' => 'code',
             'name' => 'name',
+            'start_date' => 'start_date',
+            'end_date' => 'end_date',
             'created_at' => 'created_at',
             'updated_at' => 'updated_at',
         ];
 
         $sessions = AcademicSession::query()
-            ->with('year')
+            ->with($this->sessionRelations())
             ->when($yearId !== '', fn ($query) => $query->where('academic_year_id', $yearId))
             ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($innerQuery) use ($search) {
-                    $innerQuery
-                        ->where('code', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereHas('year', function ($yearQuery) use ($search) {
-                            $yearQuery
-                                ->where('code', 'like', "%{$search}%")
-                                ->orWhere('name', 'like', "%{$search}%");
-                        });
-                });
+                $query->where('code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
             })
             ->when($status === 'active', fn ($query) => $query->where('is_active', true))
             ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
@@ -55,7 +48,9 @@ class AcademicSessionsController extends Controller
             ->withQueryString();
 
         return response()->json([
-            'data' => $sessions->getCollection()->map(fn (AcademicSession $session) => $this->transformSession($session))->values(),
+            'data' => $sessions->getCollection()
+                ->map(fn (AcademicSession $session) => $this->transformSession($session))
+                ->values(),
             'meta' => $this->paginationMeta($sessions, [
                 'q' => $search,
                 'status' => $status,
@@ -68,13 +63,15 @@ class AcademicSessionsController extends Controller
 
     public function store(StoreAcademicSessionRequest $request): JsonResponse
     {
+        $staffId = $request->user()?->staff?->id;
+
         $session = AcademicSession::create([
             ...$request->validated(),
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
+            'created_by' => $staffId,
+            'updated_by' => $staffId,
         ]);
 
-        $session->load('year');
+        $session->load($this->sessionRelations());
 
         return response()->json([
             'message' => 'Academic session created successfully.',
@@ -86,7 +83,7 @@ class AcademicSessionsController extends Controller
     {
         abort_unless($request->user()?->can('institution.view'), 403);
 
-        $academic_session->load('year');
+        $academic_session->load($this->sessionRelations());
 
         return response()->json([
             'data' => $this->transformSession($academic_session),
@@ -97,10 +94,10 @@ class AcademicSessionsController extends Controller
     {
         $academic_session->update([
             ...$request->validated(),
-            'updated_by' => $request->user()->id,
+            'updated_by' => $request->user()?->staff?->id,
         ]);
 
-        $academic_session->load('year');
+        $academic_session->load($this->sessionRelations());
 
         return response()->json([
             'message' => 'Academic session updated successfully.',
@@ -111,6 +108,15 @@ class AcademicSessionsController extends Controller
     public function destroy(Request $request, AcademicSession $academic_session): JsonResponse
     {
         abort_unless($request->user()?->can('institution.delete'), 403);
+
+        if (
+            $academic_session->sessionEnrolments()->exists()
+            || $academic_session->timetables()->exists()
+        ) {
+            return response()->json([
+                'message' => 'Cannot delete academic session with linked enrolments or timetables.',
+            ], 409);
+        }
 
         $academic_session->delete();
 
@@ -131,10 +137,16 @@ class AcademicSessionsController extends Controller
             'start_date' => $session->start_date?->toDateString(),
             'end_date' => $session->end_date?->toDateString(),
             'description' => $session->description,
-            'is_active' => $session->is_active,
+            'is_active' => (bool) $session->is_active,
             'created_at' => $session->created_at,
             'updated_at' => $session->updated_at,
         ];
     }
 
+    private function sessionRelations(): array
+    {
+        return [
+            'year:id,code,name',
+        ];
+    }
 }

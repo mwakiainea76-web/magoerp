@@ -56,6 +56,7 @@ class User extends Authenticatable
         'next_of_kin_email',
         'next_of_kin_relationship',
         'last_login_at',
+        'must_reset_password',
         'created_by',
         'updated_by',
         'password',
@@ -73,6 +74,7 @@ class User extends Authenticatable
             'date_of_birth' => 'date',
             'is_pwd' => 'boolean',
             'status' => 'boolean',
+            'must_reset_password' => 'boolean',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
         ];
