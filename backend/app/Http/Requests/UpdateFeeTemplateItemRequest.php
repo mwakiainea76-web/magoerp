@@ -2,21 +2,26 @@
 
 namespace App\Http\Requests;
 
+use App\Models\FeeTemplateItem;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreInvoiceTemplateRequest extends FormRequest
+class UpdateFeeTemplateItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('finance.create') ?? false;
+        return $this->user()?->can('finance.update') ?? false;
     }
 
     public function rules(): array
     {
+        /** @var FeeTemplateItem|null $item */
+        $item = $this->route('fee_template_item');
+
         return [
-            'code' => ['required', 'string', 'max:50', Rule::unique('invoice_templates', 'code')],
+            'fee_template_id' => ['required', 'uuid', Rule::exists('fee_templates', 'id')],
             'name' => ['required', 'string', 'max:255'],
+            'amount' => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],
         ];

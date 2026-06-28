@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class InvoiceTemplate extends Model
+class FeeTemplate extends Model
 {
     use HasUuids;
 
@@ -18,6 +18,7 @@ class InvoiceTemplate extends Model
     protected $fillable = [
         'code',
         'name',
+        'type',
         'description',
         'is_active',
         'is_issued',
@@ -35,12 +36,12 @@ class InvoiceTemplate extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(InvoiceTemplateItem::class, 'invoice_template_id');
+        return $this->hasMany(FeeTemplateItem::class, 'fee_template_id');
     }
 
     public function activeItems(): HasMany
     {
-        return $this->hasMany(InvoiceTemplateItem::class, 'invoice_template_id')->where('is_active', true);
+        return $this->hasMany(FeeTemplateItem::class, 'fee_template_id')->where('is_active', true);
     }
 
     public function creator(): BelongsTo

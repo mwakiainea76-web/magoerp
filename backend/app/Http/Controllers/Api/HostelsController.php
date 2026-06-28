@@ -10,7 +10,7 @@ use App\Models\HostelAllocation;
 use App\Models\HostelBed;
 use App\Models\HostelRoom;
 use App\Models\Invoice;
-use App\Models\LedgerTransaction;
+use App\Models\StudentLedgerEntry;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -512,7 +512,7 @@ class HostelsController extends Controller
             return response()->json([ 'data' => $eligibility]);
         }
 
-        $totalBalance = LedgerTransaction::where('student_id', $student->id)
+        $totalBalance = StudentLedgerEntry::where('student_id', $student->id)
             ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')
             ->value('balance');
 

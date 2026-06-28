@@ -3,12 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
+use App\Models\InvoiceLineItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class InvoiceItemFactory extends Factory
+class InvoiceLineItemFactory extends Factory
 {
-    protected $model = InvoiceItem::class;
+    protected $model = InvoiceLineItem::class;
 
     public function definition(): array
     {
@@ -17,7 +17,7 @@ class InvoiceItemFactory extends Factory
 
         return [
             'invoice_id' => Invoice::factory(),
-            'invoice_template_item_id' => null,
+            'fee_template_item_id' => null,
             'description' => fake()->words(3, true),
             'unit_amount' => $unitAmount,
             'quantity' => $quantity,

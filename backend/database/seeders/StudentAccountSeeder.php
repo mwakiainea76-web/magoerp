@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\AcademicSessionEnrolment;
-use App\Models\LedgerTransaction;
-use App\Models\StudentAccount;
+use App\Models\StudentLedgerEntry;
+use App\Models\StudentAccountBalance;
 use Illuminate\Database\Seeder;
 
 class StudentAccountSeeder extends Seeder
@@ -17,22 +17,22 @@ class StudentAccountSeeder extends Seeder
             $studentId = $enrolment->student_id;
             $sessionId = $enrolment->academic_session_id;
 
-            $totalInvoiced = (float) LedgerTransaction::where('student_id', $studentId)
+            $totalInvoiced = (float) StudentLedgerEntry::where('student_id', $studentId)
                 ->where('academic_session_id', $sessionId)
                 ->where('type', 'debit')
                 ->sum('debit');
 
-            $totalPaid = (float) LedgerTransaction::where('student_id', $studentId)
+            $totalPaid = (float) StudentLedgerEntry::where('student_id', $studentId)
                 ->where('academic_session_id', $sessionId)
                 ->where('type', 'payment')
                 ->sum('credit');
 
-            $latestTransaction = LedgerTransaction::where('student_id', $studentId)
+            $latestTransaction = StudentLedgerEntry::where('student_id', $studentId)
                 ->where('academic_session_id', $sessionId)
                 ->latest('transaction_date')
                 ->first();
 
-            StudentAccount::updateOrCreate(
+            StudentAccountBalance::updateOrCreate(
                 [
                     'student_id' => $studentId,
                     'academic_session_id' => $sessionId,

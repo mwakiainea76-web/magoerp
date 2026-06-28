@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Hostel extends Model
@@ -36,8 +37,15 @@ class Hostel extends Model
         return $this->hasMany(HostelRoom::class);
     }
 
-    public function allocations(): HasMany
+    public function allocations(): HasManyThrough
     {
-        return $this->hasMany(HostelAllocation::class);
+        return $this->hasManyThrough(
+            HostelAllocation::class,
+            HostelRoom::class,
+            'hostel_id',
+            'hostel_room_id',
+            'id',
+            'id'
+        );
     }
 }

@@ -10,6 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
+use App\Models\InvoiceLineItem;
+use App\Models\InvoicePaymentAllocation;
+use App\Models\StudentFeeAdjustment;
+use App\Models\StudentLedgerEntry;
+
 class Invoice extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
@@ -61,22 +66,22 @@ class Invoice extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(InvoiceItem::class);
+        return $this->hasMany(InvoiceLineItem::class);
     }
 
     public function paymentAllocations(): HasMany
     {
-        return $this->hasMany(PaymentAllocation::class);
+        return $this->hasMany(InvoicePaymentAllocation::class);
     }
 
     public function adjustments(): HasMany
     {
-        return $this->hasMany(InvoiceAdjustment::class);
+        return $this->hasMany(StudentFeeAdjustment::class);
     }
 
-    public function ledgerTransactions(): HasMany
+    public function ledgerEntries(): HasMany
     {
-        return $this->hasMany(LedgerTransaction::class);
+        return $this->hasMany(StudentLedgerEntry::class);
     }
 
     public function createdBy(): BelongsTo

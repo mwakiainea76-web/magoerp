@@ -9,10 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('invoice_templates', function (Blueprint $table) {
+        Schema::create('fee_templates', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('code', 50)->unique();
             $table->string('name', 255);
+            $table->string('type', 50)->default('fees');
             $table->text('description')->nullable();
             $table->boolean('is_issued')->default(false);
             $table->boolean('is_active')->default(true);
@@ -21,9 +22,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('invoice_template_items', function (Blueprint $table) {
+        Schema::create('fee_template_items', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('invoice_template_id')->constrained('invoice_templates')->cascadeOnDelete();
+            $table->foreignUuid('fee_template_id')->constrained('fee_templates')->cascadeOnDelete();
             $table->string('name', 255);
             $table->decimal('amount', 12, 2);
             $table->text('description')->nullable();
@@ -33,19 +34,21 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('course_curriculum_invoice_template', function (Blueprint $table) {
+        Schema::create('curriculum_fee_assignments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
-            $table->foreignUuid('invoice_template_id')->constrained('invoice_templates')->cascadeOnDelete();
+            $table->foreignUuid('fee_template_id')->constrained('fee_templates')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->integer('year_level');
             $table->integer('session_number');
             $table->boolean('is_approved')->default(false);
-            $table->foreignUuid('approved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('approved_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
+
+            $table->unique(['course_curriculum_id', 'academic_session_id', 'year_level', 'session_number'], 'curriculum_fee_assignment_unique');
         });
 
         Schema::create('invoices', function (Blueprint $table) {
@@ -53,6 +56,7 @@ return new class extends Migration
             $table->string('invoice_number')->unique();
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
+            $table->foreignUuid('fee_template_id')->nullable()->constrained('fee_templates')->nullOnDelete();
             $table->string('invoice_type', 50)->default('fees');
             $table->string('status', 50)->default('issued');
             $table->date('issue_date');
@@ -71,10 +75,10 @@ return new class extends Migration
             $table->index(['student_id', 'status']);
         });
 
-        Schema::create('invoice_items', function (Blueprint $table) {
+        Schema::create('invoice_line_items', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
-            $table->foreignUuid('invoice_template_item_id')->nullable()->constrained('invoice_template_items')->nullOnDelete();
+            $table->foreignUuid('fee_template_item_id')->nullable()->constrained('fee_template_items')->nullOnDelete();
             $table->string('name', 255);
             $table->text('description')->nullable();
             $table->decimal('amount', 12, 2);
@@ -101,7 +105,7 @@ return new class extends Migration
             $table->index('status');
         });
 
-        Schema::create('payment_allocations', function (Blueprint $table) {
+        Schema::create('invoice_payment_allocations', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('payment_id')->constrained('payments')->cascadeOnDelete();
             $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
@@ -112,9 +116,9 @@ return new class extends Migration
             $table->index(['payment_id', 'invoice_id']);
         });
 
-        DB::statement('ALTER TABLE payment_allocations ADD CONSTRAINT payment_allocations_amount_check CHECK (amount > 0)');
+        DB::statement('ALTER TABLE invoice_payment_allocations ADD CONSTRAINT invoice_payment_allocations_amount_check CHECK (amount > 0)');
 
-        Schema::create('invoice_adjustments', function (Blueprint $table) {
+        Schema::create('student_fee_adjustments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
             $table->string('type', 50);
@@ -124,11 +128,12 @@ return new class extends Migration
             $table->date('applied_at')->nullable();
             $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
+            $table->softDeletes();
 
             $table->index('type');
         });
 
-        Schema::create('ledger_transactions', function (Blueprint $table) {
+        Schema::create('student_ledger_entries', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('invoice_id')->nullable()->constrained('invoices')->nullOnDelete();
@@ -142,14 +147,13 @@ return new class extends Migration
             $table->date('transaction_date');
             $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['student_id', 'transaction_date']);
             $table->index(['student_id', 'academic_session_id']);
             $table->index('type');
         });
 
-        Schema::create('student_accounts', function (Blueprint $table) {
+        Schema::create('student_account_balances', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
@@ -167,15 +171,15 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('student_accounts');
-        Schema::dropIfExists('ledger_transactions');
-        Schema::dropIfExists('invoice_adjustments');
-        Schema::dropIfExists('payment_allocations');
+        Schema::dropIfExists('student_account_balances');
+        Schema::dropIfExists('student_ledger_entries');
+        Schema::dropIfExists('student_fee_adjustments');
+        Schema::dropIfExists('invoice_payment_allocations');
         Schema::dropIfExists('payments');
-        Schema::dropIfExists('invoice_items');
+        Schema::dropIfExists('invoice_line_items');
         Schema::dropIfExists('invoices');
-        Schema::dropIfExists('course_curriculum_invoice_template');
-        Schema::dropIfExists('invoice_template_items');
-        Schema::dropIfExists('invoice_templates');
+        Schema::dropIfExists('curriculum_fee_assignments');
+        Schema::dropIfExists('fee_template_items');
+        Schema::dropIfExists('fee_templates');
     }
 };

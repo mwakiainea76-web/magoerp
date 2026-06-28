@@ -3,20 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\CourseInvoiceTemplate;
-use App\Models\InvoiceTemplate;
+use App\Models\CurriculumFeeAssignment;
+use App\Models\FeeTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-class InvoiceTemplateAssignmentsController extends Controller
+class CurriculumFeeAssignmentsController extends Controller
 {
-    public function index(Request $request, InvoiceTemplate $invoice_template): JsonResponse
+    public function index(Request $request, FeeTemplate $fee_template): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $items = CourseInvoiceTemplate::query()
-            ->where('invoice_template_id', $invoice_template->id)
+        $items = CurriculumFeeAssignment::query()
+            ->where('fee_template_id', $fee_template->id)
             ->with([
                 'academicSession:id,name,code',
                 'courseCurriculum.course.level:id,name',
@@ -26,30 +26,30 @@ class InvoiceTemplateAssignmentsController extends Controller
             ->orderBy('year_level')
             ->orderBy('session_number')
             ->get()
-            ->map(fn (CourseInvoiceTemplate $cit) => $this->transform($cit))
+            ->map(fn (CurriculumFeeAssignment $cit) => $this->transform($cit))
             ->values();
 
         return response()->json([
             'status_code' => 200,
             'data' => $items,
-            'invoice_template_name' => $invoice_template->name,
-            'invoice_template_code' => $invoice_template->code,
-            'invoice_template_is_issued' => $invoice_template->is_issued,
-            'invoice_template_is_assigned' => $items->isNotEmpty(),
-            'invoice_template_is_locked' => $invoice_template->is_issued || $items->isNotEmpty(),
-            'invoice_template_total_amount' => (float) $invoice_template->items()->where('is_active', true)->sum('amount'),
-            'invoice_template_total_items' => (int) $invoice_template->items()->where('is_active', true)->count(),
+            'fee_template_name' => $fee_template->name,
+            'fee_template_code' => $fee_template->code,
+            'fee_template_is_issued' => $fee_template->is_issued,
+            'fee_template_is_assigned' => $items->isNotEmpty(),
+            'fee_template_is_locked' => $fee_template->is_issued || $items->isNotEmpty(),
+            'fee_template_total_amount' => (float) $fee_template->items()->where('is_active', true)->sum('amount'),
+            'fee_template_total_items' => (int) $fee_template->items()->where('is_active', true)->count(),
         ], 200);
     }
 
-    public function store(Request $request, InvoiceTemplate $invoice_template): JsonResponse
+    public function store(Request $request, FeeTemplate $fee_template): JsonResponse
     {
         abort_unless($request->user()?->can('finance.update'), 403);
 
-        if ($invoice_template->is_issued) {
+        if ($fee_template->is_issued) {
             return response()->json([
                 'status_code' => 422,
-                'message' => 'This invoice template has already been issued. Assignments cannot be modified.',
+                'message' => 'This fee template has already been issued. Assignments cannot be modified.',
             ], 422);
         }
 
@@ -61,7 +61,7 @@ class InvoiceTemplateAssignmentsController extends Controller
             'is_approved' => ['boolean'],
         ]);
 
-        $existsQuery = CourseInvoiceTemplate::query()
+        $existsQuery = CurriculumFeeAssignment::query()
             ->where('year_level', $validated['year_level'])
             ->where('session_number', $validated['session_number']);
 
@@ -85,9 +85,9 @@ class InvoiceTemplateAssignmentsController extends Controller
             ], 409);
         }
 
-        $cit = CourseInvoiceTemplate::create([
+        $cit = CurriculumFeeAssignment::create([
             'course_curriculum_id' => $validated['course_curriculum_id'] ?? null,
-            'invoice_template_id' => $invoice_template->id,
+            'fee_template_id' => $fee_template->id,
             'academic_session_id' => $validated['academic_session_id'] ?? null,
             'year_level' => $validated['year_level'],
             'session_number' => $validated['session_number'],
@@ -98,8 +98,8 @@ class InvoiceTemplateAssignmentsController extends Controller
             'updated_by' => $request->user()->id,
         ]);
 
-        if (!$invoice_template->is_issued) {
-            $invoice_template->update(['is_issued' => true]);
+        if (!$fee_template->is_issued) {
+            $fee_template->update(['is_issued' => true]);
         }
 
         $cit->load([
@@ -111,20 +111,20 @@ class InvoiceTemplateAssignmentsController extends Controller
 
         return response()->json([
             'status_code' => 201,
-            'message' => 'Course curriculum linked to invoice template successfully.',
+            'message' => 'Course curriculum linked to fee template successfully.',
             'data' => $this->transform($cit),
         ], 201);
     }
 
-    public function update(Request $request, InvoiceTemplate $invoice_template, CourseInvoiceTemplate $course_invoice_template): JsonResponse
+    public function update(Request $request, FeeTemplate $fee_template, CurriculumFeeAssignment $curriculum_fee_assignment): JsonResponse
     {
         abort_unless($request->user()?->can('finance.update'), 403);
-        abort_if($course_invoice_template->invoice_template_id !== $invoice_template->id, 404);
+        abort_if($curriculum_fee_assignment->fee_template_id !== $fee_template->id, 404);
 
-        if ($invoice_template->is_issued) {
+        if ($fee_template->is_issued) {
             return response()->json([
                 'status_code' => 422,
-                'message' => 'This invoice template has already been issued. Assignments cannot be modified.',
+                'message' => 'This fee template has already been issued. Assignments cannot be modified.',
             ], 422);
         }
 
@@ -132,14 +132,14 @@ class InvoiceTemplateAssignmentsController extends Controller
             'is_approved' => ['required', 'boolean'],
         ]);
 
-        $course_invoice_template->update([
+        $curriculum_fee_assignment->update([
             'is_approved' => $validated['is_approved'],
             'approved_by' => $validated['is_approved'] ? $request->user()->id : null,
             'approved_at' => $validated['is_approved'] ? now() : null,
             'updated_by' => $request->user()->id,
         ]);
 
-        $course_invoice_template->load([
+        $curriculum_fee_assignment->load([
             'academicSession:id,name,code',
             'courseCurriculum.course.level:id,name',
             'courseCurriculum.course:id,code,name,certification_level_id',
@@ -148,23 +148,23 @@ class InvoiceTemplateAssignmentsController extends Controller
 
         return response()->json([
             'status_code' => 200,
-            'message' => $validated['is_approved'] ? 'Invoice template approved for this course.' : 'Invoice template approval revoked.',
-            'data' => $this->transform($course_invoice_template),
+            'message' => $validated['is_approved'] ? 'Fee template approved for this course.' : 'Fee template approval revoked.',
+            'data' => $this->transform($curriculum_fee_assignment),
         ], 200);
     }
 
-    public function destroy(Request $request, InvoiceTemplate $invoice_template, CourseInvoiceTemplate $course_invoice_template): JsonResponse
+    public function destroy(Request $request, FeeTemplate $fee_template, CurriculumFeeAssignment $curriculum_fee_assignment): JsonResponse
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
-        abort_if($course_invoice_template->invoice_template_id !== $invoice_template->id, 404);
+        abort_if($curriculum_fee_assignment->fee_template_id !== $fee_template->id, 404);
 
         return response()->json([
             'status_code' => 422,
-            'message' => 'Invoice template assignments cannot be deleted after assignment. Create a new template for changes.',
+            'message' => 'Fee template assignments cannot be deleted after assignment. Create a new template for changes.',
         ], 422);
     }
 
-    private function transform(CourseInvoiceTemplate $cit): array
+    private function transform(CurriculumFeeAssignment $cit): array
     {
         $cc = $cit->courseCurriculum;
 

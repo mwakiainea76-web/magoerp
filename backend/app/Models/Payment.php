@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Models\InvoicePaymentAllocation;
+use App\Models\StudentLedgerEntry;
+
 class Payment extends Model
 {
     use HasFactory, HasUuids;
@@ -42,12 +45,12 @@ class Payment extends Model
 
     public function allocations(): HasMany
     {
-        return $this->hasMany(PaymentAllocation::class);
+        return $this->hasMany(InvoicePaymentAllocation::class);
     }
 
-    public function ledgerTransactions(): HasMany
+    public function ledgerEntries(): HasMany
     {
-        return $this->hasMany(LedgerTransaction::class);
+        return $this->hasMany(StudentLedgerEntry::class);
     }
 
     public function createdBy(): BelongsTo

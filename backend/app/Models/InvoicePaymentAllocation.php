@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class PaymentAllocation extends Model
+class InvoicePaymentAllocation extends Model
 {
     use HasFactory, HasUuids;
 
-    protected $table = 'payment_allocations';
+    protected $table = 'invoice_payment_allocations';
 
     protected $fillable = [
         'payment_id',

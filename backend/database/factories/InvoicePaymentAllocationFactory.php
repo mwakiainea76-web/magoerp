@@ -4,12 +4,12 @@ namespace Database\Factories;
 
 use App\Models\Invoice;
 use App\Models\Payment;
-use App\Models\PaymentAllocation;
+use App\Models\InvoicePaymentAllocation;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class PaymentAllocationFactory extends Factory
+class InvoicePaymentAllocationFactory extends Factory
 {
-    protected $model = PaymentAllocation::class;
+    protected $model = InvoicePaymentAllocation::class;
 
     public function definition(): array
     {

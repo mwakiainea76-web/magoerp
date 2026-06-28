@@ -11,8 +11,8 @@ use App\Models\CourseEnrolment;
 use App\Models\Curriculum;
 use App\Models\CurriculumTransfer;
 use App\Models\Invoice;
-use App\Models\InvoiceAdjustment;
-use App\Models\LedgerTransaction;
+use App\Models\StudentFeeAdjustment;
+use App\Models\StudentLedgerEntry;
 use App\Models\Student;
 use App\Services\AdmissionNumberService;
 use Illuminate\Http\JsonResponse;
@@ -167,7 +167,7 @@ class CourseChangeController extends Controller
                 $balanceDue = max(0, (float) $invoice->amount_due - $paid);
 
                 if ($balanceDue > 0) {
-                    InvoiceAdjustment::create([
+                    StudentFeeAdjustment::create([
                         'invoice_id' => $invoice->id,
                         'type' => 'reversal',
                         'amount' => $balanceDue,
@@ -176,7 +176,7 @@ class CourseChangeController extends Controller
                         'created_by' => $processedBy->id,
                     ]);
 
-                    LedgerTransaction::create([
+                    StudentLedgerEntry::create([
                         'student_id' => $invoice->student_id,
                         'invoice_id' => $invoice->id,
                         'academic_session_id' => $invoice->academic_session_id,

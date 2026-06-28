@@ -16,14 +16,14 @@ use App\Http\Controllers\Api\CourseCurriculaController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\CurriculaController;
 use App\Http\Controllers\Api\DepartmentsController;
-use App\Http\Controllers\Api\InvoiceTemplateAssignmentsController;
+use App\Http\Controllers\Api\CurriculumFeeAssignmentsController;
 use App\Http\Controllers\Api\HostelsController;
 use App\Http\Controllers\Api\LectureRoomsController;
-use App\Http\Controllers\Api\InvoiceTemplateItemsController;
-use App\Http\Controllers\Api\InvoiceTemplatesController;
-use App\Http\Controllers\Api\InvoiceAdjustmentsController;
+use App\Http\Controllers\Api\FeeTemplateItemsController;
+use App\Http\Controllers\Api\FeeTemplatesController;
+use App\Http\Controllers\Api\StudentFeeAdjustmentsController;
 use App\Http\Controllers\Api\InvoicesController;
-use App\Http\Controllers\Api\LedgerController;
+use App\Http\Controllers\Api\StudentLedgerController;
 use App\Http\Controllers\Api\PaymentsController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\StaffsController;
@@ -95,28 +95,28 @@ Route::middleware([
     Route::get('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'index']);
     Route::get('/academic-session-enrolments/{academic_session_enrolment}', [AcademicSessionEnrolmentsController::class, 'show']);
 
-    Route::apiResource('invoice-templates', InvoiceTemplatesController::class)
-        ->parameters(['invoice-templates' => 'invoice_template']);
+    Route::apiResource('fee-templates', FeeTemplatesController::class)
+        ->parameters(['fee-templates' => 'fee_template']);
 
-    Route::apiResource('invoice-template-items', InvoiceTemplateItemsController::class)
-        ->parameters(['invoice-template-items' => 'invoice_template_item']);
+    Route::apiResource('fee-template-items', FeeTemplateItemsController::class)
+        ->parameters(['fee-template-items' => 'fee_template_item']);
 
-    Route::get('/invoice-templates/{invoice_template}/course-assignments', [InvoiceTemplateAssignmentsController::class, 'index']);
-    Route::post('/invoice-templates/{invoice_template}/course-assignments', [InvoiceTemplateAssignmentsController::class, 'store']);
-    Route::put('/invoice-templates/{invoice_template}/course-assignments/{course_invoice_template}', [InvoiceTemplateAssignmentsController::class, 'update']);
-    Route::delete('/invoice-templates/{invoice_template}/course-assignments/{course_invoice_template}', [InvoiceTemplateAssignmentsController::class, 'destroy']);
+    Route::get('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'index']);
+    Route::post('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'store']);
+    Route::put('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'update']);
+    Route::delete('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'destroy']);
 
     Route::get('/my/invoices', [InvoicesController::class, 'myInvoices']);
     Route::get('/my/finance-summary', [InvoicesController::class, 'financeSummary']);
-    Route::get('/my/ledger', [LedgerController::class, 'myLedger']);
+    Route::get('/my/ledger', [StudentLedgerController::class, 'myLedger']);
     Route::post('/invoices', [InvoicesController::class, 'store']);
     Route::get('/invoices', [InvoicesController::class, 'index']);
     Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
-    Route::get('/students/{student}/invoice-templates', [InvoicesController::class, 'availableTemplates']);
+    Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
     Route::post('/payments', [PaymentsController::class, 'store']);
     Route::get('/payments', [PaymentsController::class, 'index']);
-    Route::post('/invoices/{invoice}/adjustments', [InvoiceAdjustmentsController::class, 'store']);
-    Route::get('/ledger', [LedgerController::class, 'index']);
+    Route::post('/invoices/{invoice}/adjustments', [StudentFeeAdjustmentsController::class, 'store']);
+    Route::get('/ledger', [StudentLedgerController::class, 'index']);
 
     Route::get('/assessment-types', [StudentMarksController::class, 'assessmentTypes']);
     Route::get('/marks', [StudentMarksController::class, 'index']);

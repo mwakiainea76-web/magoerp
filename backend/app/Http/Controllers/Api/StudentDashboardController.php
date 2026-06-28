@@ -7,9 +7,9 @@ use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\CourseEnrolment;
 use App\Models\CourseCurriculum;
-use App\Models\CourseInvoiceTemplate;
+use App\Models\CurriculumFeeAssignment;
 use App\Models\Invoice;
-use App\Models\LedgerTransaction;
+use App\Models\StudentLedgerEntry;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
 use Illuminate\Http\JsonResponse;
@@ -67,7 +67,7 @@ class StudentDashboardController extends Controller
             $courseCurriculumId = $courseEnrolment?->course_curriculum_id;
 
             $courseInvoiceTemplate = $courseCurriculumId
-                ? CourseInvoiceTemplate::query()
+                ? CurriculumFeeAssignment::query()
                     ->where('course_curriculum_id', $courseCurriculumId)
                     ->where('is_approved', true)
                     ->where('year_level', $currentSessionEnrolment->year_of_study)
@@ -76,20 +76,20 @@ class StudentDashboardController extends Controller
                         $query->where('academic_session_id', $currentSession->id)
                             ->orWhereNull('academic_session_id');
                     })
-                    ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                    ->with(['feeTemplate.items' => fn ($query) => $query->where('is_active', true)])
                     ->orderByRaw('academic_session_id = ? desc', [$currentSession->id])
                     ->first()
                 : null;
 
-            if ($courseInvoiceTemplate?->invoiceTemplate) {
-                $invoiceTemplateItems = $courseInvoiceTemplate->invoiceTemplate->items->map(fn ($item) => [
+            if ($courseInvoiceTemplate?->feeTemplate) {
+                $invoiceTemplateItems = $courseInvoiceTemplate->feeTemplate->items->map(fn ($item) => [
                     'id' => $item->id,
                     'name' => $item->name,
                     'amount' => (float) $item->amount,
                     'description' => $item->description,
                 ])->values()->all();
 
-                $totalFee = $courseInvoiceTemplate->invoiceTemplate->items->sum('amount');
+                $totalFee = $courseInvoiceTemplate->feeTemplate->items->sum('amount');
             }
         }
 
@@ -97,8 +97,8 @@ class StudentDashboardController extends Controller
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
-            ->selectRaw('COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
+            ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
+            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
 
         $invoices = $invoiceBaseQuery->get();
         $outstandingBalance = (float) $invoices->where('balance_due', '>', 0)->sum('balance_due');
@@ -203,10 +203,10 @@ class StudentDashboardController extends Controller
 
                 'progress' => AcademicSessionEnrolment::currentProgress($student),
 
-                'invoice_template' => $courseInvoiceTemplate ? [
+                'fee_template' => $courseInvoiceTemplate ? [
                     'id' => $courseInvoiceTemplate->id,
-                    'code' => $courseInvoiceTemplate->invoiceTemplate->code,
-                    'name' => $courseInvoiceTemplate->invoiceTemplate->name,
+                    'code' => $courseInvoiceTemplate->feeTemplate->code,
+                    'name' => $courseInvoiceTemplate->feeTemplate->name,
                     'year_level' => $courseInvoiceTemplate->year_level,
                     'session_number' => $courseInvoiceTemplate->session_number,
                     'is_approved' => $courseInvoiceTemplate->is_approved,

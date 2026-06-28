@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreInvoiceTemplateRequest;
-use App\Http\Requests\UpdateInvoiceTemplateRequest;
-use App\Models\CourseInvoiceTemplate;
-use App\Models\InvoiceTemplate;
+use App\Http\Requests\StoreFeeTemplateRequest;
+use App\Http\Requests\UpdateFeeTemplateRequest;
+use App\Models\CurriculumFeeAssignment;
+use App\Models\FeeTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 
-class InvoiceTemplatesController extends Controller
+class FeeTemplatesController extends Controller
 {
     use PaginationMeta;
     public function index(Request $request): JsonResponse
@@ -31,7 +31,7 @@ class InvoiceTemplatesController extends Controller
             'updated_at' => 'updated_at',
         ];
 
-        $templates = InvoiceTemplate::query()
+        $templates = FeeTemplate::query()
             ->withCount('items')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
@@ -47,7 +47,7 @@ class InvoiceTemplatesController extends Controller
             ->withQueryString();
 
         return response()->json([
-            'data' => $templates->getCollection()->map(fn (InvoiceTemplate $template) => $this->transform($template))->values(),
+            'data' => $templates->getCollection()->map(fn (FeeTemplate $template) => $this->transform($template))->values(),
             'meta' => $this->paginationMeta($templates, [
                 'q' => $search,
                 'status' => $status,
@@ -57,11 +57,12 @@ class InvoiceTemplatesController extends Controller
         ]);
     }
 
-    public function store(StoreInvoiceTemplateRequest $request): JsonResponse
+    public function store(StoreFeeTemplateRequest $request): JsonResponse
     {
-        $template = InvoiceTemplate::create([
+        $template = FeeTemplate::create([
             'code' => $request->input('code'),
             'name' => $request->input('name'),
+            'type' => $request->input('type', 'fees'),
             'description' => $request->input('description'),
             'is_active' => $request->boolean('is_active', true),
             'is_issued' => false,
@@ -70,67 +71,63 @@ class InvoiceTemplatesController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Invoice template created successfully.',
+            'message' => 'Fee template created successfully.',
             'data' => $this->transform($template),
         ], 201);
     }
 
-    public function show(Request $request, InvoiceTemplate $invoice_template): JsonResponse
+    public function show(Request $request, FeeTemplate $fee_template): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $invoice_template->loadCount('items');
+        $fee_template->loadCount('items');
 
         return response()->json([
-            'data' => $this->transform($invoice_template),
+            'data' => $this->transform($fee_template),
         ]);
     }
 
-    public function update(UpdateInvoiceTemplateRequest $request, InvoiceTemplate $invoice_template): JsonResponse
+    public function update(UpdateFeeTemplateRequest $request, FeeTemplate $fee_template): JsonResponse
     {
-        if ($this->isLocked($invoice_template)) {
+        if ($this->isLocked($fee_template)) {
             return response()->json([
                 'status_code' => 422,
-                'message' => 'This invoice template has already been assigned or issued. It cannot be modified.',
+                'message' => 'This fee template has already been assigned or issued. It cannot be modified.',
             ], 422);
         }
 
-        $invoice_template->update([
-            'code' => $request->input('code'),
-            'name' => $request->input('name'),
-            'description' => $request->input('description'),
-            'is_active' => $request->boolean('is_active', true),
-            'is_issued' => $request->boolean('is_issued', false),
+        $fee_template->update([
+            ...$request->validated(),
             'updated_by' => $request->user()?->staff?->id,
         ]);
 
-        $invoice_template->loadCount('items');
+        $fee_template->loadCount('items');
 
         return response()->json([
-            'message' => 'Invoice template updated successfully.',
-            'data' => $this->transform($invoice_template),
+            'message' => 'Fee template updated successfully.',
+            'data' => $this->transform($fee_template),
         ]);
     }
 
-    public function destroy(Request $request, InvoiceTemplate $invoice_template): JsonResponse
+    public function destroy(Request $request, FeeTemplate $fee_template): JsonResponse
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
 
-        if ($this->isLocked($invoice_template)) {
+        if ($this->isLocked($fee_template)) {
             return response()->json([
                 'status_code' => 422,
-                'message' => 'This invoice template has already been assigned or issued. It cannot be deleted.',
+                'message' => 'This fee template has already been assigned or issued. It cannot be deleted.',
             ], 422);
         }
 
-        $invoice_template->delete();
+        $fee_template->delete();
 
         return response()->json([
-            'message' => 'Invoice template deleted successfully.',
+            'message' => 'Fee template deleted successfully.',
         ]);
     }
 
-    private function transform(InvoiceTemplate $template): array
+    private function transform(FeeTemplate $template): array
     {
         $isAssigned = $this->isAssigned($template);
         $isLocked = $isAssigned || (bool) $template->is_issued;
@@ -139,6 +136,7 @@ class InvoiceTemplatesController extends Controller
             'id' => $template->id,
             'code' => $template->code,
             'name' => $template->name,
+            'type' => $template->type,
             'description' => $template->description,
             'is_active' => $template->is_active,
             'is_issued' => $template->is_issued,
@@ -152,19 +150,17 @@ class InvoiceTemplatesController extends Controller
         ];
     }
 
-    private function isAssigned(InvoiceTemplate $template): bool
+    private function isAssigned(FeeTemplate $template): bool
     {
-        return LedgerTransaction::query()
-            ->where('invoice_id', $template->id)
+        return CurriculumFeeAssignment::query()
+            ->where('fee_template_id', $template->id)
             ->exists();
     }
 
-    private function isLocked(InvoiceTemplate $template): bool
+    private function isLocked(FeeTemplate $template): bool
     {
         return (bool) $template->is_issued || $this->isAssigned($template);
     }
 
 
 }
-
-

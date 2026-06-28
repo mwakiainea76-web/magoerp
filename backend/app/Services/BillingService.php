@@ -4,14 +4,14 @@ namespace App\Services;
 
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
-use App\Models\CourseInvoiceTemplate;
-use App\Models\InvoiceAdjustment;
+use App\Models\CurriculumFeeAssignment;
+use App\Models\StudentFeeAdjustment;
 use App\Models\Hostel;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
-use App\Models\LedgerTransaction;
+use App\Models\InvoiceLineItem;
+use App\Models\StudentLedgerEntry;
 use App\Models\Payment;
-use App\Models\PaymentAllocation;
+use App\Models\InvoicePaymentAllocation;
 use App\Models\Student;
 use App\Models\SystemConfiguration;
 use Illuminate\Support\Facades\DB;
@@ -49,12 +49,12 @@ class BillingService
             $enrolment = $this->studentSessionEnrolment($student, $targetSession);
 
             $courseInvoiceTemplate = $invoiceTemplateId
-                ? CourseInvoiceTemplate::query()
-                    ->whereHas('invoiceTemplate', fn ($q) => $q->where('id', $invoiceTemplateId))
+                ? CurriculumFeeAssignment::query()
+                    ->whereHas('feeTemplate', fn ($q) => $q->where('id', $invoiceTemplateId))
                     ->where('course_curriculum_id', $courseCurriculumId)
-                    ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                    ->with(['feeTemplate.items' => fn ($query) => $query->where('is_active', true)])
                     ->first()
-                : CourseInvoiceTemplate::query()
+                : CurriculumFeeAssignment::query()
                     ->where('course_curriculum_id', $courseCurriculumId)
                     ->where('is_approved', true)
                     ->when($enrolment, function ($query, AcademicSessionEnrolment $enrolment) use ($billingPeriod) {
@@ -68,19 +68,19 @@ class BillingService
                         $query->where('academic_session_id', $targetSession->id)
                             ->orWhereNull('academic_session_id');
                     })
-                    ->with(['invoiceTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                    ->with(['feeTemplate.items' => fn ($query) => $query->where('is_active', true)])
                     ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
                     ->first();
 
-            if (!$courseInvoiceTemplate?->invoiceTemplate) {
+            if (!$courseInvoiceTemplate?->feeTemplate) {
                 throw ValidationException::withMessages([
-                    'invoice_template' => 'No invoice template assigned to this course.',
+                    'fee_template' => 'No fee template assigned to this course.',
                 ]);
             }
 
-            if ($courseInvoiceTemplate->invoiceTemplate->items->isEmpty()) {
+            if ($courseInvoiceTemplate->feeTemplate->items->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'invoice_template' => 'The assigned invoice template has no active fee components.',
+                    'fee_template' => 'The assigned fee template has no active fee components.',
                 ]);
             }
 
@@ -122,18 +122,18 @@ class BillingService
                 'created_by' => $createdBy,
             ]);
 
-            foreach ($courseInvoiceTemplate->invoiceTemplate->items as $item) {
-                InvoiceItem::create([
+            foreach ($courseInvoiceTemplate->feeTemplate->items as $item) {
+                InvoiceLineItem::create([
                     'invoice_id' => $invoice->id,
-                    'invoice_template_item_id' => $item->id,
+                    'fee_template_item_id' => $item->id,
                     'name' => $item->name,
                     'description' => $item->description,
                     'amount' => $item->amount,
                     'quantity' => 1,
                     'total_amount' => $item->amount,
                     'snapshot_data' => [
-                        'template_code' => $courseInvoiceTemplate->invoiceTemplate->code,
-                        'template_name' => $courseInvoiceTemplate->invoiceTemplate->name,
+                        'template_code' => $courseInvoiceTemplate->feeTemplate->code,
+                        'template_name' => $courseInvoiceTemplate->feeTemplate->name,
                         'item_name' => $item->name,
                         'item_amount' => $item->amount,
                         'item_description' => $item->description,
@@ -144,13 +144,13 @@ class BillingService
                 ]);
             }
 
-            if (!$courseInvoiceTemplate->invoiceTemplate->is_issued) {
-                $courseInvoiceTemplate->invoiceTemplate->update(['is_issued' => true]);
+            if (!$courseInvoiceTemplate->feeTemplate->is_issued) {
+                $courseInvoiceTemplate->feeTemplate->update(['is_issued' => true]);
             }
 
             $invoice->recalculateTotals();
 
-            LedgerTransaction::create([
+            StudentLedgerEntry::create([
                 'student_id' => $student->id,
                 'invoice_id' => $invoice->id,
                 'academic_session_id' => $targetSession->id,
@@ -158,7 +158,7 @@ class BillingService
                 'debit' => (float) $invoice->amount_due,
                 'credit' => 0,
                 'reference' => $invoice->invoice_number,
-                'description' => 'Invoice generated from invoice template.',
+                'description' => 'Invoice generated from fee template.',
                 'transaction_date' => now()->toDateString(),
                 'created_by' => $createdBy,
             ]);
@@ -208,7 +208,7 @@ class BillingService
             $allocationAmount = min($amount, max(0, $balanceDue));
 
             if ($allocationAmount > 0) {
-                PaymentAllocation::create([
+                InvoicePaymentAllocation::create([
                     'payment_id' => $payment->id,
                     'invoice_id' => $invoice->id,
                     'amount' => $allocationAmount,
@@ -217,7 +217,7 @@ class BillingService
 
                 $invoice->recalculateTotals();
 
-                LedgerTransaction::create([
+                StudentLedgerEntry::create([
                     'student_id' => $invoice->student_id,
                     'invoice_id' => $invoice->id,
                     'academic_session_id' => $invoice->academic_session_id,
@@ -253,7 +253,7 @@ class BillingService
                 'notes' => $notes,
             ]);
 
-            LedgerTransaction::create([
+            StudentLedgerEntry::create([
                 'student_id' => $student->id,
                 'type' => 'payment',
                 'debit' => 0,
@@ -268,14 +268,14 @@ class BillingService
         });
     }
 
-    public function applyAdjustment(Invoice $invoice, string $type, float $amount, int $createdBy, ?string $description = null): InvoiceAdjustment
+    public function applyAdjustment(Invoice $invoice, string $type, float $amount, int $createdBy, ?string $description = null): StudentFeeAdjustment
     {
         if ($amount <= 0) {
             throw ValidationException::withMessages(['amount' => 'Amount must be greater than zero.']);
         }
 
         return DB::transaction(function () use ($invoice, $type, $amount, $createdBy, $description) {
-            $adjustment = InvoiceAdjustment::create([
+            $adjustment = StudentFeeAdjustment::create([
                 'invoice_id' => $invoice->id,
                 'type' => $type,
                 'amount' => $amount,
@@ -288,7 +288,7 @@ class BillingService
 
             $isCredit = in_array($type, ['discount', 'waiver', 'bursary', 'helb', 'reversal']);
 
-            LedgerTransaction::create([
+            StudentLedgerEntry::create([
                 'student_id' => $invoice->student_id,
                 'invoice_id' => $invoice->id,
                 'academic_session_id' => $invoice->academic_session_id,
@@ -332,9 +332,9 @@ class BillingService
                 'created_by' => $createdBy,
             ]);
 
-            InvoiceItem::create([
+            InvoiceLineItem::create([
                 'invoice_id' => $invoice->id,
-                'invoice_template_item_id' => null,
+                'fee_template_item_id' => null,
                 'name' => "Hostel Accommodation - {$hostel->name}",
                 'amount' => (float) $hostel->session_fee_amount,
                 'quantity' => 1,
@@ -351,7 +351,7 @@ class BillingService
 
             $invoice->recalculateTotals();
 
-            LedgerTransaction::create([
+            StudentLedgerEntry::create([
                 'student_id' => $student->id,
                 'invoice_id' => $invoice->id,
                 'academic_session_id' => $targetSession->id,
@@ -385,14 +385,14 @@ class BillingService
             $available = $payment->unallocated_amount;
             $allocationAmount = min($remaining, $available);
 
-            PaymentAllocation::create([
+            InvoicePaymentAllocation::create([
                 'payment_id' => $payment->id,
                 'invoice_id' => $invoice->id,
                 'amount' => $allocationAmount,
                 'allocated_at' => now()->toDateString(),
             ]);
 
-            LedgerTransaction::create([
+            StudentLedgerEntry::create([
                 'student_id' => $invoice->student_id,
                 'invoice_id' => $invoice->id,
                 'academic_session_id' => $invoice->academic_session_id,
@@ -411,4 +411,3 @@ class BillingService
         }
     }
 }
-

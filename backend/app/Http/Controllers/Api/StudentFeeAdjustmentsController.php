@@ -8,7 +8,7 @@ use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class InvoiceAdjustmentsController extends Controller
+class StudentFeeAdjustmentsController extends Controller
 {
     public function __construct(
         protected BillingService $billingService

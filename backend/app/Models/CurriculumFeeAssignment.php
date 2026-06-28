@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class CourseInvoiceTemplate extends Model
+class CurriculumFeeAssignment extends Model
 {
     use HasUuids;
 
-    protected $table = 'course_curriculum_invoice_template';
+    protected $table = 'curriculum_fee_assignments';
 
     protected $keyType = 'string';
 
@@ -18,7 +18,7 @@ class CourseInvoiceTemplate extends Model
 
     protected $fillable = [
         'course_curriculum_id',
-        'invoice_template_id',
+        'fee_template_id',
         'academic_session_id',
         'year_level',
         'session_number',
@@ -42,9 +42,9 @@ class CourseInvoiceTemplate extends Model
         return $this->belongsTo(CourseCurriculum::class);
     }
 
-    public function invoiceTemplate(): BelongsTo
+    public function feeTemplate(): BelongsTo
     {
-        return $this->belongsTo(InvoiceTemplate::class, 'invoice_template_id');
+        return $this->belongsTo(FeeTemplate::class, 'fee_template_id');
     }
 
     public function academicSession(): BelongsTo

@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
-use App\Models\CourseInvoiceTemplate;
+use App\Models\CurriculumFeeAssignment;
+use App\Models\FeeTemplate;
 use App\Models\Invoice;
-use App\Models\InvoiceTemplate;
 use App\Models\Student;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
@@ -96,27 +96,27 @@ class InvoicesController extends Controller
             return response()->json(['data' => []], 200);
         }
 
-        $templates = CourseInvoiceTemplate::query()
+        $templates = CurriculumFeeAssignment::query()
             ->where('course_curriculum_id', $courseCurriculumId)
             ->where('is_approved', true)
-            ->whereHas('invoiceTemplate', fn ($q) => $q->where('is_active', true))
-            ->with(['invoiceTemplate' => function ($q) {
+            ->whereHas('feeTemplate', fn ($q) => $q->where('is_active', true))
+            ->with(['feeTemplate' => function ($q) {
                 $q->where('is_active', true)
                     ->with(['activeItems' => function ($q) {
                         $q->where('amount', '>', 0);
                     }]);
             }])
             ->get()
-            ->filter(fn ($cit) => $cit->invoiceTemplate && $cit->invoiceTemplate->activeItems->isNotEmpty())
+            ->filter(fn ($cit) => $cit->feeTemplate && $cit->feeTemplate->activeItems->isNotEmpty())
             ->values()
             ->map(fn ($cit) => [
                 'id' => $cit->id,
-                'invoice_template_id' => $cit->invoiceTemplate->id,
-                'template_code' => $cit->invoiceTemplate->code,
-                'template_name' => $cit->invoiceTemplate->name,
+                'fee_template_id' => $cit->feeTemplate->id,
+                'template_code' => $cit->feeTemplate->code,
+                'template_name' => $cit->feeTemplate->name,
                 'year_level' => $cit->year_level,
                 'session_number' => $cit->session_number,
-                'total_amount' => (float) $cit->invoiceTemplate->activeItems->sum('amount'),
+                'total_amount' => (float) $cit->feeTemplate->activeItems->sum('amount'),
             ]);
 
         return response()->json(['data' => $templates], 200);
@@ -128,7 +128,7 @@ class InvoicesController extends Controller
 
         $validated = $request->validate([
             'student_id' => ['required', 'string', 'exists:students,id'],
-            'invoice_template_id' => ['nullable', 'string', 'exists:invoice_templates,id'],
+            'fee_template_id' => ['nullable', 'string', 'exists:fee_templates,id'],
         ]);
 
         $student = Student::findOrFail($validated['student_id']);
@@ -138,7 +138,7 @@ class InvoicesController extends Controller
                 $student,
                 $request->user()?->id,
                 null,
-                $validated['invoice_template_id'] ?? null,
+                $validated['fee_template_id'] ?? null,
             );
         } catch (ValidationException $e) {
             return response()->json([
@@ -191,8 +191,8 @@ class InvoicesController extends Controller
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
-            ->selectRaw('COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
+            ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
+            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
 
         $invoices = $baseQuery->get();
         $outstanding = (float) $invoices->sum('balance_due');
@@ -252,7 +252,7 @@ class InvoicesController extends Controller
                 'description' => $adj->description,
                 'applied_at' => $adj->applied_at?->format('Y-m-d'),
             ])->values()->all(),
-            'payment_allocations' => $invoice->paymentAllocations->map(fn ($pa) => [
+            'invoice_payment_allocations' => $invoice->paymentAllocations->map(fn ($pa) => [
                 'id' => $pa->id,
                 'amount' => (float) $pa->amount,
                 'payment_date' => $pa->payment?->payment_date?->format('Y-m-d'),

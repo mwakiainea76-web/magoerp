@@ -7,15 +7,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class InvoiceItem extends Model
+class InvoiceLineItem extends Model
 {
     use HasFactory, HasUuids;
 
-    protected $table = 'invoice_items';
+    protected $table = 'invoice_line_items';
 
     protected $fillable = [
         'invoice_id',
-        'invoice_template_item_id',
+        'fee_template_item_id',
         'name',
         'description',
         'amount',
@@ -39,8 +39,8 @@ class InvoiceItem extends Model
         return $this->belongsTo(Invoice::class);
     }
 
-    public function invoiceTemplateItem(): BelongsTo
+    public function feeTemplateItem(): BelongsTo
     {
-        return $this->belongsTo(InvoiceTemplateItem::class);
+        return $this->belongsTo(FeeTemplateItem::class, 'fee_template_item_id');
     }
 }

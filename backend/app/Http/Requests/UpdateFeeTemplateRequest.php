@@ -2,11 +2,11 @@
 
 namespace App\Http\Requests;
 
-use App\Models\InvoiceTemplate;
+use App\Models\FeeTemplate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateInvoiceTemplateRequest extends FormRequest
+class UpdateFeeTemplateRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,15 +15,15 @@ class UpdateInvoiceTemplateRequest extends FormRequest
 
     public function rules(): array
     {
-        /** @var InvoiceTemplate|null $template */
-        $template = $this->route('invoice_template');
+        /** @var FeeTemplate|null $template */
+        $template = $this->route('fee_template');
 
         return [
             'code' => [
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('invoice_templates', 'code')->ignore($template?->id),
+                Rule::unique('fee_templates', 'code')->ignore($template?->id),
             ],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],

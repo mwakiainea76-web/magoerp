@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class StudentAccount extends Model
+class StudentAccountBalance extends Model
 {
     use HasFactory, HasUuids;
+
+    protected $table = 'student_account_balances';
 
     protected $fillable = [
         'student_id',

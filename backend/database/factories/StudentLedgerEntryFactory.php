@@ -4,14 +4,14 @@ namespace Database\Factories;
 
 use App\Models\AcademicSession;
 use App\Models\Invoice;
-use App\Models\LedgerTransaction;
+use App\Models\StudentLedgerEntry;
 use App\Models\Payment;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class LedgerTransactionFactory extends Factory
+class StudentLedgerEntryFactory extends Factory
 {
-    protected $model = LedgerTransaction::class;
+    protected $model = StudentLedgerEntry::class;
 
     public function definition(): array
     {
