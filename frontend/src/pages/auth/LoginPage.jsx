@@ -1,9 +1,9 @@
-﻿import { yupResolver } from "@hookform/resolvers/yup";
+import { yupResolver } from "@hookform/resolvers/yup";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
-import * as yup from "yup";
 import { Eye, EyeOff } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import * as yup from "yup";
 
 import logo from "@/assets/logo.PNG";
 import { FormButton } from "@/components/FormButton";
@@ -22,7 +22,10 @@ const loginSchema = yup.object({
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuthApi();
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
   const setAuth = useAuthStore((state) => state.setAuth);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +38,14 @@ export function LoginPage() {
     resolver: yupResolver(loginSchema),
     defaultValues: { username: "", password: "" },
   });
+
+  if (token && user) {
+    const nextPath = user.must_reset_password
+      ? "/reset-password"
+      : location.state?.from?.pathname ?? getDashboardPath(user.role);
+
+    return <Navigate to={nextPath} replace />;
+  }
 
   async function onSubmit(data) {
     setIsLoading(true);
@@ -50,16 +61,19 @@ export function LoginPage() {
         user: payload.user,
       });
 
-      navigate(getDashboardPath(payload.user?.role), {
-        replace: true,
-      });
+      navigate(
+        payload.user?.must_reset_password
+          ? "/reset-password"
+          : location.state?.from?.pathname ?? getDashboardPath(payload.user?.role),
+        { replace: true },
+      );
     } catch (error) {
       const statusCode = error?.response?.status;
       const message =
         statusCode === 403
           ? "Your account is disabled. Contact administrator."
           : statusCode
-            ? "Invalid credentials."
+            ? error?.response?.data?.message ?? "Invalid credentials."
             : "Server error.";
 
       setError("root", {
@@ -121,7 +135,7 @@ export function LoginPage() {
             </div>
           )}
           <FormButton
-            className="w-full mt-4"
+            className="mt-4 w-full"
             type="submit"
             disabled={isLoading}
           >

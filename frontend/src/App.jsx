@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 
 import { AppLayout } from "@/layouts/AppLayout";
@@ -10,6 +10,9 @@ import { useAuthStore } from "@/store/authStore";
 
 const LoginPage = lazy(() =>
   import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })),
+);
+const ResetPasswordPage = lazy(() =>
+  import("@/pages/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })),
 );
 
 function PageLoader() {
@@ -46,6 +49,7 @@ function App() {
 
         <Route element={<RequireAuth />}>
           <Route element={<AppLayout />}>
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/forbidden" element={<ForbiddenPage />} />
             {roleRoutes}
           </Route>

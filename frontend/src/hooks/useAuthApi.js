@@ -23,6 +23,15 @@ export function useAuthApi() {
 
         return response.data;
       },
+      changePassword: async ({ currentPassword, password, passwordConfirmation }) => {
+        const response = await authClient.post("/change-password", {
+          current_password: currentPassword,
+          password,
+          password_confirmation: passwordConfirmation,
+        });
+
+        return response.data;
+      },
     }),
     [],
   );

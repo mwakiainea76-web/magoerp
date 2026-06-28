@@ -1,4 +1,4 @@
-﻿import { Route } from "react-router";
+import { Route } from "react-router";
 
 import { AccessRoleFormPage } from "@/pages/access/AccessRoleFormPage";
 import { StudentStatusLogsPage } from "@/pages/enrolments/StudentStatusLogsPage";
@@ -13,8 +13,8 @@ import { SessionEnrolmentsPage } from "@/pages/academicCalendar/SessionEnrolment
 import { AcademicYearsPage } from "@/pages/academicCalendar/AcademicYearsPage";
 import { CertificationAuthoritiesPage } from "@/pages/certificationAuthorities/CertificationAuthoritiesPage";
 import { CertificationAuthorityFormPage } from "@/pages/certificationAuthorities/CertificationAuthorityFormPage";
-import { CertificationLevelFormPage } from "@/pages/certificationLevels/CertificationLevelFormPage";
-import { CertificationLevelsPage } from "@/pages/certificationLevels/CertificationLevelsPage";
+import { CertificationLevelFormPage } from "@/pages/certificationAuthorities/CertificationLevelFormPage";
+import { CertificationLevelsPage } from "@/pages/certificationAuthorities/CertificationLevelsPage";
 import { CourseFormPage } from "@/pages/courses/CourseFormPage";
 import { CourseEnrolmentsPage } from "@/pages/courses/CourseEnrolmentsPage";
 import { CoursesPage } from "@/pages/courses/CoursesPage";

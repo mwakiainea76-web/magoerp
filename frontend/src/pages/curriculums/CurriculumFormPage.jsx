@@ -11,6 +11,7 @@ import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { useCurriculumsApi } from "@/hooks/useCurriculumsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
+import { getApiErrorMessage } from "@/lib/api/authClient";
 import { bodyTextClassName, labelClassName, inputTextClassName, fieldClassName, textAreaClassName } from "@/lib/styles";
 
 const curriculumSchema = yup.object({

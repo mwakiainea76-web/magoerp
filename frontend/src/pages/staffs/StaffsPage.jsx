@@ -15,13 +15,16 @@ import {
   TableFooter,
 } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { LookupSelect } from "@/components/LookupSelect";
+import { bodyTextClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
+import { useLookupApi } from "@/hooks/useLookupApi";
 import { useStaffsApi } from "@/hooks/useStaffsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 export function StaffsPage() {
   const staffsApi = useStaffsApi();
+  const lookupApi = useLookupApi();
   const [staffs, setStaffs] = useState([]);
   const [meta, setMeta] = useState(initialMeta);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +32,7 @@ export function StaffsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [searchInput, setSearchInput] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState(null);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDirection, setSortDirection] = useState("desc");
@@ -74,6 +77,15 @@ export function StaffsPage() {
     };
   }, [staffsApi, page, perPage, query, reloadKey, sortBy, sortDirection]);
 
+  async function fetchStaffOptions(queryText) {
+    const response = await lookupApi.search("staffs", {
+      query: queryText,
+      limit: 5,
+    });
+
+    return response.data ?? [];
+  }
+
   async function handleDelete(staff) {
     const confirmed = window.confirm(`Delete ${staff.employee_number} (${staff.full_name})?`);
 
@@ -104,11 +116,11 @@ export function StaffsPage() {
   function handleFilterSubmit(event) {
     event.preventDefault();
     setPage(1);
-    setQuery(searchInput.trim());
+    setQuery(selectedStaff?.label?.trim() ?? "");
   }
 
   function handleResetFilters() {
-    setSearchInput("");
+    setSelectedStaff(null);
     setQuery("");
     setSortBy("created_at");
     setSortDirection("desc");
@@ -141,20 +153,15 @@ export function StaffsPage() {
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_auto] xl:items-end">
-          <div>
-            <label
-              className={`mb-2 block text-slate-600 ${labelTextClassName}`}
-            >
-              Search
-            </label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              className={inputClassName}
-              placeholder="Search by employee #, name, or job title"
-            />
-          </div>
+          <LookupSelect
+            label="Search"
+            value={selectedStaff?.id ?? ""}
+            selectedOption={selectedStaff}
+            onChange={(_, option) => setSelectedStaff(option)}
+            fetchOptions={fetchStaffOptions}
+            placeholder="Search by employee number or staff name"
+            emptyMessage="No staff found."
+          />
 
           <div className="flex gap-3 xl:justify-end">
             <FormButton type="submit" className="w-full sm:w-auto">

@@ -15,12 +15,16 @@ import {
   TableFooter,
 } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { LookupSelect } from "@/components/LookupSelect";
+import { bodyTextClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useDepartmentsApi } from "@/hooks/useDepartmentsApi";
+import { useLookupApi } from "@/hooks/useLookupApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
+
 export function DepartmentsPage() {
   const departmentsApi = useDepartmentsApi();
+  const lookupApi = useLookupApi();
   const [departments, setDepartments] = useState([]);
   const [meta, setMeta] = useState(initialMeta);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,7 +32,7 @@ export function DepartmentsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [searchInput, setSearchInput] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDirection, setSortDirection] = useState("desc");
@@ -73,6 +77,15 @@ export function DepartmentsPage() {
     };
   }, [departmentsApi, page, perPage, query, reloadKey, sortBy, sortDirection]);
 
+  async function fetchDepartmentOptions(queryText) {
+    const response = await lookupApi.search("departments", {
+      query: queryText,
+      limit: 5,
+    });
+
+    return response.data ?? [];
+  }
+
   async function handleDelete(department) {
     const confirmed = window.confirm(`Delete ${department.name}?`);
 
@@ -103,11 +116,11 @@ export function DepartmentsPage() {
   function handleFilterSubmit(event) {
     event.preventDefault();
     setPage(1);
-    setQuery(searchInput.trim());
+    setQuery(selectedDepartment?.label?.trim() ?? "");
   }
 
   function handleResetFilters() {
-    setSearchInput("");
+    setSelectedDepartment(null);
     setQuery("");
     setSortBy("created_at");
     setSortDirection("desc");
@@ -139,21 +152,16 @@ export function DepartmentsPage() {
         onSubmit={handleFilterSubmit}
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_auto] xl:items-end">
-          <div>
-            <label
-              className={`mb-2 block text-slate-600 ${labelTextClassName}`}
-            >
-              Search
-            </label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              className={inputClassName}
-              placeholder="Search by code, name, description, or HOD"
-            />
-          </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_auto] xl:items-end">
+          <LookupSelect
+            label="Search"
+            value={selectedDepartment?.id ?? ""}
+            selectedOption={selectedDepartment}
+            onChange={(_, option) => setSelectedDepartment(option)}
+            fetchOptions={fetchDepartmentOptions}
+            placeholder="Search by department code or name"
+            emptyMessage="No department found."
+          />
 
           <div className="flex gap-3 xl:justify-end">
             <FormButton type="submit" className="w-full sm:w-auto">
@@ -201,9 +209,7 @@ export function DepartmentsPage() {
                 <Th className="w-10 text-center">#</Th>
                 <SortableTh sortKey="code" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Code</SortableTh>
                 <SortableTh sortKey="name" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Name</SortableTh>
-                <Th>Head of Department</Th>
-                <Th>Description</Th>
-                <Th className="text-right">Actions</Th>
+                <Th>Head of Department</Th>                <Th className="text-right">Actions</Th>
               </tr>
             </Thead>
             <Tbody>
@@ -219,9 +225,7 @@ export function DepartmentsPage() {
                       ? `${department.head_of_department_name}${department.head_of_department_employee_number ? ` (${department.head_of_department_employee_number})` : ""}`
                       : "Not assigned"}
                   </Td>
-                  <Td className="max-w-md">
-                    {department.description || "No description"}
-                  </Td>
+
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link

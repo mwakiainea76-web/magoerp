@@ -46,12 +46,17 @@ function writeStoredAuth(token, user) {
 
 const initialAuth = readStoredAuth();
 
-export const useAuthStore = create((set) => ({
+export const useAuthStore = create((set, get) => ({
   token: initialAuth.token,
   user: initialAuth.user,
   setAuth: ({ token, user }) => {
     writeStoredAuth(token, user);
     set({ token, user });
+  },
+  updateUser: (user) => {
+    const token = get().token;
+    writeStoredAuth(token, user);
+    set({ user });
   },
   clearAuth: () => {
     writeStoredAuth(null, null);

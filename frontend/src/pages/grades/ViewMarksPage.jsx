@@ -182,7 +182,7 @@ export function ViewMarksPage() {
     const typeData = student.types[assType];
     if (!typeData) return "-";
     const mark = typeData.marks[`${assType}_${assNum}`];
-    return mark ? mark.marks ?? mark.score : "-";
+    return mark ? mark.score ?? mark.marks : "-";
   }
 
   function getMarkIdForStudent(studentId, typeKey) {
