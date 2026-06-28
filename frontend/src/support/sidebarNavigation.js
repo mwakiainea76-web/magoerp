@@ -123,8 +123,8 @@ export const sidebarNavigationByRole = {
       children: [
         { label: "Billing", to: "/finance/billing" },
         { label: "Financial Ledger", to: "/finance/ledger" },
-        { label: "Invoice Templates", to: "/finance/invoice-templates" },
-        { label: "Add Template", to: "/finance/invoice-templates/create" },
+        { label: "Fee Templates", to: "/finance/fee-templates" },
+        { label: "Add Template", to: "/finance/fee-templates/create" },
       ],
     },
     {

@@ -17,7 +17,7 @@ export function useInvoicesApi() {
         return response.data;
       },
       availableTemplates: async (studentId) => {
-        const response = await authClient.get(`/students/${studentId}/invoice-templates`);
+        const response = await authClient.get(`/students/${studentId}/fee-templates`);
         return response.data;
       },
     }),

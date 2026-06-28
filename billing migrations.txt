@@ -1,0 +1,192 @@
+
+You are a Principal Software Architect with 20+ years of experience designing Student Information Systems, University ERP platforms, and double-entry Accounting engines. You have deep expertise in Laravel 12, PostgreSQL, and React (decoupled SPA via REST API — not Inertia.js).
+
+Context
+I am building a School Management System using:
+
+Backend: Laravel 12, PostgreSQL
+Frontend: React (decoupled SPA consuming a REST API)
+Architecture: API-first — Laravel serves JSON, React consumes it
+
+I have designed a Student Finance module from scratch. I am attaching two reference documents:
+
+My current Laravel migration — the starting point, not a rewrite candidate
+A real university fee statement from Kisii University — the business contract this system must fulfill
+
+Before I write a single line of application code, I want a full architecture review to catch anything I have missed, anything that is wrong, and anything that will cause pain later.
+
+Domain Vocabulary
+Adopt this naming convention throughout your review. Names are business-driven, not implementation-driven:
+Current NameBusiness Nameinvoice_templatesfee_templatesinvoice_template_itemsfee_template_itemscourse_curriculum_invoice_templatecurriculum_fee_assignmentsinvoicesinvoicesinvoice_itemsinvoice_line_itemspayment_allocationsinvoice_payment_allocationsinvoice_adjustmentsstudent_fee_adjustmentsledger_transactionsstudent_ledger_entriesstudent_accountsstudent_account_balances
+Critical distinction: A Fee Template is never an invoice. It is a reusable fee configuration that exists before any student is billed. The word invoice must only appear once a specific student owes money.
+
+Established Business Rules
+These are confirmed and must not be broken:
+Fee Templates
+- Configuration only — never an invoice
+- is_issued flips to true on first student billing — permanently locks
+  the template and all its items as read-only
+- The lock is the audit mechanism — no snapshotting needed
+- Changing fees = create a new template, never edit an issued one
+- Types:
+    fees          → semester charges, goes through curriculum_fee_assignments
+    hostel        → issued on bed allocation
+    exam          → special or retake exam charges
+    penalty       → late payment, disciplinary
+    fine          → library, damage, other
+    miscellaneous → any other one-off charge
+Curriculum Fee Assignments
+- Maps fee template → course curriculum + academic session + year level + session number
+- Must be approved before invoice generation is permitted
+- UNIQUE (course_curriculum_id, academic_session_id, year_level, session_number)
+  prevents double-billing
+- Only structured semester fees go through this table
+- Hostel, penalty, exam, fine templates skip this table
+  and are issued directly to the student
+Invoices
+- Student-facing billing document, generated from a fee template
+- invoice_line_items are copied from locked fee template items at generation time
+- invoice_template_id stored on invoice — every invoice traces to its template
+- invoice_type inherited from fee_template.type
+- Status lifecycle: issued → partial → paid (also waived, cancelled)
+- No orphan invoices — every invoice must originate from a fee template
+Payments
+- student_id is never nullable — every payment belongs to a student
+- method:      KCB | MPESA | HELB | CDF | COUNTY | SCHOLARSHIP | EMPLOYER | NATIONAL_BANK
+- reference:   bank/provider transaction ref  e.g. 184812, H100500
+- description: full human-readable source shown on fee statement
+               e.g. "HELB LOAN, REC NO 321648; BATCH NO 002833"
+- idempotency_key prevents duplicate recording on retry
+FIFO Payment Allocation
+- BillingService receives payment amount
+- Automatically allocates to outstanding invoices oldest first (issue_date ASC)
+- Student never chooses which invoice to pay
+- One payment → many invoices
+- One invoice → many payments
+- Overpayment sits as unallocated credit on the ledger
+- Consumed automatically when next invoice is issued to that student
+- invoice_payment_allocations managed entirely by BillingService
+Student Fee Adjustments
+- Corrections and reversals to existing invoices only
+- type: debit (additional charge) | credit (waiver, reversal)
+- reference stored e.g. SIA114077 — shown on fee statement
+- Must never modify an existing invoice — new financial event only
+- soft_deletes — adjustments must never disappear from audit trail
+- New charges (hostel, penalty, exam) are invoices, NOT adjustments
+Student Ledger Entries
+- Immutable financial source of truth
+- Every financial event writes exactly one entry — never edited, never deleted
+- No soft_deletes — the ledger cannot have hidden entries
+- Corrections via new reversal entries only
+- type: invoice (debit) | payment (credit) | adjustment (debit or credit)
+- reference copied from source:
+    invoice_number              when type = invoice
+    payments.reference          when type = payment
+    adjustments.reference       when type = adjustment
+- description = human-readable text for Description column on fee statement
+- Running balance = SUM(credit) - SUM(debit) ordered by transaction_date
+- Grouped by academic_session_id for semester sections on fee statement
+Student Account Balances
+- Cached summary of ledger per student per session
+- Never the source of truth
+- Always recomputable from student_ledger_entries
+- Reconciled nightly against the ledger
+Who Hits What
+"What do I owe this semester?"  → invoices + invoice_line_items
+"Show my fee statement"         → student_ledger_entries
+"What is my balance?"           → student_account_balances (cache)
+"Make a payment"                → BillingService → payments → FIFO → invoice_payment_allocations
+"Finance report"                → student_ledger_entries
+
+Confirmed Constraints
+sql-- invoice_payment_allocations
+CHECK (amount > 0)
+
+-- student_ledger_entries
+CHECK (debit >= 0)
+CHECK (credit >= 0)
+CHECK (debit > 0 OR credit > 0)
+
+-- invoice_line_items
+CHECK (total_amount = amount * quantity)
+
+-- curriculum_fee_assignments
+UNIQUE (course_curriculum_id, academic_session_id, year_level, session_number)
+
+What I Want From You
+I have not written any application code yet. Before I begin, I want you to catch everything I have missed. Review the migration against the following:
+1. Missing tables
+
+Are there any tables I need that I have not created? Think about:
+
+Reversal tracking on the ledger
+Payment method breakdown (e.g. one student payment funded by HELB + CDF + bank)
+Sponsor/funding body management (HELB, CDF, county, employer)
+Fee waiver approval workflow
+Invoice cancellation audit
+Any other table a production university finance system requires
+
+2. Missing columns
+
+Go through every table and identify columns that are absent but required for:
+
+The fee statement output shown in the reference PDF
+Accounting correctness
+Auditability
+Future reporting
+
+3. Wrong delete rules
+
+Review every foreign key and determine whether cascadeOnDelete, restrictOnDelete, or nullOnDelete is correct for that relationship given the business rules above.
+4. Missing constraints
+
+Beyond what is already confirmed, what CHECK, UNIQUE, or NOT NULL constraints are missing?
+5. Missing indexes
+
+What indexes are missing for queries that will run frequently in a university finance system?
+6. Wrong responsibilities
+
+Does any table mix two business responsibilities that should be separated?
+7. Business rules — DB vs Laravel
+
+For each business rule:
+
+State whether it should be enforced at DB level, Laravel level, or both
+State what happens if it is not enforced and a bug bypasses it
+
+8. Accounting correctness
+
+Is double-entry accounting correctly represented?
+Can the ledger produce a correct trial balance?
+Can the system handle overpayments, credit carry-forward, and partial payments correctly?
+Is there any scenario where the ledger and the invoices can go out of sync?
+
+9. Scalability
+
+At 10,000 students with 6 semesters of history each, what queries will be slow?
+What partitioning or archiving strategy would you recommend for the ledger?
+
+10. Anything else
+
+Flag anything else that would block a production go-live or cause a finance audit failure.
+
+Output Format
+Structure your response as:
+1. MISSING TABLES        — tables I need but don't have
+2. MISSING COLUMNS       — per table, what is absent
+3. WRONG DELETE RULES    — per foreign key, what is wrong and why
+4. MISSING CONSTRAINTS   — CHECK, UNIQUE, NOT NULL gaps
+5. MISSING INDEXES       — queries that will be slow
+6. WRONG RESPONSIBILITIES — mixed concerns
+7. DB vs LARAVEL RULES   — enforcement layer per rule
+8. ACCOUNTING CORRECTNESS — gaps in double-entry model
+9. SCALABILITY           — performance risks at scale
+10. PRODUCTION BLOCKERS  — anything else before go-live
+For every finding state:
+
+What is wrong or missing
+Why it matters
+What the fix is
+What breaks at runtime or audit time if it is not fixed
+
+Do not optimize for fewer tables. Optimize for accounting correctness, auditability, and long-term ERP quality.

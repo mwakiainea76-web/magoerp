@@ -19,15 +19,15 @@ import {
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
-import { useInvoiceTemplateItemsApi } from "@/hooks/useInvoiceTemplateItemsApi";
-import { useInvoiceTemplatesApi } from "@/hooks/useInvoiceTemplatesApi";
+import { useFeeTemplateItemsApi } from "@/hooks/useFeeTemplateItemsApi";
+import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 import {
-  defaultInvoiceTemplateItemValues,
-  InvoiceTemplateItemForm,
-  invoiceTemplateItemSchema,
-  normalizeInvoiceTemplateItemPayload,
-} from "@/pages/invoiceTemplates/InvoiceTemplateItemForm";
+  defaultFeeTemplateItemValues,
+  FeeTemplateItemForm,
+  feeTemplateItemSchema,
+  normalizeFeeTemplateItemPayload,
+} from "@/pages/feeTemplates/FeeTemplateItemForm";
 
 function formatCurrency(amount) {
   return `Ksh ${Number(amount || 0).toLocaleString(undefined, {
@@ -36,9 +36,9 @@ function formatCurrency(amount) {
   })}`;
 }
 
-export function InvoiceTemplateItemsPage() {
-  const itemsApi = useInvoiceTemplateItemsApi();
-  const templatesApi = useInvoiceTemplatesApi();
+export function FeeTemplateItemsPage() {
+  const itemsApi = useFeeTemplateItemsApi();
+  const templatesApi = useFeeTemplatesApi();
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get("templateId") ?? "";
 
@@ -66,8 +66,8 @@ export function InvoiceTemplateItemsPage() {
     setError: setFormFieldError,
     formState: { errors },
   } = useForm({
-    resolver: yupResolver(invoiceTemplateItemSchema),
-    defaultValues: defaultInvoiceTemplateItemValues,
+    resolver: yupResolver(feeTemplateItemSchema),
+    defaultValues: defaultFeeTemplateItemValues,
   });
 
   useEffect(() => {
@@ -116,7 +116,7 @@ export function InvoiceTemplateItemsPage() {
 
       try {
         const response = await itemsApi.list({
-          invoice_template_id: templateId,
+          fee_template_id: templateId,
           page,
           per_page: perPage,
         });
@@ -165,7 +165,7 @@ export function InvoiceTemplateItemsPage() {
     setEditingItemId(null);
     setEditingItem(null);
     setFormError("");
-    reset(defaultInvoiceTemplateItemValues);
+    reset(defaultFeeTemplateItemValues);
     setIsFormLoading(false);
     setIsFormModalOpen(true);
   }
@@ -202,12 +202,12 @@ export function InvoiceTemplateItemsPage() {
     setEditingItem(null);
     setFormError("");
     setIsFormLoading(false);
-    reset(defaultInvoiceTemplateItemValues);
+    reset(defaultFeeTemplateItemValues);
   }
 
   async function onSubmitForm(data) {
     if (!templateId) {
-      setFormError("Choose an invoice template first before adding a component.");
+      setFormError("Choose a fee template first before adding a component.");
       return;
     }
 
@@ -215,7 +215,7 @@ export function InvoiceTemplateItemsPage() {
     setFormError("");
 
     try {
-      const payload = normalizeInvoiceTemplateItemPayload(data, templateId);
+      const payload = normalizeFeeTemplateItemPayload(data, templateId);
 
       if (editingItemId) {
         await itemsApi.update(editingItemId, payload);
@@ -229,7 +229,7 @@ export function InvoiceTemplateItemsPage() {
       setEditingItemId(null);
       setEditingItem(null);
       setIsFormLoading(false);
-      reset(defaultInvoiceTemplateItemValues);
+      reset(defaultFeeTemplateItemValues);
       setPage(1);
       setReloadKey((current) => current + 1);
     } catch (saveError) {
@@ -253,13 +253,13 @@ export function InvoiceTemplateItemsPage() {
   const modalTitle = isEditing ? "Edit Fee Component" : "Add Fee Component";
   const modalDescription = selectedTemplate?.name
     ? `${isEditing ? "Update" : "Create"} a fee component for ${selectedTemplate.name}.`
-    : `${isEditing ? "Update" : "Create"} a fee component for this invoice template.`;
+    : `${isEditing ? "Update" : "Create"} a fee component for this fee template.`;
 
   const summaryTitle = isLoadingTemplate
-    ? "Loading invoice template..."
+    ? "Loading fee template..."
     : selectedTemplate?.name
-      ? `Invoice Template: ${selectedTemplate.name}`
-      : "Invoice Template Items";
+      ? `Fee Template: ${selectedTemplate.name}`
+      : "Fee Template Items";
 
   const summaryMeta = useMemo(() => {
     const totalItems = selectedTemplate?.items_count ?? meta.total ?? 0;
@@ -269,7 +269,7 @@ export function InvoiceTemplateItemsPage() {
 
   const templateField = (
     <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-[14px] text-emerald-800">
-      <span className="font-medium text-emerald-900">Invoice Template:</span>{" "}
+      <span className="font-medium text-emerald-900">Fee Template:</span>{" "}
       {selectedTemplate?.name ?? "Selected template"}
     </div>
   );
@@ -306,13 +306,13 @@ export function InvoiceTemplateItemsPage() {
       <Table>
         <TableHeader>
           <h2 className="text-[1.0625rem] font-semibold text-slate-900">
-            Invoice Template Items
+            Fee Template Items
           </h2>
         </TableHeader>
 
         {isLoading ? (
           <div className={`px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
-            Loading invoice template items...
+            Loading fee template items...
           </div>
         ) : (
           <>
@@ -332,7 +332,7 @@ export function InvoiceTemplateItemsPage() {
                       className={`px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
                       colSpan={4}
                     >
-                      No invoice template items found
+                      No fee template items found
                     </Td>
                   </tr>
                 ) : (
@@ -407,8 +407,8 @@ export function InvoiceTemplateItemsPage() {
         size="lg"
       >
         <ModalBody>
-          <InvoiceTemplateItemForm
-            formId="invoice-template-item-form"
+          <FeeTemplateItemForm
+            formId="fee-template-item-form"
             onSubmit={handleSubmit(onSubmitForm)}
             register={register}
             errors={errors}
@@ -429,7 +429,7 @@ export function InvoiceTemplateItemsPage() {
           </FormButton>
           <FormButton
             type="submit"
-            form="invoice-template-item-form"
+            form="fee-template-item-form"
             disabled={isSaving || isFormLoading}
           >
             {isSaving
@@ -444,4 +444,4 @@ export function InvoiceTemplateItemsPage() {
   );
 }
 
-export default InvoiceTemplateItemsPage;
+export default FeeTemplateItemsPage;

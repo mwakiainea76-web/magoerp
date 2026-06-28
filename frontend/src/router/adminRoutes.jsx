@@ -24,10 +24,11 @@ import { CurriculumsPage } from "@/pages/curriculums/CurriculumsPage";
 import { DepartmentFormPage } from "@/pages/departments/DepartmentFormPage";
 import { DepartmentsPage } from "@/pages/departments/DepartmentsPage";
 import { BillingPage } from "@/pages/finance/BillingPage";
-import { InvoiceTemplateAssignmentsPage } from "@/pages/invoiceTemplates/InvoiceTemplateAssignmentsPage";
-import { InvoiceTemplateFormPage } from "@/pages/invoiceTemplates/InvoiceTemplateFormPage";
-import { InvoiceTemplateItemsPage } from "@/pages/invoiceTemplates/InvoiceTemplateItemsPage";
-import { InvoiceTemplatesPage } from "@/pages/invoiceTemplates/InvoiceTemplatesPage";
+import { LedgerPage } from "@/pages/finance/LedgerPage";
+import { FeeTemplateAssignmentsPage } from "@/pages/feeTemplates/FeeTemplateAssignmentsPage";
+import { FeeTemplateFormPage } from "@/pages/feeTemplates/FeeTemplateFormPage";
+import { FeeTemplateItemsPage } from "@/pages/feeTemplates/FeeTemplateItemsPage";
+import { FeeTemplatesPage } from "@/pages/feeTemplates/FeeTemplatesPage";
 import { AdminComplaintDetailPage } from "@/pages/complaints/AdminComplaintDetailPage";
 import { AdminComplaintsPage } from "@/pages/complaints/AdminComplaintsPage";
 import { HostelAllocationsPage } from "@/pages/hostels/HostelAllocationsPage";
@@ -85,11 +86,12 @@ export function AdminRoutes() {
       <Route path="/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
       <Route path="/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
       <Route path="/finance/billing" element={<BillingPage />} />
-      <Route path="/finance/invoice-templates" element={<InvoiceTemplatesPage />} />
-      <Route path="/finance/invoice-templates/create" element={<InvoiceTemplateFormPage />} />
-      <Route path="/finance/invoice-templates/:templateId/edit" element={<InvoiceTemplateFormPage />} />
-      <Route path="/finance/invoice-templates/:templateId/assign" element={<InvoiceTemplateAssignmentsPage />} />
-      <Route path="/finance/invoice-templates/items" element={<InvoiceTemplateItemsPage />} />
+      <Route path="/finance/ledger" element={<LedgerPage />} />
+      <Route path="/finance/fee-templates" element={<FeeTemplatesPage />} />
+      <Route path="/finance/fee-templates/create" element={<FeeTemplateFormPage />} />
+      <Route path="/finance/fee-templates/:templateId/edit" element={<FeeTemplateFormPage />} />
+      <Route path="/finance/fee-templates/:templateId/assign" element={<FeeTemplateAssignmentsPage />} />
+      <Route path="/finance/fee-templates/items" element={<FeeTemplateItemsPage />} />
       <Route path="/staffs" element={<StaffsPage />} />
       <Route path="/staffs/create" element={<StaffFormPage />} />
       <Route path="/staffs/:staffId/edit" element={<StaffFormPage />} />

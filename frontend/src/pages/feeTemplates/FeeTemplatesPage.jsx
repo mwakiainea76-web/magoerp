@@ -7,7 +7,7 @@ import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName,
 import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
-import { useInvoiceTemplatesApi } from "@/hooks/useInvoiceTemplatesApi";
+import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 function formatCurrency(amount) {
@@ -17,8 +17,8 @@ function formatCurrency(amount) {
   })}`;
 }
 
-export function InvoiceTemplatesPage() {
-  const templatesApi = useInvoiceTemplatesApi();
+export function FeeTemplatesPage() {
+  const templatesApi = useFeeTemplatesApi();
 
   const [templates, setTemplates] = useState([]);
   const [meta, setMeta] = useState(initialMeta);
@@ -83,7 +83,7 @@ export function InvoiceTemplatesPage() {
 
     try {
       await templatesApi.remove(template.id);
-      toast.success("Invoice template deleted successfully.");
+      toast.success("Fee template deleted successfully.");
       setReloadKey((current) => current + 1);
     } catch (deleteError) {
       setError(getApiErrorMessage(deleteError, "Server error."));
@@ -118,15 +118,15 @@ export function InvoiceTemplatesPage() {
     <section className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Invoice Templates</h1>
-          <p className="text-[13px] text-slate-500">Manage invoice template configurations and their components</p>
+          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Fee Templates</h1>
+          <p className="text-[13px] text-slate-500">Manage fee template configurations and their components</p>
         </div>
 
         <div className="flex gap-3">
-          <Link to="/finance/invoice-templates/items">
+          <Link to="/finance/fee-templates/items">
             <FormButton variant="secondary" className="sm:px-5">View Components</FormButton>
           </Link>
-          <Link to="/finance/invoice-templates/create">
+          <Link to="/finance/fee-templates/create">
             <FormButton className="sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Template
@@ -175,13 +175,13 @@ export function InvoiceTemplatesPage() {
 
       <Table>
         <TableHeader>
-          <h2 className="text-[1.0625rem] font-semibold text-slate-900">Invoice Templates Directory</h2>
+          <h2 className="text-[1.0625rem] font-semibold text-slate-900">Fee Templates Directory</h2>
         </TableHeader>
 
         {isLoading ? (
-          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>Loading invoice templates...</div>
+          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>Loading fee templates...</div>
         ) : templates.length === 0 ? (
-          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>No invoice templates found for the current filters.</div>
+          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>No fee templates found for the current filters.</div>
         ) : (
           <TableWrapper>
             <Thead>
@@ -205,7 +205,7 @@ export function InvoiceTemplatesPage() {
                   <Td>{template.name}</Td>
                   <Td>
                     <Link
-                      to={`/finance/invoice-templates/items?templateId=${template.id}`}
+                      to={`/finance/fee-templates/items?templateId=${template.id}`}
                       className="font-medium text-emerald-600 hover:underline"
                     >
                       {template.items_count} component{template.items_count !== 1 ? "s" : ""}
@@ -224,7 +224,7 @@ export function InvoiceTemplatesPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/finance/invoice-templates/${template.id}/assign`}
+                        to={`/finance/fee-templates/${template.id}/assign`}
                         className="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
                       >
                         <Link2 className="h-3 w-3" />
@@ -241,7 +241,7 @@ export function InvoiceTemplatesPage() {
                       ) : (
                         <>
                           <Link
-                            to={`/finance/invoice-templates/${template.id}/edit`}
+                            to={`/finance/fee-templates/${template.id}/edit`}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -270,4 +270,4 @@ export function InvoiceTemplatesPage() {
   );
 }
 
-export default InvoiceTemplatesPage;
+export default FeeTemplatesPage;

@@ -8,7 +8,7 @@ import * as yup from "yup";
 
 import { FormButton } from "@/components/FormButton";
 import { LookupSelect } from "@/components/LookupSelect";
-import { useInvoiceTemplateAssignmentsApi } from "@/hooks/useInvoiceTemplateAssignmentsApi";
+import { useCurriculumFeeAssignmentsApi } from "@/hooks/useCurriculumFeeAssignmentsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { bodyTextClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -27,9 +27,9 @@ const assignmentSchema = yup.object({
   is_approved: yup.boolean(),
 });
 
-export function InvoiceTemplateAssignmentsPage() {
+export function FeeTemplateAssignmentsPage() {
   const { templateId } = useParams();
-  const assignmentsApi = useInvoiceTemplateAssignmentsApi();
+  const assignmentsApi = useCurriculumFeeAssignmentsApi();
   const lookupApi = useLookupApi();
 
   const [templateName, setTemplateName] = useState("");
@@ -67,9 +67,9 @@ export function InvoiceTemplateAssignmentsPage() {
       const response = await assignmentsApi.list(templateId);
       const items = response.data ?? [];
       setAssignments(items);
-      setTemplateName(response.invoice_template_name ?? "");
-      setTemplateTotalAmount(Number(response.invoice_template_total_amount ?? 0));
-      setTemplateTotalItems(Number(response.invoice_template_total_items ?? 0));
+      setTemplateName(response.fee_template_name ?? "");
+      setTemplateTotalAmount(Number(response.fee_template_total_amount ?? 0));
+      setTemplateTotalItems(Number(response.fee_template_total_items ?? 0));
     } catch {
       // silent
     } finally {
@@ -90,7 +90,7 @@ export function InvoiceTemplateAssignmentsPage() {
         session_number: Number(data.session_number),
         is_approved: data.is_approved,
       });
-      toast.success("Course linked to invoice template.");
+      toast.success("Course linked to fee template.");
       reset({ course_id: "", year_level: 1, session_number: 1, is_approved: false });
       setAsCourseOption(null);
       await loadAssignments();
@@ -116,7 +116,7 @@ export function InvoiceTemplateAssignmentsPage() {
       toast.success(
         item.is_approved
           ? "Approval revoked."
-          : "Invoice template approved for this course.",
+          : "Fee template approved for this course.",
       );
       await loadAssignments();
     } catch (err) {
@@ -147,7 +147,7 @@ export function InvoiceTemplateAssignmentsPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">
-            Invoice Template: {templateName}
+            Fee Template: {templateName}
           </h1>
           <p className="mt-2 text-[14px] text-slate-500">
             Total Items: {templateTotalItems} | Total Amount: {formatCurrency(templateTotalAmount)}
@@ -155,11 +155,11 @@ export function InvoiceTemplateAssignmentsPage() {
         </div>
 
         <Link
-          to="/finance/invoice-templates"
+          to="/finance/fee-templates"
           className="inline-flex items-center gap-1.5 pt-2 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to invoice templates
+          Back to fee templates
         </Link>
       </div>
 
@@ -283,4 +283,4 @@ export function InvoiceTemplateAssignmentsPage() {
   );
 }
 
-export default InvoiceTemplateAssignmentsPage;
+export default FeeTemplateAssignmentsPage;

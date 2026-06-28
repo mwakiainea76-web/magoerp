@@ -44,7 +44,7 @@ const adjustmentTypes = [
 
 const invoiceSchema = yup.object({
   student_id: yup.string().required("Select a student"),
-  invoice_template_id: yup.string().required("Select an invoice template"),
+  fee_template_id: yup.string().required("Select a fee template"),
 });
 
 const paymentSchema = yup.object({
@@ -133,7 +133,7 @@ export function BillingPage() {
   const [formError, setFormError] = useState("");
 
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [selectedInvoiceTemplate, setSelectedInvoiceTemplate] = useState(null);
+  const [selectedFeeTemplate, setSelectedFeeTemplate] = useState(null);
   const [availableTemplates, setAvailableTemplates] = useState([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [selectedAdjustmentInvoice, setSelectedAdjustmentInvoice] = useState(null);
@@ -226,9 +226,9 @@ export function BillingPage() {
   });
 
   function resetInvoiceForm() {
-    invoiceForm.reset({ student_id: "", invoice_template_id: "" });
+    invoiceForm.reset({ student_id: "", fee_template_id: "" });
     setSelectedStudent(null);
-    setSelectedInvoiceTemplate(null);
+    setSelectedFeeTemplate(null);
     setAvailableTemplates([]);
     setFormError("");
   }
@@ -272,9 +272,9 @@ export function BillingPage() {
 
   async function onStudentSelected(studentId, option) {
     invoiceForm.setValue("student_id", studentId, { shouldValidate: true });
-    invoiceForm.setValue("invoice_template_id", "");
+    invoiceForm.setValue("fee_template_id", "");
     setSelectedStudent(option ?? null);
-    setSelectedInvoiceTemplate(null);
+    setSelectedFeeTemplate(null);
     setAvailableTemplates([]);
 
     if (!studentId) return;
@@ -285,7 +285,7 @@ export function BillingPage() {
       const res = await invoicesApi.availableTemplates(studentId);
       const templates = (res.data ?? []).map((t) => ({
         id: t.id,
-        invoice_template_id: t.invoice_template_id,
+        fee_template_id: t.fee_template_id,
         label: `${t.template_code} - ${t.template_name} (${formatCurrency(t.total_amount)})${t.year_level ? ` - Year ${t.year_level}` : ""}${t.session_number ? ` - Session ${t.session_number}` : ""}`,
       }));
       setAvailableTemplates(templates);
@@ -303,7 +303,7 @@ export function BillingPage() {
     try {
       await invoicesApi.create({
         student_id: data.student_id,
-        invoice_template_id: data.invoice_template_id,
+        fee_template_id: data.fee_template_id,
       });
       toast.success("Invoice issued successfully.");
       setIsInvoiceModalOpen(false);
@@ -517,12 +517,12 @@ export function BillingPage() {
             {invoiceForm.watch("student_id") ? (
               <div>
                 <label className="mb-1 block text-[13px] font-medium text-slate-600">
-                  Invoice Template <span className="text-red-400">*</span>
+                  Fee Template <span className="text-red-400">*</span>
                 </label>
                 <select
                   className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-400"
                   disabled={isLoadingTemplates}
-                  {...invoiceForm.register("invoice_template_id")}
+                  {...invoiceForm.register("fee_template_id")}
                 >
                   <option value="">
                     {isLoadingTemplates
@@ -532,14 +532,14 @@ export function BillingPage() {
                         : "Select a template"}
                   </option>
                   {availableTemplates.map((t) => (
-                    <option key={t.id} value={t.invoice_template_id}>
+                    <option key={t.id} value={t.fee_template_id}>
                       {t.label}
                     </option>
                   ))}
                 </select>
-                {invoiceForm.formState.errors.invoice_template_id?.message ? (
+                {invoiceForm.formState.errors.fee_template_id?.message ? (
                   <p className="mt-1 text-sm text-red-600">
-                    {invoiceForm.formState.errors.invoice_template_id.message}
+                    {invoiceForm.formState.errors.fee_template_id.message}
                   </p>
                 ) : null}
               </div>

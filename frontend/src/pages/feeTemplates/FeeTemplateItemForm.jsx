@@ -7,7 +7,7 @@ import {
   textAreaClassName,
 } from "@/lib/styles";
 
-export const invoiceTemplateItemSchema = yup.object({
+export const feeTemplateItemSchema = yup.object({
   name: yup
     .string()
     .required("Component name is required")
@@ -24,16 +24,16 @@ export const invoiceTemplateItemSchema = yup.object({
   is_active: yup.boolean().required(),
 });
 
-export const defaultInvoiceTemplateItemValues = {
+export const defaultFeeTemplateItemValues = {
   name: "",
   amount: "",
   description: "",
   is_active: true,
 };
 
-export function normalizeInvoiceTemplateItemPayload(values, templateId) {
+export function normalizeFeeTemplateItemPayload(values, templateId) {
   return {
-    invoice_template_id: templateId,
+    fee_template_id: templateId,
     name: values.name.trim(),
     amount: Number(values.amount),
     description: values.description?.trim() || null,
@@ -41,8 +41,8 @@ export function normalizeInvoiceTemplateItemPayload(values, templateId) {
   };
 }
 
-export function InvoiceTemplateItemForm({
-  formId = "invoice-template-item-form",
+export function FeeTemplateItemForm({
+  formId = "fee-template-item-form",
   onSubmit,
   register,
   errors,

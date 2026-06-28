@@ -139,7 +139,7 @@ export function StudentDashboard() {
     );
   }
 
-  const { student, course, enrolment, invoice_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance, progress, available_units = [] } = data ?? {};
+  const { student, course, enrolment, fee_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance, progress, available_units = [] } = data ?? {};
   const hasAvailableUnits = available_units.length > 0;
   const allVisibleUnitsRegistered = hasAvailableUnits && available_units.every((unit) => unit.registered);
   const isEnrolledInCurrentSession = Boolean(

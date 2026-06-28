@@ -8,7 +8,7 @@ import * as yup from "yup";
 
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
-import { useInvoiceTemplatesApi } from "@/hooks/useInvoiceTemplatesApi";
+import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
 import { bodyTextClassName, labelClassName, textAreaClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -37,10 +37,10 @@ function normalizePayload(values) {
   };
 }
 
-export function InvoiceTemplateFormPage() {
+export function FeeTemplateFormPage() {
   const { templateId } = useParams();
   const navigate = useNavigate();
-  const templatesApi = useInvoiceTemplatesApi();
+  const templatesApi = useFeeTemplatesApi();
   const isEdit = Boolean(templateId);
 
   const [pageError, setPageError] = useState("");
@@ -48,7 +48,7 @@ export function InvoiceTemplateFormPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const title = useMemo(
-    () => (isEdit ? "Edit Invoice Template" : "Add Invoice Template"),
+    () => (isEdit ? "Edit Fee Template" : "Add Fee Template"),
     [isEdit],
   );
 
@@ -117,13 +117,13 @@ export function InvoiceTemplateFormPage() {
 
       if (isEdit) {
         await templatesApi.update(templateId, payload);
-        toast.success("Invoice template updated successfully.");
+        toast.success("Fee template updated successfully.");
       } else {
         await templatesApi.create(payload);
-        toast.success("Invoice template created successfully.");
+        toast.success("Fee template created successfully.");
       }
 
-      navigate("/finance/invoice-templates", { replace: true });
+      navigate("/finance/fee-templates", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 
@@ -147,16 +147,16 @@ export function InvoiceTemplateFormPage() {
         <div>
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">{title}</h1>
           <p className="text-[13px] text-slate-500">
-            Create or update an invoice template.
+            Create or update a fee template.
           </p>
         </div>
 
         <Link
-          to="/finance/invoice-templates"
+          to="/finance/fee-templates"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to invoice templates
+          Back to fee templates
         </Link>
       </div>
 
@@ -204,7 +204,7 @@ export function InvoiceTemplateFormPage() {
                 <textarea
                   id="description"
                   className={textAreaClassName}
-                  placeholder="Short note about the invoice template"
+                  placeholder="Short note about the fee template"
                   {...register("description")}
                 />
                 {errors.description ? (
@@ -214,7 +214,7 @@ export function InvoiceTemplateFormPage() {
             </div>
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Link to="/finance/invoice-templates" className="sm:w-auto">
+              <Link to="/finance/fee-templates" className="sm:w-auto">
                 <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">Cancel</FormButton>
               </Link>
               <FormButton type="submit" disabled={isSaving} className="sm:w-auto sm:px-5">
@@ -228,4 +228,4 @@ export function InvoiceTemplateFormPage() {
   );
 }
 
-export default InvoiceTemplateFormPage;
+export default FeeTemplateFormPage;
