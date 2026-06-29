@@ -14,8 +14,8 @@ return new class extends Migration
             $table->string('admission_number')->unique();
 
             $table->boolean('status')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
         });

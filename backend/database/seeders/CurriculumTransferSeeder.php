@@ -31,7 +31,7 @@ class CurriculumTransferSeeder extends Seeder
                 'to_curriculum_mapping_id' => $mappings[1]->id,
                 'transfer_date' => now()->toDateString(),
                 'reason' => 'Student transferred to updated curriculum for better alignment with industry standards.',
-                'approved_by' => $staff?->id,
+                'approved_by' => $staff?->user_id,
             ]
         );
     }

@@ -25,14 +25,14 @@ class TimetableFeatureSeeder extends Seeder
     public function run(): void
     {
         $admin = User::where('login_id', 'EMP-ADMIN-001')->first();
-        $adminStaff = $admin ? staffs::where('user_id', $admin->id)->first() : null;
+        $auditUser = $admin;
 
         $department = departments::updateOrCreate(
             ['code' => 'ICT'],
             [
                 'name' => 'Information Communication Technology',
                 'description' => 'ICT training department.',
-                'updated_by' => $adminStaff?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
 
@@ -42,7 +42,7 @@ class TimetableFeatureSeeder extends Seeder
                 'name' => 'Technical and Vocational Education and Training Authority',
                 'description' => 'Test certification authority.',
                 'is_active' => true,
-                'updated_by' => $adminStaff?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
 
@@ -53,7 +53,7 @@ class TimetableFeatureSeeder extends Seeder
                 'entry_grade' => 'D',
                 'description' => 'Test level for timetable setup.',
                 'is_active' => true,
-                'updated_by' => $adminStaff?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
 
@@ -64,7 +64,7 @@ class TimetableFeatureSeeder extends Seeder
                 'name' => 'Timetable Test Cycle 1',
                 'description' => 'Active curriculum for timetable tests.',
                 'is_active' => true,
-                'updated_by' => $adminStaff?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
 
@@ -79,7 +79,7 @@ class TimetableFeatureSeeder extends Seeder
                 'certification_authority_id' => $authority->id,
                 'certification_level_id' => $level->id,
                 'department_id' => $department->id,
-                'updated_by' => $adminStaff?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
 
@@ -106,7 +106,7 @@ class TimetableFeatureSeeder extends Seeder
                     'taught_hours' => 80,
                     'credit_factor' => 1,
                     'is_active' => true,
-                    'updated_by' => $adminStaff?->id,
+                    'updated_by' => $auditUser?->id,
                 ],
             );
         }
@@ -120,7 +120,7 @@ class TimetableFeatureSeeder extends Seeder
                     'end_date' => '2026-12-31',
                     'description' => 'Academic year for timetable tests.',
                     'is_active' => true,
-                    'updated_by' => $adminStaff?->id,
+                    'updated_by' => $auditUser?->id,
                 ],
             );
 
@@ -133,7 +133,7 @@ class TimetableFeatureSeeder extends Seeder
                     'end_date' => '2026-06-30',
                     'description' => 'Active session for timetable creation.',
                     'is_active' => true,
-                    'updated_by' => $adminStaff?->id,
+                    'updated_by' => $auditUser?->id,
                 ],
             );
 
@@ -145,7 +145,7 @@ class TimetableFeatureSeeder extends Seeder
                 'end_date' => '2025-12-31',
                 'description' => 'Inactive session for negative tests.',
                 'is_active' => false,
-                'updated_by' => $adminStaff?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
 
@@ -177,7 +177,7 @@ class TimetableFeatureSeeder extends Seeder
                 'next_of_kin_alt_phone' => null,
                 'next_of_kin_email' => 'timetable.contact@magoerp.test',
                 'next_of_kin_relationship' => 'Guardian',
-                'updated_by' => $adminStaff?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
         $trainerUser->syncRoles(['trainer']);
@@ -198,8 +198,8 @@ class TimetableFeatureSeeder extends Seeder
                 'highest_qualification' => 'Degree',
                 'specialization' => 'ICT',
                 'status' => true,
-                'created_by' => $adminStaff?->id,
-                'updated_by' => $adminStaff?->id,
+                'created_by' => $auditUser?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
 
@@ -220,7 +220,7 @@ class TimetableFeatureSeeder extends Seeder
 
         Student::whereIn('admission_number', ['STU/001/26', 'STU/002/26', 'STU/003/26'])
             ->get()
-            ->each(function (Student $student) use ($activeSession, $firstUnit, $adminStaff) {
+            ->each(function (Student $student) use ($activeSession, $firstUnit, $auditUser) {
                 if (!$firstUnit) {
                     return;
                 }
@@ -235,8 +235,8 @@ class TimetableFeatureSeeder extends Seeder
                         'session_number' => 1,
                         'module' => 1,
                         'status' => 'enrolled',
-                        'created_by' => $adminStaff?->id,
-                        'updated_by' => $adminStaff?->id,
+                        'created_by' => $auditUser?->id,
+                        'updated_by' => $auditUser?->id,
                     ],
                 );
 
@@ -264,8 +264,8 @@ class TimetableFeatureSeeder extends Seeder
                 'recurrence' => 'weekly',
                 'date' => null,
                 'notes' => 'Seeded timetable entry for testing.',
-                'created_by' => $adminStaff?->id,
-                'updated_by' => $adminStaff?->id,
+                'created_by' => $auditUser?->id,
+                'updated_by' => $auditUser?->id,
             ],
         );
     }

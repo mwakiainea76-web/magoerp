@@ -3,9 +3,9 @@
 namespace Database\Factories;
 
 use App\Models\AcademicSessionEnrolment;
-use App\Models\staffs;
 use App\Models\StudentMark;
 use App\Models\Unit;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class StudentMarkFactory extends Factory
@@ -22,7 +22,7 @@ class StudentMarkFactory extends Factory
             'score' => fake()->numberBetween(10, 100),
             'marks' => 100,
             'is_published' => false,
-            'recorded_by_staff_id' => staffs::factory(),
+            'recorded_by' => User::factory(),
         ];
     }
 }

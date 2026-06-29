@@ -15,6 +15,7 @@ class StudentAccountBalanceResource extends JsonResource
             'academic_session_id' => $this->academic_session_id,
             'total_invoiced' => (float) $this->total_invoiced,
             'total_paid' => (float) $this->total_paid,
+            'total_adjustments' => (float) $this->total_adjustments,
             'balance' => (float) $this->balance,
             'is_overdue' => $this->is_overdue,
             'last_transaction_at' => $this->last_transaction_at?->format('Y-m-d H:i:s'),

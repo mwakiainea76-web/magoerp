@@ -79,12 +79,12 @@ class DepartmentsController extends Controller
 
     public function store(StoredepartmentsRequest $request): JsonResponse
     {
-        $staffId = $request->user()?->staff?->id;
+        $userId = $request->user()?->id;
 
         $department = departments::create([
             ...$request->validated(),
-            'created_by' => $staffId,
-            'updated_by' => $staffId,
+            'created_by' => $userId,
+            'updated_by' => $userId,
         ]);
 
         $department->load($this->departmentRelations());
@@ -110,7 +110,7 @@ class DepartmentsController extends Controller
     {
         $department->update([
             ...$request->validated(),
-            'updated_by' => $request->user()?->staff?->id,
+            'updated_by' => $request->user()?->id,
         ]);
 
         $department->load($this->departmentRelations());

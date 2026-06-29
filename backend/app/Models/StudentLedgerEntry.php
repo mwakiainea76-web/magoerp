@@ -17,6 +17,7 @@ class StudentLedgerEntry extends Model
         'student_id',
         'invoice_id',
         'payment_id',
+        'adjustment_id',
         'academic_session_id',
         'type',
         'debit',
@@ -50,6 +51,11 @@ class StudentLedgerEntry extends Model
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    public function adjustment(): BelongsTo
+    {
+        return $this->belongsTo(StudentFeeAdjustment::class);
     }
 
     public function academicSession(): BelongsTo

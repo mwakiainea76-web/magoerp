@@ -19,7 +19,7 @@ class StudentMark extends Model
         'score',
         'marks',
         'is_published',
-        'recorded_by_staff_id',
+        'recorded_by',
     ];
 
     protected $casts = [
@@ -45,6 +45,6 @@ class StudentMark extends Model
 
     public function recordedBy(): BelongsTo
     {
-        return $this->belongsTo(staffs::class, 'recorded_by_staff_id');
+        return $this->belongsTo(User::class, 'recorded_by');
     }
 }

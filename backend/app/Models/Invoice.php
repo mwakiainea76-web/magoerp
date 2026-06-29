@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Str;
-
 use App\Models\InvoiceLineItem;
 use App\Models\InvoicePaymentAllocation;
 use App\Models\StudentFeeAdjustment;
@@ -25,11 +23,13 @@ class Invoice extends Model
         'invoice_number',
         'student_id',
         'academic_session_id',
+        'fee_template_id',
         'invoice_type',
         'status',
         'issue_date',
         'due_date',
         'amount_due',
+        'computed_amount',
         'idempotency_key',
         'notes',
         'created_by',
@@ -39,6 +39,7 @@ class Invoice extends Model
         'issue_date' => 'date',
         'due_date' => 'date',
         'amount_due' => 'decimal:2',
+        'computed_amount' => 'decimal:2',
     ];
 
     protected $keyType = 'string';
@@ -47,11 +48,7 @@ class Invoice extends Model
 
     public static function generateInvoiceNumber(): string
     {
-        $prefix = 'INV-';
-        $date = now()->format('Ymd');
-        $random = strtoupper(Str::random(6));
-
-        return $prefix . $date . '-' . $random;
+        return app(\App\Services\InvoiceNumberService::class)->generate();
     }
 
     public function student(): BelongsTo
@@ -97,11 +94,12 @@ class Invoice extends Model
         $creditAdjustmentsTotal = (float) $this->adjustments()->whereIn('type', $creditTypes)->sum('amount');
         $paidAmount = (float) $this->paymentAllocations()->sum('amount');
 
-        $amountDue = max(0, $itemsTotal + $debitAdjustmentsTotal - $creditAdjustmentsTotal);
-        $balanceDue = $amountDue - $paidAmount;
+        $amountDue = $itemsTotal;
+        $balanceDue = $amountDue + $debitAdjustmentsTotal - $creditAdjustmentsTotal - $paidAmount;
 
         $this->forceFill([
             'amount_due' => $amountDue,
+            'computed_amount' => $itemsTotal,
             'status' => $balanceDue <= 0 ? 'paid' : ($paidAmount > 0 ? 'partial' : 'issued'),
         ]);
 
@@ -110,4 +108,3 @@ class Invoice extends Model
         return $this;
     }
 }
-

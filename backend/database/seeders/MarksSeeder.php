@@ -53,7 +53,7 @@ class MarksSeeder extends Seeder
                                     'score' => fake()->numberBetween(10, 100),
                                     'marks' => 100,
                                     'is_published' => $i === $cfg['count'],
-                                    'recorded_by_staff_id' => $trainer->id,
+                                    'recorded_by' => $trainer->user_id,
                                 ]
                             );
                         }

@@ -19,7 +19,7 @@ class StudentFeeAdjustmentsController extends Controller
         abort_unless($request->user()?->can('finance.update'), 403);
 
         $validated = $request->validate([
-            'type' => ['required', 'string', 'in:discount,waiver,bursary,helb,reversal'],
+            'type' => ['required', 'string', 'in:discount,waiver,bursary,helb,reversal,penalty'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:2000'],
         ]);

@@ -65,8 +65,8 @@ class InvoiceTemplatesController extends Controller
             'description' => $request->input('description'),
             'is_active' => $request->boolean('is_active', true),
             'is_issued' => false,
-            'created_by' => $request->user()?->staff?->id,
-            'updated_by' => $request->user()?->staff?->id,
+            'created_by' => $request->user()?->id,
+            'updated_by' => $request->user()?->id,
         ]);
 
         return response()->json([
@@ -101,7 +101,7 @@ class InvoiceTemplatesController extends Controller
             'description' => $request->input('description'),
             'is_active' => $request->boolean('is_active', true),
             'is_issued' => $request->boolean('is_issued', false),
-            'updated_by' => $request->user()?->staff?->id,
+            'updated_by' => $request->user()?->id,
         ]);
 
         $invoice_template->loadCount('items');
@@ -166,5 +166,4 @@ class InvoiceTemplatesController extends Controller
 
 
 }
-
 

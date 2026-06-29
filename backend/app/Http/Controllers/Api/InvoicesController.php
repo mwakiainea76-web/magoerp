@@ -183,6 +183,7 @@ class InvoicesController extends Controller
                 'status_code' => 200,
                 'outstanding_balance' => 0,
                 'total_paid' => 0,
+                'total_adjustments' => 0,
                 'next_due_date' => null,
             ], 200);
         }
@@ -192,11 +193,13 @@ class InvoicesController extends Controller
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
             ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
+            ->selectRaw('COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0) as adjustment_amount')
+            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) - COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0) as balance_due');
 
         $invoices = $baseQuery->get();
         $outstanding = (float) $invoices->sum('balance_due');
         $totalPaid = (float) $invoices->sum('paid_amount');
+        $totalAdjustments = (float) $invoices->sum('adjustment_amount');
 
         $nextDueInvoice = $invoices
             ->where('balance_due', '>', 0)
@@ -207,6 +210,7 @@ class InvoicesController extends Controller
             'status_code' => 200,
             'outstanding_balance' => $outstanding,
             'total_paid' => $totalPaid,
+            'total_adjustments' => $totalAdjustments,
             'next_due_date' => $nextDueInvoice?->due_date?->format('Y-m-d'),
         ], 200);
     }
@@ -215,6 +219,9 @@ class InvoicesController extends Controller
     {
         $paidAmount = (float) $invoice->paymentAllocations()->sum('amount');
         $amountDue = (float) $invoice->amount_due;
+        $creditTypes = ['discount', 'waiver', 'bursary', 'helb', 'reversal'];
+        $adjustmentAmount = (float) $invoice->adjustments()->whereIn('type', $creditTypes)->sum('amount')
+            - (float) $invoice->adjustments()->whereNotIn('type', $creditTypes)->sum('amount');
 
         return [
             'id' => $invoice->id,
@@ -228,8 +235,10 @@ class InvoicesController extends Controller
             'issue_date' => $invoice->issue_date?->format('Y-m-d'),
             'due_date' => $invoice->due_date?->format('Y-m-d'),
             'amount_due' => $amountDue,
+            'computed_amount' => (float) $invoice->computed_amount,
             'paid_amount' => $paidAmount,
-            'balance_due' => max(0, $amountDue - $paidAmount),
+            'adjustment_amount' => $adjustmentAmount,
+            'balance_due' => max(0, $amountDue - $paidAmount - $adjustmentAmount),
             'created_at' => $invoice->created_at,
         ];
     }

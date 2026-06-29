@@ -22,8 +22,8 @@ return new class extends Migration
             $table->unsignedSmallInteger('taught_hours')->nullable();
             $table->unsignedSmallInteger('credit_factor')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['course_curriculum_id', 'code']);

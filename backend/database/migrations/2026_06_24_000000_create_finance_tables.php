@@ -17,8 +17,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->boolean('is_issued')->default(false);
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
 
@@ -29,8 +29,8 @@ return new class extends Migration
             $table->decimal('amount', 12, 2);
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
 
@@ -42,10 +42,10 @@ return new class extends Migration
             $table->integer('year_level');
             $table->integer('session_number');
             $table->boolean('is_approved')->default(false);
-            $table->foreignUuid('approved_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['course_curriculum_id', 'academic_session_id', 'year_level', 'session_number'], 'curriculum_fee_assignment_unique');
@@ -62,10 +62,13 @@ return new class extends Migration
             $table->date('issue_date');
             $table->date('due_date');
             $table->decimal('amount_due', 10, 2)->default(0);
+            $table->decimal('computed_amount', 10, 2)
+                ->default(0)
+                ->comment('Sum of invoice_line_items.total_amount; must match amount_due');
             $table->string('idempotency_key')->nullable()->unique();
             $table->text('notes')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
 
@@ -97,7 +100,7 @@ return new class extends Migration
             $table->string('reference', 100)->nullable();
             $table->string('status', 50)->default('completed');
             $table->string('idempotency_key')->nullable()->unique();
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
 
@@ -126,7 +129,8 @@ return new class extends Migration
             $table->string('idempotency_key')->nullable()->unique();
             $table->text('description')->nullable();
             $table->date('applied_at')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->boolean('ledger_posted')->default(false);
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
 
@@ -138,6 +142,7 @@ return new class extends Migration
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('invoice_id')->nullable()->constrained('invoices')->nullOnDelete();
             $table->foreignUuid('payment_id')->nullable()->constrained('payments')->nullOnDelete();
+            $table->foreignUuid('adjustment_id')->nullable()->constrained('student_fee_adjustments')->nullOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->string('type', 50);
             $table->decimal('debit', 12, 2)->default(0);
@@ -145,7 +150,7 @@ return new class extends Migration
             $table->string('reference', 100)->nullable();
             $table->text('description')->nullable();
             $table->date('transaction_date');
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->index(['student_id', 'transaction_date']);
@@ -159,6 +164,7 @@ return new class extends Migration
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->decimal('total_invoiced', 10, 2)->default(0);
             $table->decimal('total_paid', 10, 2)->default(0);
+            $table->decimal('total_adjustments', 10, 2)->default(0);
             $table->decimal('balance', 10, 2)->default(0);
             $table->timestamp('last_transaction_at')->nullable();
             $table->timestamps();

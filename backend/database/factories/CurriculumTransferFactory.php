@@ -5,7 +5,7 @@ namespace Database\Factories;
 use App\Models\CourseCurriculum;
 use App\Models\CurriculumTransfer;
 use App\Models\Student;
-use App\Models\staffs;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class CurriculumTransferFactory extends Factory
@@ -20,7 +20,7 @@ class CurriculumTransferFactory extends Factory
             'to_curriculum_mapping_id' => CourseCurriculum::factory(),
             'transfer_date' => now()->toDateString(),
             'reason' => fake()->sentence(),
-            'approved_by' => staffs::factory(),
+            'approved_by' => User::factory(),
         ];
     }
 }

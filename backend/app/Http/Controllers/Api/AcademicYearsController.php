@@ -56,12 +56,12 @@ class AcademicYearsController extends Controller
 
     public function store(StoreAcademicYearRequest $request): JsonResponse
     {
-        $staffId = $request->user()?->staff?->id;
+        $userId = $request->user()?->id;
 
         $year = AcademicYear::create([
             ...$request->validated(),
-            'created_by' => $staffId,
-            'updated_by' => $staffId,
+            'created_by' => $userId,
+            'updated_by' => $userId,
         ]);
 
         $year->loadCount('sessions');
@@ -87,7 +87,7 @@ class AcademicYearsController extends Controller
     {
         $academic_year->update([
             ...$request->validated(),
-            'updated_by' => $request->user()?->staff?->id,
+            'updated_by' => $request->user()?->id,
         ]);
 
         $academic_year->loadCount('sessions');

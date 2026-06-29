@@ -24,6 +24,7 @@ class StudentFeeAdjustment extends Model
         'idempotency_key',
         'description',
         'applied_at',
+        'ledger_posted',
         'created_by',
     ];
 
@@ -32,6 +33,7 @@ class StudentFeeAdjustment extends Model
         return [
             'amount' => 'decimal:2',
             'applied_at' => 'date',
+            'ledger_posted' => 'boolean',
         ];
     }
 
@@ -43,5 +45,10 @@ class StudentFeeAdjustment extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function ledgerEntry()
+    {
+        return $this->hasOne(StudentLedgerEntry::class, 'adjustment_id');
     }
 }

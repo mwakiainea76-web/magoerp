@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Student;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

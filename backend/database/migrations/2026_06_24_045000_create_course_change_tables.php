@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignUuid('to_curriculum_mapping_id')->constrained('course_curricula');
             $table->date('transfer_date');
             $table->text('reason')->nullable();
-            $table->foreignUuid('approved_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->index('student_id');
@@ -31,7 +31,7 @@ return new class extends Migration
             $table->foreignUuid('new_course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
             $table->string('old_status', 50)->nullable();
             $table->string('new_status', 50)->nullable();
-            $table->foreignUuid('processed_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('processed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('changed_at');
             $table->text('notes')->nullable();
             $table->timestamps();

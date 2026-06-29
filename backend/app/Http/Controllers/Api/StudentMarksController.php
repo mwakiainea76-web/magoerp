@@ -125,7 +125,6 @@ class StudentMarksController extends Controller
         }
 
         $user = $request->user();
-        $staffId = $user?->staff?->id;
 
         [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($validated['assessment_type']);
 
@@ -148,7 +147,7 @@ class StudentMarksController extends Controller
             'assessment_number' => $assessmentNumber,
             'score' => $validated['score'],
             'marks' => 100,
-            'recorded_by_staff_id' => $staffId,
+            'recorded_by' => $user?->id,
         ]);
 
         $mark->load(['academicSessionEnrolment.student.user:id,first_name,middle_name,last_name', 'unit:id,code,name']);
@@ -168,7 +167,6 @@ class StudentMarksController extends Controller
         ]);
 
         $user = $request->user();
-        $staffId = $user?->staff?->id;
 
         $created = [];
         $errors = [];
@@ -220,7 +218,7 @@ class StudentMarksController extends Controller
                     'assessment_number' => $assessmentNumber,
                     'score' => $entry['score'],
                     'marks' => 100,
-                    'recorded_by_staff_id' => $staffId,
+                    'recorded_by' => $user?->id,
                 ]);
             }
             DB::commit();

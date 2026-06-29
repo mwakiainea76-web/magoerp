@@ -63,12 +63,12 @@ class AcademicSessionsController extends Controller
 
     public function store(StoreAcademicSessionRequest $request): JsonResponse
     {
-        $staffId = $request->user()?->staff?->id;
+        $userId = $request->user()?->id;
 
         $session = AcademicSession::create([
             ...$request->validated(),
-            'created_by' => $staffId,
-            'updated_by' => $staffId,
+            'created_by' => $userId,
+            'updated_by' => $userId,
         ]);
 
         $session->load($this->sessionRelations());
@@ -94,7 +94,7 @@ class AcademicSessionsController extends Controller
     {
         $academic_session->update([
             ...$request->validated(),
-            'updated_by' => $request->user()?->staff?->id,
+            'updated_by' => $request->user()?->id,
         ]);
 
         $academic_session->load($this->sessionRelations());

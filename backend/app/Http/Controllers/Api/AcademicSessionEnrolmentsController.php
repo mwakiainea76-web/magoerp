@@ -381,6 +381,9 @@ class AcademicSessionEnrolmentsController extends Controller
     {
         $paidAmount = (float) $invoice->paymentAllocations()->sum('amount');
         $amountDue = (float) $invoice->amount_due;
+        $creditTypes = ['discount', 'waiver', 'bursary', 'helb', 'reversal'];
+        $adjustmentAmount = (float) $invoice->adjustments()->whereIn('type', $creditTypes)->sum('amount')
+            - (float) $invoice->adjustments()->whereNotIn('type', $creditTypes)->sum('amount');
 
         return [
             'id' => $invoice->id,
@@ -388,8 +391,10 @@ class AcademicSessionEnrolmentsController extends Controller
             'invoice_type' => $invoice->invoice_type,
             'status' => $invoice->status,
             'amount_due' => $amountDue,
+            'computed_amount' => (float) $invoice->computed_amount,
             'paid_amount' => $paidAmount,
-            'balance_due' => max(0, $amountDue - $paidAmount),
+            'adjustment_amount' => $adjustmentAmount,
+            'balance_due' => max(0, $amountDue - $paidAmount - $adjustmentAmount),
             'due_date' => $invoice->due_date?->format('Y-m-d'),
         ];
     }

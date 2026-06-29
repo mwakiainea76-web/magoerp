@@ -45,6 +45,6 @@ class CurriculumTransfer extends Model
 
     public function approvedBy(): BelongsTo
     {
-        return $this->belongsTo(staffs::class, 'approved_by');
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }

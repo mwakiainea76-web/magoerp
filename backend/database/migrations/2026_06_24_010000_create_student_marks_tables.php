@@ -34,9 +34,9 @@ return new class extends Migration
             $table->unsignedInteger('score');
             $table->unsignedInteger('marks');
             $table->boolean('is_published')->default(false);
-            $table->foreignUuid('recorded_by_staff_id')
+            $table->foreignUuid('recorded_by')
                 ->nullable()
-                ->constrained('staffs')
+                ->constrained('users')
                 ->nullOnDelete();
             $table->timestamps();
 

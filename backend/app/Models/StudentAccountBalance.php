@@ -18,6 +18,7 @@ class StudentAccountBalance extends Model
         'academic_session_id',
         'total_invoiced',
         'total_paid',
+        'total_adjustments',
         'balance',
         'last_transaction_at',
     ];
@@ -25,6 +26,7 @@ class StudentAccountBalance extends Model
     protected $casts = [
         'total_invoiced' => 'decimal:2',
         'total_paid' => 'decimal:2',
+        'total_adjustments' => 'decimal:2',
         'balance' => 'decimal:2',
         'last_transaction_at' => 'datetime',
     ];

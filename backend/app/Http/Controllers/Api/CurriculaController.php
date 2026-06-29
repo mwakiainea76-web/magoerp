@@ -64,12 +64,12 @@ class CurriculaController extends Controller
     {
         abort_unless($request->user()?->can('institution.create'), 403);
 
-        $staffId = $request->user()?->staff?->id;
+        $userId = $request->user()?->id;
 
         $curriculum = Curriculum::create([
             ...$request->validated(),
-            'created_by' => $staffId,
-            'updated_by' => $staffId,
+            'created_by' => $userId,
+            'updated_by' => $userId,
         ]);
 
         $curriculum->load('authority');
@@ -97,7 +97,7 @@ class CurriculaController extends Controller
 
         $curriculum->update([
             ...$request->validated(),
-            'updated_by' => $request->user()?->staff?->id,
+            'updated_by' => $request->user()?->id,
         ]);
 
         $curriculum->load('authority');

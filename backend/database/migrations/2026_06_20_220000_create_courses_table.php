@@ -19,8 +19,8 @@ return new class extends Migration
             $table->foreignUuid('certification_authority_id')->nullable()->constrained('certification_authorities')->nullOnDelete();
             $table->foreignUuid('certification_level_id')->nullable()->constrained('certification_levels')->nullOnDelete();
             $table->foreignUuid('department_id')->nullable()->constrained('departments')->nullOnDelete();
-            $table->foreignUuid('created_by')->nullable()->constrained('staffs')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
     }
