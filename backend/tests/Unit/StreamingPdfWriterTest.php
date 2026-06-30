@@ -62,4 +62,18 @@ class StreamingPdfWriterTest extends TestCase
         $this->assertSame(100_000, $consumedRows);
         $this->assertLessThan(12 * 1024 * 1024, $peakIncrease);
     }
+
+    public function test_average_columns_use_red_bold_text(): void
+    {
+        ob_start();
+        (new StreamingPdfWriter)->output(
+            ['Student', 'CAT 1', 'AVG(CAT)'],
+            [['Student One', '80', '75.0']],
+            'Marks',
+        );
+        $pdf = ob_get_clean();
+
+        $this->assertStringContainsString("1 0.72 0.72 rg\n", $pdf);
+        $this->assertStringContainsString("0.78 0.09 0.14 rg\n", $pdf);
+    }
 }

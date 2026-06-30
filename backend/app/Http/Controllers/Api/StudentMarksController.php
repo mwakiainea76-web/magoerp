@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\DataExportService;
+use App\Exports\StreamingPdfWriter;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
@@ -13,13 +15,22 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StudentMarksController extends Controller
 {
     private const ASSESSMENT_TYPES = ['CAT 1', 'CAT 2', 'CAT 3', 'PRAC 1', 'PRAC 2', 'PRAC 3'];
 
+    public function __construct(
+        protected DataExportService $exportService,
+        protected StreamingPdfWriter $pdfWriter,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+        $authenticatedStudent = $this->authenticatedStudent($request);
+
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'nullable|string|exists:units,id',
@@ -31,8 +42,15 @@ class StudentMarksController extends Controller
             ->with([
                 'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
                 'unit:id,code,name',
-                'recordedBy.user:id,first_name,last_name',
-            ]);
+                'recordedBy:id,first_name,middle_name,last_name',
+            ])
+            ->when($authenticatedStudent, function ($query, Student $student) {
+                $query->where('is_published', true)
+                    ->whereHas(
+                        'academicSessionEnrolment',
+                        fn ($enrolmentQuery) => $enrolmentQuery->where('student_id', $student->id),
+                    );
+            });
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
             $query->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $sessionId));
@@ -85,6 +103,8 @@ class StudentMarksController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.create'), 403);
+
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'required|string|exists:units,id',
@@ -101,7 +121,7 @@ class StudentMarksController extends Controller
                 ->latest('start_date')
                 ->first();
 
-            if (!$session) {
+            if (! $session) {
                 return response()->json(['message' => 'No active academic session found.'], 422);
             }
 
@@ -112,7 +132,7 @@ class StudentMarksController extends Controller
             ->where('academic_session_id', $validated['academic_session_id'])
             ->first();
 
-        if (!$enrolment) {
+        if (! $enrolment) {
             return response()->json(['message' => 'Student is not enrolled in this academic session.'], 422);
         }
 
@@ -120,7 +140,7 @@ class StudentMarksController extends Controller
             ->where('unit_id', $validated['unit_id'])
             ->first();
 
-        if (!$registration) {
+        if (! $registration) {
             return response()->json(['message' => 'Student is not enrolled for this unit in the selected session.'], 422);
         }
 
@@ -152,11 +172,13 @@ class StudentMarksController extends Controller
 
         $mark->load(['academicSessionEnrolment.student.user:id,first_name,middle_name,last_name', 'unit:id,code,name']);
 
-        return response()->json([ 'data' => $mark], 201);
+        return response()->json(['data' => $mark], 201);
     }
 
     public function bulkStore(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.create'), 403);
+
         $validated = $request->validate([
             'marks' => 'required|array|min:1',
             'marks.*.academic_session_id' => 'required|string|exists:academic_sessions,id',
@@ -175,8 +197,9 @@ class StudentMarksController extends Controller
         try {
             foreach ($validated['marks'] as $entry) {
                 $student = Student::where('admission_number', $entry['student_admission_number'])->first();
-                if (!$student) {
+                if (! $student) {
                     $errors[] = "Student {$entry['student_admission_number']} was not found.";
+
                     continue;
                 }
 
@@ -184,8 +207,9 @@ class StudentMarksController extends Controller
                     ->where('academic_session_id', $entry['academic_session_id'])
                     ->first();
 
-                if (!$enrolment) {
+                if (! $enrolment) {
                     $errors[] = "Student {$entry['student_admission_number']} is not enrolled in the session.";
+
                     continue;
                 }
 
@@ -193,8 +217,9 @@ class StudentMarksController extends Controller
                     ->where('unit_id', $entry['unit_id'])
                     ->first();
 
-                if (!$registration) {
+                if (! $registration) {
                     $errors[] = "Student {$entry['student_admission_number']} is not enrolled for this unit.";
+
                     continue;
                 }
 
@@ -208,6 +233,7 @@ class StudentMarksController extends Controller
 
                 if ($exists) {
                     $errors[] = "Score exists for student {$entry['student_admission_number']} - unit {$entry['unit_id']} - {$entry['assessment_type']}";
+
                     continue;
                 }
 
@@ -224,7 +250,8 @@ class StudentMarksController extends Controller
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json([ 'message' => 'Bulk operation failed: ' . $e->getMessage()], 500);
+
+            return response()->json(['message' => 'Bulk operation failed: '.$e->getMessage()], 500);
         }
 
         return response()->json([
@@ -235,19 +262,34 @@ class StudentMarksController extends Controller
         ], 201);
     }
 
-    public function show(StudentMark $studentMark): JsonResponse
+    public function show(Request $request, StudentMark $studentMark): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+        $authenticatedStudent = $this->authenticatedStudent($request);
+
+        if ($authenticatedStudent) {
+            abort_unless(
+                $studentMark->is_published
+                && $studentMark->academicSessionEnrolment()
+                    ->where('student_id', $authenticatedStudent->id)
+                    ->exists(),
+                403,
+            );
+        }
+
         $studentMark->load([
             'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
             'unit:id,code,name',
-            'recordedBy.user:id,first_name,last_name',
+            'recordedBy:id,first_name,middle_name,last_name',
         ]);
 
-        return response()->json([ 'data' => $studentMark]);
+        return response()->json(['data' => $studentMark]);
     }
 
     public function update(Request $request, StudentMark $studentMark): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.create'), 403);
+
         $validated = $request->validate([
             'marks' => 'sometimes|integer|min:0|max:100',
             'score' => 'sometimes|integer|min:0|max:100',
@@ -269,12 +311,14 @@ class StudentMarksController extends Controller
             'unit:id,code,name',
         ]);
 
-        return response()->json([ 'data' => $studentMark]);
+        return response()->json(['data' => $studentMark]);
     }
 
-    public function togglePublish(StudentMark $studentMark): JsonResponse
+    public function togglePublish(Request $request, StudentMark $studentMark): JsonResponse
     {
-        $studentMark->update(['is_published' => !$studentMark->is_published]);
+        abort_unless($request->user()?->can('assessments.publish'), 403);
+
+        $studentMark->update(['is_published' => ! $studentMark->is_published]);
 
         return response()->json([
             'data' => $studentMark,
@@ -284,6 +328,8 @@ class StudentMarksController extends Controller
 
     public function publishAssessment(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.publish'), 403);
+
         $validated = $request->validate([
             'unit_id' => 'required|string|exists:units,id',
             'assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
@@ -316,6 +362,8 @@ class StudentMarksController extends Controller
 
     public function publishFiltered(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.publish'), 403);
+
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'nullable|string|exists:units,id',
@@ -357,6 +405,8 @@ class StudentMarksController extends Controller
 
     public function availableUnits(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
         ]);
@@ -373,11 +423,14 @@ class StudentMarksController extends Controller
             })
             ->get(['id', 'code', 'name']);
 
-        return response()->json([ 'data' => $units]);
+        return response()->json(['data' => $units]);
     }
 
     public function availableStudents(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+        $authenticatedStudent = $this->authenticatedStudent($request);
+
         $validated = $request->validate([
             'academic_session_id' => 'required|string|exists:academic_sessions,id',
             'unit_id' => 'nullable|string|exists:units,id',
@@ -388,7 +441,8 @@ class StudentMarksController extends Controller
             ->select('students.id', 'students.user_id', 'students.admission_number')
             ->join('academic_session_enrolments', 'academic_session_enrolments.student_id', '=', 'students.id')
             ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
-            ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
+            ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id'])
+            ->when($authenticatedStudent, fn ($studentQuery, Student $student) => $studentQuery->where('students.id', $student->id));
 
         if ($unitId = $validated['unit_id'] ?? null) {
             $query->where('student_unit_registrations.unit_id', $unitId);
@@ -397,8 +451,9 @@ class StudentMarksController extends Controller
         if ($q = $request->get('q')) {
             $query->where(function ($qry) use ($q) {
                 $qry->where('students.admission_number', 'like', "%{$q}%")
-                    ->orWhere('users.first_name', 'like', "%{$q}%")
-                    ->orWhere('users.last_name', 'like', "%{$q}%");
+                    ->orWhereHas('user', fn ($userQuery) => $userQuery
+                        ->where('first_name', 'like', "%{$q}%")
+                        ->orWhere('last_name', 'like', "%{$q}%"));
             });
         }
 
@@ -408,16 +463,23 @@ class StudentMarksController extends Controller
             'name' => trim(collect([$s->first_name, $s->middle_name, $s->last_name])->filter()->implode(' ')),
         ]);
 
-        return response()->json([ 'data' => $students]);
+        return response()->json(['data' => $students]);
     }
 
     public function marksheet(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+        $authenticatedStudent = $this->authenticatedStudent($request);
+
         $validated = $request->validate([
             'academic_session_id' => 'required|string|exists:academic_sessions,id',
             'unit_id' => 'required|string|exists:units,id',
             'student_id' => 'nullable|string|exists:students,id',
         ]);
+
+        if ($authenticatedStudent) {
+            $validated['student_id'] = $authenticatedStudent->id;
+        }
 
         $students = Student::query()
             ->with('user:id,first_name,middle_name,last_name')
@@ -435,12 +497,17 @@ class StudentMarksController extends Controller
         $students = $students->get();
 
         $enrolments = AcademicSessionEnrolment::where('academic_session_id', $validated['academic_session_id'])
+            ->when(
+                $validated['student_id'] ?? null,
+                fn ($enrolmentQuery, string $studentId) => $enrolmentQuery->where('student_id', $studentId),
+            )
             ->get(['id', 'student_id']);
         $studentEnrolments = $enrolments->groupBy('student_id')->map(fn ($group) => $group->pluck('id'));
 
         $marks = StudentMark::query()
             ->whereIn('academic_session_enrolment_id', $enrolments->pluck('id'))
             ->where('unit_id', $validated['unit_id'])
+            ->where('is_published', true)
             ->get();
 
         $assessmentTypes = $marks->pluck('assessment_type')->unique()->values();
@@ -455,7 +522,9 @@ class StudentMarksController extends Controller
 
             foreach ($assessmentTypes as $type) {
                 $typeMarks = $studentMarks->where('assessment_type', $type);
-                if ($typeMarks->isEmpty()) continue;
+                if ($typeMarks->isEmpty()) {
+                    continue;
+                }
 
                 $numbers = $typeMarks->mapWithKeys(fn ($m) => [
                     "{$type}_{$m->assessment_number}" => [
@@ -499,13 +568,111 @@ class StudentMarksController extends Controller
         ]);
     }
 
+    public function export(
+        Request $request,
+        DataExportService $exportService,
+        StreamingPdfWriter $pdfWriter,
+    ): StreamedResponse {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+        $authenticatedStudent = $this->authenticatedStudent($request);
+
+        $validated = $request->validate([
+            'format' => ['nullable', 'in:csv,xlsx,pdf'],
+            'academic_session_id' => ['required', 'string', 'exists:academic_sessions,id'],
+            'unit_id' => ['required', 'string', 'exists:units,id'],
+            'assessment_type' => ['nullable', 'string', Rule::in(self::ASSESSMENT_TYPES)],
+            'student_id' => ['nullable', 'string', 'exists:students,id'],
+        ]);
+
+        if ($authenticatedStudent) {
+            $validated['student_id'] = $authenticatedStudent->id;
+        }
+
+        $rowNumber = 0;
+
+        if ($assessmentLabel = $validated['assessment_type'] ?? null) {
+            [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($assessmentLabel);
+            $query = StudentMark::query()
+                ->with('academicSessionEnrolment.student.user:id,first_name,middle_name,last_name')
+                ->where('unit_id', $validated['unit_id'])
+                ->where('assessment_type', $assessmentType)
+                ->where('assessment_number', $assessmentNumber)
+                ->when($authenticatedStudent, fn ($markQuery) => $markQuery->where('is_published', true))
+                ->whereHas('academicSessionEnrolment', function ($query) use ($validated) {
+                    $query->where('academic_session_id', $validated['academic_session_id'])
+                        ->when(
+                            $validated['student_id'] ?? null,
+                            fn ($studentQuery, string $studentId) => $studentQuery->where('student_id', $studentId),
+                        );
+                })
+                ->orderBy('academic_session_enrolment_id')
+                ->orderBy('id');
+
+            $columns = [
+                ['key' => '#', 'value' => function () use (&$rowNumber) {
+                    return ++$rowNumber;
+                }],
+                ['key' => 'Admission number', 'value' => fn (StudentMark $mark) => $mark->academicSessionEnrolment?->student?->admission_number ?? ''],
+                ['key' => 'Student', 'value' => fn (StudentMark $mark) => $mark->academicSessionEnrolment?->student?->full_name ?? ''],
+                ['key' => 'Assessment', 'value' => fn () => $assessmentLabel],
+                ['key' => 'Score', 'value' => fn (StudentMark $mark) => $mark->score],
+                ['key' => 'Status', 'value' => fn (StudentMark $mark) => $mark->is_published ? 'Published' : 'Draft'],
+            ];
+        } else {
+            $query = AcademicSessionEnrolment::query()
+                ->with([
+                    'student.user:id,first_name,middle_name,last_name',
+                    'studentMarks' => fn ($marksQuery) => $marksQuery
+                        ->where('unit_id', $validated['unit_id'])
+                        ->where('is_published', true)
+                        ->orderBy('assessment_type')
+                        ->orderBy('assessment_number'),
+                ])
+                ->where('academic_session_id', $validated['academic_session_id'])
+                ->whereHas('unitRegistrations', fn ($registrationQuery) => $registrationQuery->where('unit_id', $validated['unit_id']))
+                ->when(
+                    $validated['student_id'] ?? null,
+                    fn ($studentQuery, string $studentId) => $studentQuery->where('student_id', $studentId),
+                )
+                ->orderBy('student_id')
+                ->orderBy('id');
+
+            $columns = [
+                ['key' => '#', 'value' => function () use (&$rowNumber) {
+                    return ++$rowNumber;
+                }],
+                ['key' => 'Admission number', 'value' => fn (AcademicSessionEnrolment $enrolment) => $enrolment->student?->admission_number ?? ''],
+                ['key' => 'Student', 'value' => fn (AcademicSessionEnrolment $enrolment) => $enrolment->student?->full_name ?? ''],
+                ['key' => 'CAT 1', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportMark($enrolment, 'CAT', 1)],
+                ['key' => 'CAT 2', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportMark($enrolment, 'CAT', 2)],
+                ['key' => 'CAT 3', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportMark($enrolment, 'CAT', 3)],
+                ['key' => 'AVG(CAT)', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportAverage($enrolment, 'CAT')],
+                ['key' => 'PRAC 1', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportMark($enrolment, 'PRAC', 1)],
+                ['key' => 'PRAC 2', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportMark($enrolment, 'PRAC', 2)],
+                ['key' => 'PRAC 3', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportMark($enrolment, 'PRAC', 3)],
+                ['key' => 'AVG(PRAC)', 'value' => fn (AcademicSessionEnrolment $enrolment) => $this->exportAverage($enrolment, 'PRAC')],
+            ];
+        }
+
+        return $exportService->export(
+            query: $query,
+            columns: $columns,
+            format: $validated['format'] ?? 'csv',
+            filename: 'marks',
+            pdfRenderer: fn (array $headers, iterable $rows) => $pdfWriter->output($headers, $rows, 'Student Marks Export'),
+            pdfTitle: 'Student Marks Export',
+        );
+    }
+
     public function myResults(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
         $user = $request->user();
         $student = $user->student;
 
-        if (!$student) {
-            return response()->json([ 'message' => 'Student profile not found.'], 404);
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
         }
 
         $sessionEnrolment = AcademicSessionEnrolment::query()
@@ -513,8 +680,8 @@ class StudentMarksController extends Controller
             ->latest()
             ->first();
 
-        if (!$sessionEnrolment) {
-            return response()->json([ 'data' => []]);
+        if (! $sessionEnrolment) {
+            return response()->json(['data' => []]);
         }
 
         $unitRegistrations = StudentUnitRegistration::query()
@@ -557,7 +724,7 @@ class StudentMarksController extends Controller
             ];
         });
 
-        return response()->json([ 'data' => $results]);
+        return response()->json(['data' => $results]);
     }
 
     private function parseAssessmentType(string $label): array
@@ -565,6 +732,20 @@ class StudentMarksController extends Controller
         [$type, $number] = explode(' ', $label, 2);
 
         return [$type, (int) $number];
+    }
+
+    private function exportMark(AcademicSessionEnrolment $enrolment, string $type, int $number): int|string
+    {
+        return $enrolment->studentMarks
+            ->first(fn (StudentMark $mark) => $mark->assessment_type === $type && $mark->assessment_number === $number)
+            ?->score ?? '-';
+    }
+
+    private function exportAverage(AcademicSessionEnrolment $enrolment, string $type): string
+    {
+        $marks = $enrolment->studentMarks->where('assessment_type', $type);
+
+        return $marks->isEmpty() ? '-' : number_format((float) $marks->avg('score'), 1, '.', '');
     }
 
     private function resolveUnitRegistration(string $sessionId, string $studentId, string $unitId): StudentUnitRegistration
@@ -583,8 +764,24 @@ class StudentMarksController extends Controller
         return $registration;
     }
 
-    public function assessmentTypes(): JsonResponse
+    private function authenticatedStudent(Request $request): ?Student
     {
+        $user = $request->user();
+
+        if (! $user || ($user->role !== 'student' && ! $user->hasRole('student'))) {
+            return null;
+        }
+
+        $student = $user->student;
+        abort_unless($student, 403, 'Student profile not found.');
+
+        return $student;
+    }
+
+    public function assessmentTypes(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
         return response()->json([
             'data' => self::ASSESSMENT_TYPES,
         ]);
@@ -592,14 +789,17 @@ class StudentMarksController extends Controller
 
     public function listSessionsWithMarks(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
         $user = $request->user();
         $student = $user->student;
 
-        if (!$student) {
-            return response()->json([ 'message' => 'Student profile not found.'], 404);
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
         }
 
         $enrolmentIds = StudentMark::query()
+            ->where('is_published', true)
             ->whereHas('academicSessionEnrolment', fn ($q) => $q->where('student_id', $student->id))
             ->distinct()
             ->pluck('academic_session_enrolment_id');
@@ -610,6 +810,6 @@ class StudentMarksController extends Controller
         $sessions = AcademicSession::whereIn('id', $sessionIds)
             ->get(['id', 'name', 'code']);
 
-        return response()->json([ 'data' => $sessions]);
+        return response()->json(['data' => $sessions]);
     }
 }

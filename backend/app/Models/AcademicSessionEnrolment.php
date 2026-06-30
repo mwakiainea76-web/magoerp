@@ -6,8 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Student;
-use App\Models\SystemConfiguration;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AcademicSessionEnrolment extends Model
 {
@@ -48,6 +47,16 @@ class AcademicSessionEnrolment extends Model
         return $this->belongsTo(AcademicSession::class);
     }
 
+    public function studentMarks(): HasMany
+    {
+        return $this->hasMany(StudentMark::class);
+    }
+
+    public function unitRegistrations(): HasMany
+    {
+        return $this->hasMany(StudentUnitRegistration::class);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -62,6 +71,7 @@ class AcademicSessionEnrolment extends Model
     {
         $total = static::where('student_id', $student->id)->count();
         $last = static::where('student_id', $student->id)->latest()->first();
+
         return [
             'total_sessions' => $total,
             'current_year' => $last?->year_of_study ?? 0,

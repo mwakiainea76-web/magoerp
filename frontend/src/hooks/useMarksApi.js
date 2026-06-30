@@ -48,6 +48,21 @@ export function useMarksApi() {
         const response = await authClient.get("/marks/marksheet", { params });
         return response.data;
       },
+      exportMarks: async (params = {}) => {
+        try {
+          return await authClient.get("/marks/export", {
+            params,
+            responseType: "blob",
+            timeout: 0,
+          });
+        } catch (error) {
+          if (error.response?.data instanceof Blob && error.response.data.type?.includes("application/json")) {
+            error.response.data = JSON.parse(await error.response.data.text());
+          }
+
+          throw error;
+        }
+      },
       myResults: async (params = {}) => {
         const response = await authClient.get("/my/results", { params });
         return response.data;

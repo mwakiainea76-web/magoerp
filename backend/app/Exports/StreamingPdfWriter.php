@@ -29,6 +29,8 @@ class StreamingPdfWriter
 
     private array $columnWidths = [];
 
+    private array $averageColumnIndexes = [];
+
     private string $footer;
 
     public function __construct(string $footer = '')
@@ -38,6 +40,10 @@ class StreamingPdfWriter
 
     public function output(array $headers, iterable $rows, string $title): void
     {
+        $this->averageColumnIndexes = array_keys(array_filter(
+            $headers,
+            fn (mixed $header) => str_starts_with(strtoupper(trim((string) $header)), 'AVG'),
+        ));
         $columnCount = count($headers);
         $maxLengths = array_fill(0, $columnCount, 0);
         $sampleRows = [];
@@ -272,13 +278,19 @@ class StreamingPdfWriter
             $maximumCharacters = max(1, (int) floor(($width - 10) / ($fontSize * 0.5)));
             $value = $this->truncate($value, $maximumCharacters);
 
-            if ($heading) {
+            $isAverageColumn = in_array($index, $this->averageColumnIndexes, true);
+
+            if ($heading && $isAverageColumn) {
+                $content .= "1 0.72 0.72 rg\n";
+            } elseif ($heading) {
                 $content .= "1 1 1 rg\n";
+            } elseif ($isAverageColumn) {
+                $content .= "0.78 0.09 0.14 rg\n";
             } else {
                 $content .= "0.12 0.17 0.22 rg\n";
             }
 
-            $font = $heading ? 'F2' : 'F1';
+            $font = $heading || $isAverageColumn ? 'F2' : 'F1';
             $content .= $this->text($x + 5, $top - 13.0, $fontSize, $value, $font);
             $x += $width;
         }

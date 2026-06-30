@@ -123,6 +123,8 @@ Route::middleware([
 
     Route::get('/assessment-types', [StudentMarksController::class, 'assessmentTypes']);
     Route::get('/marks', [StudentMarksController::class, 'index']);
+    Route::get('/marks/export', [StudentMarksController::class, 'export'])
+        ->middleware('throttle:3,1');
     Route::post('/marks', [StudentMarksController::class, 'store']);
     Route::post('/marks/bulk', [StudentMarksController::class, 'bulkStore']);
     Route::post('/marks/publish-assessment', [StudentMarksController::class, 'publishAssessment']);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Download } from "lucide-react";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
@@ -72,6 +73,10 @@ export function ViewMarksPage() {
 
   const [editMark, setEditMark] = useState(null);
   const editFormRef = useRef(null);
+  const exportRef = useRef(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState("csv");
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const {
     register,
@@ -93,6 +98,17 @@ export function ViewMarksPage() {
   }, [sessionsApi]);
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (exportRef.current && !exportRef.current.contains(event.target)) {
+        setShowExportMenu(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchStudents = useCallback(async (query) => {
     if (!filterSession) return [];
@@ -230,11 +246,114 @@ export function ViewMarksPage() {
     }
   }
 
+  async function handleExport(format) {
+    if (!filterSession || !filterUnit) {
+      toast.error("Select an academic session and unit before exporting.");
+      return;
+    }
+
+    setExporting(true);
+    setShowExportMenu(false);
+    setExportFormat(format);
+
+    try {
+      const params = {
+        format,
+        academic_session_id: filterSession,
+        unit_id: filterUnit,
+      };
+
+      if (filterStudent) params.student_id = filterStudent;
+      if (filterType) params.assessment_type = filterType;
+
+      const response = await marksApi.exportMarks(params);
+      const disposition = response.headers?.["content-disposition"] ?? "";
+      const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const regularMatch = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = encodedMatch
+        ? decodeURIComponent(encodedMatch[1])
+        : regularMatch?.[1] ?? `marks.${format}`;
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Marks exported as ${format.toUpperCase()}.`);
+    } catch (exportError) {
+      toast.error(getApiErrorMessage(exportError, "Failed to export marks."));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const exportLabels = { csv: "CSV", xlsx: "Excel", pdf: "PDF" };
+  const canExport = Boolean(filterSession && filterUnit);
+
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">View Marks</h1>
-        <p className="text-[13px] text-slate-500">Browse recorded student marks</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">View Marks</h1>
+          <p className="text-[13px] text-slate-500">Browse recorded student marks</p>
+        </div>
+
+        <div className="relative" ref={exportRef}>
+          <div className="flex">
+            <FormButton
+              type="button"
+              variant="secondary"
+              disabled={exporting || !canExport}
+              onClick={() => handleExport(exportFormat)}
+              className="rounded-r-none border-r-0 sm:px-4"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? "Exporting..." : `Export ${exportLabels[exportFormat]}`}
+            </FormButton>
+            <FormButton
+              type="button"
+              variant="secondary"
+              disabled={exporting || !canExport}
+              onClick={() => setShowExportMenu((current) => !current)}
+              aria-label="Choose export format"
+              aria-expanded={showExportMenu}
+              className="rounded-l-none border-l border-slate-200 px-2 sm:px-2"
+              style={{ minWidth: 0 }}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </FormButton>
+          </div>
+
+          {showExportMenu && (
+            <div className="absolute right-0 z-30 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+              {[
+                { value: "csv", label: "CSV (.csv)" },
+                { value: "xlsx", label: "Excel (.xlsx)" },
+                { value: "pdf", label: "PDF (.pdf)" },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={exporting}
+                  onClick={() => handleExport(option.value)}
+                  className={`flex w-full px-4 py-2.5 text-left text-[14px] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    exportFormat === option.value
+                      ? "bg-emerald-50 font-medium text-emerald-700"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
@@ -318,7 +437,7 @@ export function ViewMarksPage() {
                 <Th>Admission</Th>
                 <Th>Student</Th>
                 {COLUMN_TYPES.map((col) => (
-                  <Th key={col.key} className={`text-center ${col.isAvg ? "!text-red-600" : ""}`}>{col.label}</Th>
+                  <Th key={col.key} className={`text-center ${col.isAvg ? "!text-red-600 " : ""}`}>{col.label}</Th>
                 ))}
               </tr>
             </Thead>
