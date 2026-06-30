@@ -2,70 +2,51 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\DataExportService;
+use App\Exports\StreamingPdfWriter;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
 use App\Models\AcademicYear;
 use App\Models\Course;
+use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
+use App\Models\Curriculum;
 use App\Models\Student;
 use App\Models\User;
+use App\Queries\StudentQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Http\Controllers\Api\Traits\PaginationMeta;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StudentsController extends Controller
 {
     use PaginationMeta;
+
+    public function __construct(
+        protected DataExportService $exportService,
+        protected StreamingPdfWriter $pdfWriter,
+        protected StudentQuery $studentQuery,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('students.view'), 403);
 
-        $search = trim((string) $request->string('q', ''));
-        $sortBy = (string) $request->string('sort_by', 'created_at');
-        $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
-        $perPage = max(1, min((int) $request->integer('per_page', $search === '' ? 6 : 10), 100));
+        $filters = $this->studentQuery->filters($request);
+        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
 
-        $sortableColumns = [
-            'admission_number' => 'admission_number',
-            'first_name' => User::select('first_name')->whereColumn('users.id', 'students.user_id'),
-            'last_name' => User::select('last_name')->whereColumn('users.id', 'students.user_id'),
-            'created_at' => 'created_at',
-        ];
-
-        $sortColumn = $sortableColumns[$sortBy] ?? 'admission_number';
-
-        $students = Student::query()
-            ->with(['user', 'courseEnrolments.courseCurriculum.course'])
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($innerQuery) use ($search) {
-                    $innerQuery
-                        ->where('admission_number', 'like', "%{$search}%")
-                        ->orWhereHas('user', function ($uq) use ($search) {
-                            $uq->where('first_name', 'like', "%{$search}%")
-                                ->orWhere('middle_name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%");
-                        })
-                        ->orWhereHas('courseEnrolments.courseCurriculum.course', function ($courseQuery) use ($search) {
-                            $courseQuery->where('name', 'like', "%{$search}%")
-                                ->orWhere('code', 'like', "%{$search}%");
-                        });
-                });
-            })
-            ->orderBy($sortColumn, $sortDirection)
+        $students = $this->studentQuery->build($filters)
             ->paginate($perPage)
             ->withQueryString();
 
         return response()->json([
             'data' => $students->getCollection()->map(fn (Student $student) => $this->transformStudent($student))->values(),
-            'meta' => $this->paginationMeta($students, [
-                'q' => $search,
-                'sort_by' => $sortBy,
-                'sort_direction' => $sortDirection,
-            ]),
+            'meta' => $this->paginationMeta($students, $filters),
         ]);
     }
 
@@ -90,6 +71,23 @@ class StudentsController extends Controller
             $course = Course::query()
                 ->lockForUpdate()
                 ->findOrFail($request->course_id);
+
+            $curriculum = Curriculum::query()
+                ->lockForUpdate()
+                ->findOrFail($request->curriculum_id);
+
+            $courseCurriculum = CourseCurriculum::query()
+                ->where('course_id', $course->id)
+                ->where('curriculum_id', $curriculum->id)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $courseCurriculum) {
+                throw ValidationException::withMessages([
+                    'course_curriculum' => 'No active course-curriculum mapping found for the selected course and curriculum.',
+                ]);
+            }
+
             $admissionNumber = $this->nextAdmissionNumber($course);
 
             $user = User::create([
@@ -133,9 +131,9 @@ class StudentsController extends Controller
                 'updated_by' => $request->user()->id,
             ]);
 
-            \App\Http\Controllers\Api\CourseEnrolmentsController::createForStudent($student, $request->user()->id, $course->id);
+            CourseEnrolmentsController::createForStudent($student, $request->user()->id, $course->id, $courseCurriculum->id);
 
-            $student->load(['user', 'courseEnrolments.courseCurriculum.course', 'activeEnrolment.courseCurriculum.course']);
+            $student->load(['user', 'activeEnrolment.courseCurriculum.course.authority', 'activeEnrolment.courseCurriculum.course.level', 'activeEnrolment.courseCurriculum.curriculum']);
 
             return $student;
         });
@@ -150,7 +148,7 @@ class StudentsController extends Controller
     {
         abort_unless($request->user()?->can('students.view'), 403);
 
-        $student->load(['user', 'courseEnrolments.courseCurriculum.course']);
+        $student->load(['user', 'activeEnrolment.courseCurriculum.course.authority', 'activeEnrolment.courseCurriculum.course.level', 'activeEnrolment.courseCurriculum.curriculum']);
 
         return response()->json([
             'data' => $this->transformStudent($student),
@@ -193,7 +191,7 @@ class StudentsController extends Controller
                 'updated_by' => $request->user()->id,
             ]);
 
-            $student->load(['user', 'courseEnrolments.courseCurriculum.course']);
+            $student->load(['user', 'activeEnrolment.courseCurriculum.course.authority', 'activeEnrolment.courseCurriculum.course.level', 'activeEnrolment.courseCurriculum.curriculum']);
 
             return $student;
         });
@@ -260,11 +258,47 @@ class StudentsController extends Controller
         ]);
     }
 
+    public function export(Request $request): StreamedResponse
+    {
+        abort_unless($request->user()?->can('students.view'), 403);
+
+        $validated = $request->validate([
+            'format' => ['nullable', 'in:csv,xlsx,pdf'],
+        ]);
+        $format = $validated['format'] ?? 'csv';
+        $filters = $this->studentQuery->filters($request);
+        $query = $this->studentQuery->build($filters);
+
+        $i = 0;
+        $columns = [
+            ['key' => '#', 'value' => function () use (&$i) {
+                return ++$i;
+            }],
+            ['key' => 'Admission No', 'value' => fn (Student $s) => $s->admission_number],
+            ['key' => 'Name', 'value' => fn (Student $s) => $s->full_name],
+            ['key' => 'Course', 'value' => fn (Student $s) => $s->activeEnrolment?->courseCurriculum?->course?->name ?? ''],
+            ['key' => 'Level', 'value' => fn (Student $s) => $s->activeEnrolment?->courseCurriculum?->course?->level?->name ?? ''],
+            ['key' => 'Curriculum', 'value' => fn (Student $s) => $s->activeEnrolment?->courseCurriculum?->curriculum?->name ?? ''],
+            ['key' => 'Status', 'value' => fn (Student $s) => $s->status ? 'Active' : 'Inactive'],
+            ['key' => 'Gender', 'value' => fn (Student $s) => $s->user?->gender ?? ''],
+        ];
+
+        return $this->exportService->export(
+            query: $query,
+            columns: $columns,
+            format: $format,
+            filename: 'students',
+            pdfRenderer: fn (array $headers, iterable $rows) => $this->pdfWriter->output($headers, $rows, 'Student Records Export'),
+            pdfTitle: 'Student Records Export',
+        );
+    }
+
     private function transformStudent(Student $student): array
     {
         $user = $student->user;
-        $activeEnrolment = $student->courseEnrolments?->first();
+        $activeEnrolment = $student->activeEnrolment;
         $course = $activeEnrolment?->courseCurriculum?->course;
+        $curriculum = $activeEnrolment?->courseCurriculum?->curriculum;
 
         return [
             'id' => $student->id,
@@ -295,6 +329,13 @@ class StudentsController extends Controller
             'course_name' => $course?->name,
             'course_code' => $course?->code,
             'course_initials' => $course?->initials,
+
+            'exam_body_id' => $course?->certification_authority_id,
+            'exam_body_name' => $course?->authority?->name,
+            'level_id' => $course?->certification_level_id,
+            'level_name' => $course?->level?->name,
+            'curriculum_id' => $curriculum?->id,
+            'curriculum_name' => $curriculum?->name,
 
             'enrollment_date' => $activeEnrolment?->enrolment_date?->format('Y-m-d'),
 
@@ -339,6 +380,4 @@ class StudentsController extends Controller
 
         return "{$initials}/{$sequence}/{$intakeYear}";
     }
-
-
 }

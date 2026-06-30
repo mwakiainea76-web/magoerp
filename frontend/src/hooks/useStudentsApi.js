@@ -32,6 +32,25 @@ export function useStudentsApi() {
         const response = await authClient.get(`/students/${id}/admission-letter`);
         return response.data;
       },
+      exportStudents: async (params = {}) => {
+        try {
+          return await authClient.get("/students/export", {
+            params,
+            responseType: "blob",
+            timeout: 0,
+          });
+        } catch (error) {
+          if (error.response?.data instanceof Blob) {
+            const contentType = error.response.data.type ?? "";
+
+            if (contentType.includes("application/json")) {
+              error.response.data = JSON.parse(await error.response.data.text());
+            }
+          }
+
+          throw error;
+        }
+      },
     }),
     [],
   );

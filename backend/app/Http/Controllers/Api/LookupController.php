@@ -7,9 +7,9 @@ use App\Models\AcademicSession;
 use App\Models\AcademicYear;
 use App\Models\CertificationAuthority;
 use App\Models\CertificationLevel;
-use App\Models\CourseCurriculum;
 use App\Models\Curriculum;
 use App\Models\Course;
+use App\Models\CourseCurriculum;
 use App\Models\Departments;
 use App\Models\FeeTemplate;
 use App\Models\Role;
@@ -87,8 +87,13 @@ class LookupController extends Controller
     {
         abort_unless($request->user()?->can('institution.view'), 403);
 
+        $authorityId = (string) $request->string('authority_id', '');
+        $courseId = (string) $request->string('course_id', '');
+
         $curricula = Curriculum::query()
             ->where('is_active', true)
+            ->when($authorityId !== '', fn ($q) => $q->where('certification_authority_id', $authorityId))
+            ->when($courseId !== '', fn ($q) => $q->whereIn('id', CourseCurriculum::where('course_id', $courseId)->select('curriculum_id')))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
@@ -320,8 +325,13 @@ class LookupController extends Controller
     {
         abort_unless($request->user()?->can('institution.view'), 403);
 
+        $authorityId = (string) $request->string('authority_id', '');
+        $levelId = (string) $request->string('level_id', '');
+
         $items = Course::query()
             ->where('is_active', true)
+            ->when($authorityId !== '', fn ($q) => $q->where('certification_authority_id', $authorityId))
+            ->when($levelId !== '', fn ($q) => $q->where('certification_level_id', $levelId))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
@@ -400,7 +410,10 @@ class LookupController extends Controller
 
     private function students(Request $request, string $search, int $limit): JsonResponse
     {
-        abort_unless($request->user()?->can('students.view'), 403);
+        abort_unless(
+            $request->user()?->can('students.view') || $request->user()?->can('finance.view'),
+            403,
+        );
 
         $items = Student::query()
             ->with('user:id,phone_number')

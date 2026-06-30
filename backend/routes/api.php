@@ -57,6 +57,7 @@ Route::middleware([
 
     Route::get('/departments/meta', [DepartmentsController::class, 'meta'])
         ->middleware('permission:institution.view');
+    Route::get('/departments/export', [DepartmentsController::class, 'export']);
     Route::apiResource('departments', DepartmentsController::class)
         ->parameters(['departments' => 'department']);
 
@@ -68,6 +69,8 @@ Route::middleware([
 
     Route::apiResource('curricula', CurriculaController::class)
         ->parameters(['curricula' => 'curriculum']);
+
+    Route::get('/courses/export', [CoursesController::class, 'export']);
 
     Route::apiResource('courses', CoursesController::class)
         ->parameters(['courses' => 'course']);
@@ -170,9 +173,12 @@ Route::middleware([
 
     Route::get('/staffs/meta', [StaffsController::class, 'meta'])
         ->middleware('permission:staff.create');
+    Route::get('/staffs/export', [StaffsController::class, 'export']);
     Route::apiResource('staffs', StaffsController::class)
         ->parameters(['staffs' => 'staff']);
 
+    Route::get('/students/export', [StudentsController::class, 'export'])
+        ->middleware('throttle:3,1');
     Route::get('/students/meta', [StudentsController::class, 'meta'])
         ->middleware('permission:students.create');
     Route::apiResource('students', StudentsController::class)
@@ -189,6 +195,7 @@ Route::middleware([
         ->parameters(['course-curricula' => 'course_curriculum'])
         ->only(['index', 'store', 'update', 'destroy']);
 
+    Route::get('/course-enrolments/export', [CourseEnrolmentsController::class, 'export']);
     Route::get('/course-enrolments', [CourseEnrolmentsController::class, 'index']);
     Route::get('/course-enrolments/{course_enrolment}', [CourseEnrolmentsController::class, 'show']);
     Route::put('/course-enrolments/{course_enrolment}/status', [CourseEnrolmentsController::class, 'updateStatus']);

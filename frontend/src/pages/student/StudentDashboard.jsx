@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   BookMarked,
-  BookOpen,
   CreditCard,
   GraduationCap,
   LogIn,
@@ -63,8 +62,13 @@ export function StudentDashboard() {
     setRegistering(true);
     setRegisterErrors(null);
     try {
-      await registerSession();
-      toast.success("Session registered successfully.");
+      const response = await registerSession();
+      const invoice = response?.invoice;
+      toast.success(
+        invoice?.invoice_number
+          ? `Session registered. Invoice ${invoice.invoice_number} generated for ${currency(invoice.amount_due)}.`
+          : "Session registered successfully.",
+      );
       setShowModal(false);
       loadDashboard();
     } catch (err) {
@@ -139,7 +143,7 @@ export function StudentDashboard() {
     );
   }
 
-  const { student, course, enrolment, fee_template: fee_plan, needs_session_enrolment, current_session, last_session_enrolment, finance, progress, available_units = [] } = data ?? {};
+  const { student, course, enrolment, current_session, last_session_enrolment, finance, progress, available_units = [] } = data ?? {};
   const hasAvailableUnits = available_units.length > 0;
   const allVisibleUnitsRegistered = hasAvailableUnits && available_units.every((unit) => unit.registered);
   const isEnrolledInCurrentSession = Boolean(
@@ -162,7 +166,9 @@ export function StudentDashboard() {
     {
       label: "Total Paid",
       value: currency(finance?.total_paid ?? 0),
-      helper: "Payments recorded on your account",
+      helper: finance?.unallocated_credit > 0
+        ? `${currency(finance.unallocated_credit)} available account credit`
+        : "Payments recorded on your account",
       icon: CreditCard,
       tone: "from-slate-700 to-slate-800",
     },
@@ -174,9 +180,9 @@ export function StudentDashboard() {
       tone: "from-sky-500 to-cyan-500",
     },
     {
-      label: "Fee Discount",
-      value: "0%",
-      helper: "Current approved discount",
+      label: "Net Adjustments",
+      value: currency(finance?.total_adjustments ?? 0),
+      helper: "Discounts, waivers, bursaries, and penalties",
       icon: ShieldCheck,
       tone: "from-amber-500 to-orange-500",
     },
@@ -460,7 +466,7 @@ export function StudentDashboard() {
             <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
               <div>
                 <h3 className="text-lg font-semibold text-zinc-900">Register Current Session</h3>
-                <p className="mt-1 text-sm text-zinc-500">Register yourself for the active academic session.</p>
+                <p className="mt-1 text-sm text-zinc-500">Registration creates your fee invoice automatically.</p>
               </div>
               <button
                 type="button"
@@ -488,6 +494,10 @@ export function StudentDashboard() {
                     ? `Module ${progress.total_sessions + 1} — Year ${Math.floor((progress.total_sessions) / 3) + 1} Session ${(progress.total_sessions % 3) + 1}`
                     : "Module 1 — Year 1 Session 1"}
                 </p>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Confirming registration generates one invoice from the approved fee template for this session. Admission alone does not create an invoice.
               </div>
 
               {registerErrors?.session_registration ? (

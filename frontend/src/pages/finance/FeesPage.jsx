@@ -206,8 +206,8 @@ function RecordPaymentModal({ open, onClose, lookupApi, paymentsApi }) {
     setError("");
 
     try {
-      await paymentsApi.create({
-        invoice_id: selectedInvoiceId,
+      await paymentsApi.store({
+        student_id: studentOption.id,
         amount: Number(amount),
         method,
         reference: reference.trim() || null,
@@ -511,7 +511,7 @@ function FeeSubsidyModal({ open, onClose, lookupApi, invoicesApi, adjustmentsApi
         });
         if (mounted) {
           const active = (response.data ?? []).filter(
-            (inv) => inv.status !== "cancelled",
+            (inv) => inv.status === "issued" || inv.status === "partial",
           );
           setInvoices(active);
           if (active.length > 0 && !selectedInvoiceId) {
@@ -566,7 +566,7 @@ function FeeSubsidyModal({ open, onClose, lookupApi, invoicesApi, adjustmentsApi
     setError("");
 
     try {
-      await adjustmentsApi.create(selectedInvoiceId, {
+      await adjustmentsApi.store(selectedInvoiceId, {
         type: adjustmentType,
         amount: Number(amount),
         description: description.trim() || null,

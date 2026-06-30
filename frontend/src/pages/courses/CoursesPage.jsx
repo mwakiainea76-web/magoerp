@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { bodyTextClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
+import { FilterPanel } from "@/components/FilterPanel";
 import { useCoursesApi } from "@/hooks/useCoursesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -22,6 +23,25 @@ function StatusBadge({ active }) {
   );
 }
 
+const FILTER_DEFINITIONS = [
+  {
+    key: "q",
+    label: "Search",
+    type: "text",
+    placeholder: "Search by code, initials, name, or description",
+  },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    placeholder: "All",
+    options: [
+      { value: "active", label: "Active" },
+      { value: "inactive", label: "Inactive" },
+    ],
+  },
+];
+
 export function CoursesPage() {
   const coursesApi = useCoursesApi();
 
@@ -32,13 +52,25 @@ export function CoursesPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [searchInput, setSearchInput] = useState("");
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
+  const [filters, setFilters] = useState({});
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDirection, setSortDirection] = useState("desc");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+
+  const [exporting, setExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (exportRef.current && !exportRef.current.contains(event.target)) {
+        setShowExportMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,14 +80,12 @@ export function CoursesPage() {
       setError("");
 
       try {
-        const response = await coursesApi.list({
-          q: query,
-          status,
-          sort_by: sortBy,
-          sort_direction: sortDirection,
-          page,
-          per_page: perPage,
-        });
+        const params = { sort_by: sortBy, sort_direction: sortDirection, page, per_page: perPage };
+        for (const [k, v] of Object.entries(filters)) {
+          if (v !== "" && v !== null && v !== undefined) params[k] = v;
+        }
+
+        const response = await coursesApi.list(params);
 
         if (isMounted) {
           setCourses(response.data ?? []);
@@ -74,10 +104,8 @@ export function CoursesPage() {
 
     loadCourses();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [coursesApi, page, perPage, query, reloadKey, sortBy, sortDirection, status]);
+    return () => { isMounted = false; };
+  }, [coursesApi, page, perPage, filters, reloadKey, sortBy, sortDirection]);
 
   async function handleDelete(course) {
     const confirmed = window.confirm(`Delete ${course.name}?`);
@@ -103,73 +131,92 @@ export function CoursesPage() {
     setPage(1);
   }
 
-  function handleFilterSubmit(event) {
-    event.preventDefault();
-    setPage(1);
-    setQuery(searchInput.trim());
+  function handleApplyFilter(values) { setPage(1); setFilters(values); }
+  function handleResetFilters() { setPage(1); setFilters({}); setSortBy("created_at"); setSortDirection("desc"); setPerPage(10); }
+
+  async function handleExport(format) {
+    setExporting(true);
+    setShowExportMenu(false);
+
+    try {
+      const params = { format, sort_by: sortBy, sort_direction: sortDirection };
+      for (const [k, v] of Object.entries(filters)) {
+        if (v !== "" && v !== null && v !== undefined) params[k] = v;
+      }
+
+      const response = await coursesApi.exportCourses(params);
+
+      const disposition = response.headers?.["content-disposition"] ?? "";
+      const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const regularMatch = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = encodedMatch ? decodeURIComponent(encodedMatch[1]) : regularMatch?.[1] ?? `courses.${format}`;
+
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Export failed."));
+    } finally {
+      setExporting(false);
+    }
   }
 
-  function handleResetFilters() {
-    setSearchInput("");
-    setQuery("");
-    setStatus("all");
-    setSortBy("created_at");
-    setSortDirection("desc");
-    setPerPage(10);
-    setPage(1);
-  }
+  const exportOptions = [
+    { value: "csv", label: "CSV (.csv)" },
+    { value: "xlsx", label: "Excel (.xlsx)" },
+    { value: "pdf", label: "PDF (.pdf)" },
+  ];
+  const [exportFormat, setExportFormat] = useState("csv");
 
   return (
     <section className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Courses</h1>
           <p className="text-[13px] text-slate-500">Manage course catalog and curriculum versions</p>
         </div>
-
-        <Link to="/courses/create">
-          <FormButton className="sm:px-5">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Course
-          </FormButton>
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative" ref={exportRef}>
+            <div className="flex">
+              <FormButton type="button" variant="secondary" disabled={exporting} onClick={() => handleExport(exportFormat)} className="rounded-r-none border-r-0 sm:px-4">
+                <Download className="mr-2 h-4 w-4" />{exporting ? "Exporting..." : `Export ${exportFormat.toUpperCase()}`}
+              </FormButton>
+              <FormButton type="button" variant="secondary" disabled={exporting} onClick={() => setShowExportMenu((prev) => !prev)} aria-label="Choose export format" aria-expanded={showExportMenu} className="rounded-l-none border-l border-slate-200 px-2 sm:px-2" style={{ minWidth: 0 }}>
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </FormButton>
+            </div>
+            {showExportMenu && (
+              <div className="absolute right-0 z-30 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+                {exportOptions.map((opt) => (
+                  <button key={opt.value} type="button" disabled={exporting} onClick={() => { setExportFormat(opt.value); handleExport(opt.value); }}
+                    className={`flex w-full px-4 py-2.5 text-left text-[14px] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${exportFormat === opt.value ? "bg-emerald-50 font-medium text-emerald-700" : "text-slate-600 hover:text-slate-900"}`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Link to="/courses/create">
+            <FormButton className="sm:px-5"><Plus className="mr-2 h-4 w-4" />Add Course</FormButton>
+          </Link>
+        </div>
       </div>
 
-      <form
-        onSubmit={handleFilterSubmit}
-        className="rounded-xl border border-slate-200/80 bg-white p-5"
-      >
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_auto] xl:items-end">
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              className={inputClassName}
-              placeholder="Search by code, initials, name, or description"
-            />
-          </div>
-
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Status</label>
-            <select
-              value={status}
-              onChange={(event) => { setStatus(event.target.value); setPage(1); }}
-              className={`${selectClassName} w-full`}
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          <div className="flex gap-3 xl:justify-end">
-            <FormButton type="submit" className="w-full sm:w-auto">Apply</FormButton>
-            <FormButton type="button" variant="secondary" className="w-full sm:w-auto" onClick={handleResetFilters}>Reset</FormButton>
-          </div>
-        </div>
-      </form>
+      <FilterPanel
+        definitions={FILTER_DEFINITIONS}
+        initialValues={filters}
+        onApply={handleApplyFilter}
+        onReset={handleResetFilters}
+        quickKeys={["q", "status"]}
+      />
 
       {error ? (
         <div className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{error}</div>
@@ -201,9 +248,7 @@ export function CoursesPage() {
             <Tbody>
               {courses.map((course, index) => (
                 <tr key={course.id}>
-                  <Td className="w-10 text-center text-slate-400">
-                    {(meta.current_page - 1) * meta.per_page + index + 1}
-                  </Td>
+                  <Td className="w-10 text-center text-slate-400">{(meta.current_page - 1) * meta.per_page + index + 1}</Td>
                   <Td>{course.initials}</Td>
                   <Td>{course.code}</Td>
                   <Td>{course.name}</Td>
@@ -212,20 +257,8 @@ export function CoursesPage() {
                   <Td><StatusBadge active={course.is_active} /></Td>
                   <Td>
                     <div className="flex justify-end gap-2">
-                      <Link
-                        to={`/courses/${course.id}/edit`}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(course)}
-                        disabled={deletingId === course.id}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <Link to={`/courses/${course.id}/edit`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"><Pencil className="h-3.5 w-3.5" /></Link>
+                      <button type="button" onClick={() => handleDelete(course)} disabled={deletingId === course.id} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </Td>
                 </tr>

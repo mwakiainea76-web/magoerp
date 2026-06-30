@@ -47,7 +47,10 @@ class Student extends Model
 
     public function activeEnrolment(): HasOne
     {
-        return $this->hasOne(CourseEnrolment::class)->where('status', 'enrolled');
+        return $this->hasOne(CourseEnrolment::class)
+            ->where('status', 'enrolled')
+            ->orderByDesc('enrolment_date')
+            ->orderByDesc('created_at');
     }
 
     public function createdBy(): BelongsTo

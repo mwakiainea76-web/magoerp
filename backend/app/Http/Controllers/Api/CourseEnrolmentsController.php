@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\DataExportService;
+use App\Exports\StreamingPdfWriter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateCourseEnrolmentStatusRequest;
 use App\Models\AcademicSession;
@@ -12,6 +14,7 @@ use App\Models\Student;
 use App\Models\StudentStatusLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class CourseEnrolmentsController extends Controller
@@ -198,27 +201,33 @@ class CourseEnrolmentsController extends Controller
         ]);
     }
 
-    public static function createForStudent(Student $student, ?string $createdBy = null, ?string $courseId = null): CourseEnrolment
+    public static function createForStudent(Student $student, ?string $createdBy = null, ?string $courseId = null, ?string $courseCurriculumId = null): CourseEnrolment
     {
-        if (!$courseId && $student->courseCurriculum) {
-            $courseId = $student->courseCurriculum->course_id;
+        if ($courseCurriculumId) {
+            $pivot = CourseCurriculum::query()->find($courseCurriculumId);
+
+            if (!$pivot?->is_active) {
+                $courseCurriculumId = null;
+            }
         }
 
-        $activePivot = null;
-
-        if ($courseId) {
-            $activePivot = CourseCurriculum::query()
+        if (!$courseCurriculumId && $courseId) {
+            $pivot = CourseCurriculum::query()
                 ->where('course_id', $courseId)
                 ->where('is_active', true)
                 ->first();
+
+            $courseCurriculumId = $pivot?->id;
+        }
+
+        if (!$courseCurriculumId && $student->courseCurriculum) {
+            $courseCurriculumId = $student->courseCurriculum->id;
         }
 
         $session = AcademicSession::query()
             ->where('is_active', true)
             ->latest('start_date')
             ->first();
-
-        $courseCurriculumId = $activePivot?->id;
 
         return CourseEnrolment::create([
             'student_id' => $student->id,
@@ -229,6 +238,54 @@ class CourseEnrolmentsController extends Controller
             'created_by' => $createdBy,
             'updated_by' => $createdBy,
         ]);
+    }
+
+    public function export(Request $request, DataExportService $exportService, StreamingPdfWriter $pdfWriter): StreamedResponse
+    {
+        abort_unless($request->user()?->can('enrolments.view'), 403);
+
+        $validated = $request->validate([
+            'format' => ['nullable', 'in:csv,xlsx,pdf'],
+            'q' => ['nullable', 'string', 'max:200'],
+            'status' => ['nullable', 'string', 'max:50'],
+        ]);
+        $format = $validated['format'] ?? 'csv';
+        $search = trim((string) ($validated['q'] ?? ''));
+        $status = (string) ($validated['status'] ?? '');
+
+        $query = CourseEnrolment::query()
+            ->with(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum'])
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner
+                        ->whereHas('student', fn ($sq) => $sq->where('admission_number', 'like', "%{$search}%"))
+                        ->orWhereHas('student.user', fn ($uq) => $uq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('middle_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%"))
+                        ->orWhereHas('courseCurriculum.course', fn ($cq) => $cq->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%"));
+                });
+            })
+            ->when($status !== '' && $status !== 'all', fn ($q) => $q->where('status', $status))
+            ->orderBy('created_at');
+
+        $columns = [
+            ['key' => 'Student', 'value' => fn (CourseEnrolment $e) => $e->student?->full_name ?? ''],
+            ['key' => 'Admission #', 'value' => fn (CourseEnrolment $e) => $e->student?->admission_number ?? ''],
+            ['key' => 'Course', 'value' => fn (CourseEnrolment $e) => $e->courseCurriculum?->course?->name ?? ''],
+            ['key' => 'Curriculum', 'value' => fn (CourseEnrolment $e) => $e->courseCurriculum?->curriculum?->name ?? ''],
+            ['key' => 'Enrolled', 'value' => fn (CourseEnrolment $e) => $e->enrolment_date?->format('Y-m-d') ?? ''],
+            ['key' => 'Status', 'value' => fn (CourseEnrolment $e) => ucfirst($e->status)],
+        ];
+
+        return $exportService->export(
+            query: $query,
+            columns: $columns,
+            format: $format,
+            filename: 'course_enrolments',
+            pdfRenderer: fn (array $headers, iterable $rows) =>
+                $pdfWriter->output($headers, $rows, 'Course Enrolments Report'),
+        );
     }
 
     private function transform(CourseEnrolment $enrolment): array

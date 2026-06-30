@@ -62,8 +62,8 @@ return new class extends Migration
 
             // Audit Fields
             $table->timestamp('last_login_at')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable();
+            $table->foreignUuid('updated_by')->nullable();
 
             // Timestamps
             $table->timestamps();

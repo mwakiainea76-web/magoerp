@@ -39,9 +39,9 @@ export function LedgerPage() {
 
   const fetchStudentOptions = useCallback(async (query) => {
     const res = await studentsApi.list({ q: query, per_page: 20 });
-    return (res.data?.data ?? []).map((s) => ({
+    return (res.data ?? []).map((s) => ({
       id: s.id,
-      label: `${s.admission_number} - ${s.name}`,
+      label: `${s.admission_number} - ${s.full_name}`,
     }));
   }, [studentsApi]);
 

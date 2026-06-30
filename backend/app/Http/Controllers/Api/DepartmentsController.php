@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\DataExportService;
+use App\Exports\StreamingPdfWriter;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoredepartmentsRequest;
@@ -10,10 +12,16 @@ use App\Models\departments;
 use App\Models\staffs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DepartmentsController extends Controller
 {
     use PaginationMeta;
+
+    public function __construct(
+        protected DataExportService $exportService,
+        protected StreamingPdfWriter $pdfWriter,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -119,6 +127,36 @@ class DepartmentsController extends Controller
             'message' => 'Department updated successfully.',
             'data' => $this->transformDepartment($department),
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
+        $format = (string) $request->string('format', 'csv');
+
+        $query = departments::query()
+            ->with($this->departmentRelations())
+            ->orderBy('name');
+
+        $i = 0;
+        $columns = [
+            ['key' => '#', 'value' => function () use (&$i) { return ++$i; }],
+            ['key' => 'Code', 'value' => fn (departments $d) => $d->code],
+            ['key' => 'Name', 'value' => fn (departments $d) => $d->name],
+            ['key' => 'HOD', 'value' => fn (departments $d) => $d->headOfDepartment
+                ? ($d->headOfDepartment->employee_number . ' - ' . trim(collect([$d->headOfDepartment->user?->first_name, $d->headOfDepartment->user?->last_name])->filter()->implode(' ')))
+                : 'Not assigned'],
+        ];
+
+        return $this->exportService->export(
+            query: $query,
+            columns: $columns,
+            format: $format,
+            filename: 'departments',
+            pdfRenderer: fn (array $headers, iterable $rows) =>
+                $this->pdfWriter->output($headers, $rows, 'Department Directory'),
+        );
     }
 
     public function destroy(Request $request, departments $department): JsonResponse

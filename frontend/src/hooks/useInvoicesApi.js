@@ -20,6 +20,14 @@ export function useInvoicesApi() {
         const response = await authClient.get(`/students/${studentId}/fee-templates`);
         return response.data;
       },
+      myInvoices: async () => {
+        const response = await authClient.get('/my/invoices');
+        return response.data;
+      },
+      myFinanceSummary: async () => {
+        const response = await authClient.get('/my/finance-summary');
+        return response.data;
+      },
     }),
     [],
   );

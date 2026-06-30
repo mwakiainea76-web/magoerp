@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\DataExportService;
+use App\Exports\StreamingPdfWriter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCourseRequest;
 use App\Http\Requests\UpdateCourseRequest;
@@ -10,6 +12,7 @@ use App\Models\CourseCurriculum;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class CoursesController extends Controller
@@ -230,6 +233,51 @@ class CoursesController extends Controller
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    public function export(Request $request, DataExportService $exportService, StreamingPdfWriter $pdfWriter): StreamedResponse
+    {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
+        $validated = $request->validate([
+            'format' => ['nullable', 'in:csv,xlsx,pdf'],
+            'q' => ['nullable', 'string', 'max:200'],
+            'status' => ['nullable', 'in:active,inactive'],
+        ]);
+        $format = $validated['format'] ?? 'csv';
+
+        $query = Course::query()
+            ->with(['authority', 'level', 'department'])
+            ->when($search = trim((string) ($validated['q'] ?? '')), function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('code', 'like', "%{$search}%")
+                        ->orWhere('initials', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%");
+                });
+            })
+            ->when(($validated['status'] ?? '') === 'active', fn ($q) => $q->where('is_active', true))
+            ->when(($validated['status'] ?? '') === 'inactive', fn ($q) => $q->where('is_active', false))
+            ->orderBy('name');
+
+        $columns = [
+            ['key' => 'Code', 'value' => fn (Course $c) => $c->code],
+            ['key' => 'Name', 'value' => fn (Course $c) => $c->name],
+            ['key' => 'Initials', 'value' => fn (Course $c) => $c->initials],
+            ['key' => 'Authority', 'value' => fn (Course $c) => $c->authority?->name ?? ''],
+            ['key' => 'Level', 'value' => fn (Course $c) => $c->level?->name ?? ''],
+            ['key' => 'Department', 'value' => fn (Course $c) => $c->department?->name ?? ''],
+            ['key' => 'Duration (months)', 'value' => fn (Course $c) => (string) ($c->duration_months ?? '')],
+            ['key' => 'Status', 'value' => fn (Course $c) => $c->is_active ? 'Active' : 'Inactive'],
+        ];
+
+        return $exportService->export(
+            query: $query,
+            columns: $columns,
+            format: $format,
+            filename: 'courses',
+            pdfRenderer: fn (array $headers, iterable $rows) =>
+                $pdfWriter->output($headers, $rows, 'Course Catalogue'),
+        );
+    }
 
     private function transformCourse(Course $course): array
     {

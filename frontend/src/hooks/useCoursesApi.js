@@ -37,6 +37,9 @@ export function useCoursesApi() {
         const response = await authClient.patch(`/courses/${courseId}/curricula/toggle`, { curriculum_id: curriculumId });
         return response.data;
       },
+      exportCourses: async (params = {}) => {
+        return await authClient.get("/courses/export", { params, responseType: "blob", timeout: 0 });
+      },
     }),
     [],
   );

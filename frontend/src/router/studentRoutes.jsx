@@ -7,6 +7,7 @@ import { CreateComplaintPage } from "@/pages/complaints/CreateComplaintPage";
 import { MyComplaintsPage } from "@/pages/complaints/MyComplaintsPage";
 import { MyHostelPage } from "@/pages/hostels/MyHostelPage";
 import { StudentHostelBookingPage } from "@/pages/hostels/StudentHostelBookingPage";
+import { StudentFeeStatementPage } from "@/pages/finance/StudentFeeStatementPage";
 
 export function StudentRoutes() {
   return (
@@ -18,6 +19,7 @@ export function StudentRoutes() {
       <Route path="/complaints/create" element={<CreateComplaintPage />} />
       <Route path="/hostel" element={<MyHostelPage />} />
       <Route path="/hostel-book" element={<StudentHostelBookingPage />} />
+      <Route path="/finance/statements" element={<StudentFeeStatementPage />} />
     </>
   );
 }

@@ -28,6 +28,13 @@ export function useStaffsApi() {
         const response = await authClient.delete(`/staffs/${id}`);
         return response.data;
       },
+      exportStaffs: async (params = {}) => {
+        const response = await authClient.get("/staffs/export", {
+          params,
+          responseType: "arraybuffer",
+        });
+        return response;
+      },
     }),
     [],
   );

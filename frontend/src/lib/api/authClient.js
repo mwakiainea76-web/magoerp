@@ -106,6 +106,9 @@ export function getApiErrorMessage(error, fallbackMessage = "Something went wron
 
   const responseData = error.response.data;
   const responseMessage = responseData?.message;
+  const validationMessage = Object.values(responseData?.errors ?? {})
+    .flat()
+    .find((message) => typeof message === "string" && message.trim() !== "");
 
   if (error.response.status >= 500) {
     if (typeof responseMessage === "string" && responseMessage.trim() !== "") {
@@ -123,6 +126,10 @@ export function getApiErrorMessage(error, fallbackMessage = "Something went wron
     }
 
     return fallbackMessage;
+  }
+
+  if (validationMessage) {
+    return validationMessage;
   }
 
   if (typeof responseMessage === "string" && responseMessage.trim() !== "") {

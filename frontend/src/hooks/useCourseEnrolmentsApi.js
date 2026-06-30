@@ -20,6 +20,9 @@ export function useCourseEnrolmentsApi() {
         const response = await authClient.get("/student-status-logs", { params });
         return response.data;
       },
+      exportEnrolments: async (params = {}) => {
+        return await authClient.get("/course-enrolments/export", { params, responseType: "blob", timeout: 0 });
+      },
     }),
     [],
   );

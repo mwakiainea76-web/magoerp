@@ -1,7 +1,7 @@
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FileText, Percent, Wallet } from "lucide-react";
+import { Percent, Wallet } from "lucide-react";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
@@ -24,7 +24,7 @@ import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
 import { useAdjustmentsApi } from "@/hooks/useAdjustmentsApi";
-import { useStudentsApi } from "@/hooks/useStudentsApi";
+import { useLookupApi } from "@/hooks/useLookupApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const paymentMethods = [
@@ -40,12 +40,8 @@ const adjustmentTypes = [
   { value: "waiver", label: "Waiver" },
   { value: "bursary", label: "Bursary" },
   { value: "helb", label: "HELB" },
+  { value: "penalty", label: "Penalty" },
 ];
-
-const invoiceSchema = yup.object({
-  student_id: yup.string().required("Select a student"),
-  fee_template_id: yup.string().required("Select a fee template"),
-});
 
 const paymentSchema = yup.object({
   student_id: yup.string().required("Select a student"),
@@ -55,7 +51,8 @@ const paymentSchema = yup.object({
     .positive("Must be positive")
     .required("Amount is required"),
   method: yup.string().required("Select a payment method"),
-  reference: yup.string().nullable(),
+  reference: yup.string().trim().required("Payment reference is required"),
+  payment_date: yup.string().required("Payment date is required"),
   notes: yup.string().nullable(),
 });
 
@@ -118,35 +115,29 @@ export function BillingPage() {
   const invoicesApi = useInvoicesApi();
   const paymentsApi = usePaymentsApi();
   const adjustmentsApi = useAdjustmentsApi();
-  const studentsApi = useStudentsApi();
+  const lookupApi = useLookupApi();
 
   const [invoices, setInvoices] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [meta, setMeta] = useState(initialMeta);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(true);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [selectedFeeTemplate, setSelectedFeeTemplate] = useState(null);
-  const [availableTemplates, setAvailableTemplates] = useState([]);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [selectedPaymentStudent, setSelectedPaymentStudent] = useState(null);
   const [selectedAdjustmentInvoice, setSelectedAdjustmentInvoice] = useState(null);
 
   function fetchStudents(query) {
-    return studentsApi
-      .list({ q: query, per_page: 6 })
-      .then((res) =>
-        (res.data ?? []).map((s) => ({
-          id: s.id,
-          label: `${s.admission_number} - ${s.full_name}`,
-        })),
-      )
+    return lookupApi
+      .search("students", { query, limit: 10 })
+      .then((res) => res.data ?? [])
       .catch(() => []);
   }
 
@@ -154,7 +145,7 @@ export function BillingPage() {
     return invoicesApi
       .list({ q: query, per_page: 6 })
       .then((res) =>
-        (res.data ?? []).map((i) => ({
+        (res.data ?? []).filter((i) => i.status !== "cancelled").map((i) => ({
           id: i.id,
           label: `${i.invoice_number} - ${i.student_name} (${formatCurrency(i.balance_due)})`,
         })),
@@ -197,12 +188,26 @@ export function BillingPage() {
     return () => {
       isMounted = false;
     };
-  }, [invoicesApi, page, perPage]);
+  }, [invoicesApi, page, perPage, refreshKey]);
 
-  const invoiceForm = useForm({
-    resolver: yupResolver(invoiceSchema),
-    defaultValues: { student_id: "", invoice_template_id: "" },
-  });
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingPayments(true);
+
+    paymentsApi
+      .list({ per_page: 10 })
+      .then((response) => {
+        if (isMounted) setPayments(response.data ?? []);
+      })
+      .catch(() => {
+        if (isMounted) setPayments([]);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingPayments(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [paymentsApi, refreshKey]);
 
   const paymentForm = useForm({
     resolver: yupResolver(paymentSchema),
@@ -211,6 +216,7 @@ export function BillingPage() {
       amount: "",
       method: "",
       reference: "",
+      payment_date: new Date().toISOString().slice(0, 10),
       notes: "",
     },
   });
@@ -225,22 +231,16 @@ export function BillingPage() {
     },
   });
 
-  function resetInvoiceForm() {
-    invoiceForm.reset({ student_id: "", fee_template_id: "" });
-    setSelectedStudent(null);
-    setSelectedFeeTemplate(null);
-    setAvailableTemplates([]);
-    setFormError("");
-  }
-
   function resetPaymentForm() {
     paymentForm.reset({
       student_id: "",
       amount: "",
       method: "",
       reference: "",
+      payment_date: new Date().toISOString().slice(0, 10),
       notes: "",
     });
+    setSelectedPaymentStudent(null);
     setFormError("");
   }
 
@@ -255,11 +255,6 @@ export function BillingPage() {
     setFormError("");
   }
 
-  function openInvoiceModal() {
-    resetInvoiceForm();
-    setIsInvoiceModalOpen(true);
-  }
-
   function openPaymentModal() {
     resetPaymentForm();
     setIsPaymentModalOpen(true);
@@ -268,51 +263,6 @@ export function BillingPage() {
   function openAdjustmentModal() {
     resetAdjustmentForm();
     setIsAdjustmentModalOpen(true);
-  }
-
-  async function onStudentSelected(studentId, option) {
-    invoiceForm.setValue("student_id", studentId, { shouldValidate: true });
-    invoiceForm.setValue("fee_template_id", "");
-    setSelectedStudent(option ?? null);
-    setSelectedFeeTemplate(null);
-    setAvailableTemplates([]);
-
-    if (!studentId) return;
-
-    setIsLoadingTemplates(true);
-
-    try {
-      const res = await invoicesApi.availableTemplates(studentId);
-      const templates = (res.data ?? []).map((t) => ({
-        id: t.id,
-        fee_template_id: t.fee_template_id,
-        label: `${t.template_code} - ${t.template_name} (${formatCurrency(t.total_amount)})${t.year_level ? ` - Year ${t.year_level}` : ""}${t.session_number ? ` - Session ${t.session_number}` : ""}`,
-      }));
-      setAvailableTemplates(templates);
-    } catch {
-      setAvailableTemplates([]);
-    } finally {
-      setIsLoadingTemplates(false);
-    }
-  }
-
-  async function onSubmitInvoice(data) {
-    setIsSaving(true);
-    setFormError("");
-
-    try {
-      await invoicesApi.create({
-        student_id: data.student_id,
-        fee_template_id: data.fee_template_id,
-      });
-      toast.success("Invoice issued successfully.");
-      setIsInvoiceModalOpen(false);
-      setPage(1);
-    } catch (err) {
-      setFormError(getApiErrorMessage(err, "Failed to issue invoice."));
-    } finally {
-      setIsSaving(false);
-    }
   }
 
   async function onSubmitPayment(data) {
@@ -325,11 +275,13 @@ export function BillingPage() {
         amount: data.amount,
         method: data.method,
         reference: data.reference || null,
+        payment_date: data.payment_date,
         notes: data.notes || null,
       });
       toast.success("Payment recorded successfully.");
       setIsPaymentModalOpen(false);
       setPage(1);
+      setRefreshKey((value) => value + 1);
     } catch (err) {
       setFormError(getApiErrorMessage(err, "Failed to record payment."));
     } finally {
@@ -350,6 +302,7 @@ export function BillingPage() {
       toast.success("Adjustment applied successfully.");
       setIsAdjustmentModalOpen(false);
       setPage(1);
+      setRefreshKey((value) => value + 1);
     } catch (err) {
       setFormError(getApiErrorMessage(err, "Failed to apply adjustment."));
     } finally {
@@ -364,31 +317,23 @@ export function BillingPage() {
           Billing
         </h1>
         <p className="mt-1 text-[14px] text-slate-500">
-          Manage invoices, record payments, and apply fee waivers or discounts.
+          Review session-generated invoices, record payments, and apply adjustments.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <ActionCard
-          icon={FileText}
-          title="Issue Invoice"
-          description="Generate a new fee invoice for a student based on their enrolled course template."
-          gradientFrom="from-emerald-500"
-          gradientTo="to-emerald-600"
-          onClick={openInvoiceModal}
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
         <ActionCard
           icon={Wallet}
           title="Record Payment"
-          description="Record a payment received from a student and allocate it to an invoice."
+          description="Record a student payment. It is allocated automatically to outstanding invoices, oldest first."
           gradientFrom="from-blue-500"
           gradientTo="to-blue-600"
           onClick={openPaymentModal}
         />
         <ActionCard
           icon={Percent}
-          title="Fee Waivers"
-          description="Apply discounts, waivers, bursaries, or HELB adjustments to an invoice."
+          title="Adjustments"
+          description="Apply discounts, waivers, bursaries, HELB credits, or penalties to an invoice."
           gradientFrom="from-amber-500"
           gradientTo="to-amber-600"
           onClick={openAdjustmentModal}
@@ -415,6 +360,7 @@ export function BillingPage() {
                   <Th>Student</Th>
                   <Th>Session</Th>
                   <Th>Amount</Th>
+                  <Th>Adjustments</Th>
                   <Th>Paid</Th>
                   <Th>Balance</Th>
                   <Th>Status</Th>
@@ -426,7 +372,7 @@ export function BillingPage() {
                   <tr>
                     <Td
                       className={`px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
-                      colSpan={8}
+                      colSpan={9}
                     >
                       No invoices found
                     </Td>
@@ -447,6 +393,7 @@ export function BillingPage() {
                       </Td>
                       <Td>{inv.session_name ?? "-"}</Td>
                       <Td>{formatCurrency(inv.amount_due)}</Td>
+                      <Td>{formatCurrency(inv.adjustment_amount)}</Td>
                       <Td>{formatCurrency(inv.paid_amount)}</Td>
                       <Td className="font-medium">
                         {inv.balance_due > 0 ? (
@@ -485,88 +432,41 @@ export function BillingPage() {
         )}
       </Table>
 
-      {/* Issue Invoice Modal */}
-      <Modal
-        open={isInvoiceModalOpen}
-        onClose={() => setIsInvoiceModalOpen(false)}
-        title="Issue Invoice"
-        description="Select a student and invoice template to generate a new fee invoice."
-        size="md"
-      >
-        <form id="invoice-form" onSubmit={invoiceForm.handleSubmit(onSubmitInvoice)}>
-          <ModalBody className="space-y-4">
-            {formError ? (
-              <div
-                className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}
-              >
-                {formError}
-              </div>
-            ) : null}
+      <Table>
+        <TableHeader>
+          <h2 className="text-[1.0625rem] font-semibold text-slate-900">Recent Payments</h2>
+        </TableHeader>
 
-            <LookupSelect
-              label="Student"
-              placeholder="Search by admission number or name"
-              required
-              value={invoiceForm.watch("student_id")}
-              onChange={onStudentSelected}
-              selectedOption={selectedStudent}
-              fetchOptions={fetchStudents}
-              error={invoiceForm.formState.errors.student_id?.message}
-            />
-
-            {invoiceForm.watch("student_id") ? (
-              <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">
-                  Fee Template <span className="text-red-400">*</span>
-                </label>
-                <select
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-400"
-                  disabled={isLoadingTemplates}
-                  {...invoiceForm.register("fee_template_id")}
-                >
-                  <option value="">
-                    {isLoadingTemplates
-                      ? "Loading templates..."
-                      : availableTemplates.length === 0
-                        ? "No templates available"
-                        : "Select a template"}
-                  </option>
-                  {availableTemplates.map((t) => (
-                    <option key={t.id} value={t.fee_template_id}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-                {invoiceForm.formState.errors.fee_template_id?.message ? (
-                  <p className="mt-1 text-sm text-red-600">
-                    {invoiceForm.formState.errors.fee_template_id.message}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </ModalBody>
-          <ModalFooter>
-            <FormButton
-              type="button"
-              variant="secondary"
-              onClick={() => setIsInvoiceModalOpen(false)}
-              disabled={isSaving}
-            >
-              Cancel
-            </FormButton>
-            <FormButton type="submit" form="invoice-form" disabled={isSaving}>
-              {isSaving ? "Issuing..." : "Issue Invoice"}
-            </FormButton>
-          </ModalFooter>
-        </form>
-      </Modal>
+        {isLoadingPayments ? (
+          <div className={`px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>Loading payments...</div>
+        ) : (
+          <TableWrapper>
+            <Thead>
+              <tr>
+                <Th>Student</Th><Th>Date</Th><Th>Method</Th><Th>Reference</Th><Th>Amount</Th><Th>Allocated</Th><Th>Available Credit</Th><Th>Status</Th>
+              </tr>
+            </Thead>
+            <Tbody>
+              {payments.length === 0 ? (
+                <tr><Td colSpan={8} className="py-10 text-center text-slate-500">No payments recorded yet.</Td></tr>
+              ) : payments.map((payment) => (
+                <tr key={payment.id}>
+                  <Td><div className="flex flex-col"><span className="font-medium text-slate-900">{payment.student_name}</span><span className="text-xs text-slate-400">{payment.admission_number}</span></div></Td>
+                  <Td>{payment.payment_date ?? '-'}</Td><Td>{payment.method ?? '-'}</Td><Td>{payment.reference ?? '-'}</Td>
+                  <Td className="font-semibold">{formatCurrency(payment.amount)}</Td><Td>{formatCurrency(payment.allocated_total)}</Td><Td className="text-sky-700">{formatCurrency(payment.unallocated_amount)}</Td><Td><StatusBadge status={payment.status} /></Td>
+                </tr>
+              ))}
+            </Tbody>
+          </TableWrapper>
+        )}
+      </Table>
 
       {/* Record Payment Modal */}
       <Modal
         open={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         title="Record Payment"
-        description="Record a payment received from a student."
+        description="Payments are automatically allocated to the oldest outstanding invoices first."
         size="lg"
       >
         <form id="payment-form" onSubmit={paymentForm.handleSubmit(onSubmitPayment)}>
@@ -585,8 +485,10 @@ export function BillingPage() {
                 placeholder="Search by admission number or name"
                 required
                 value={paymentForm.watch("student_id")}
+                selectedOption={selectedPaymentStudent}
                 onChange={(id, option) => {
                   paymentForm.setValue("student_id", id, { shouldValidate: true });
+                  setSelectedPaymentStudent(option ?? null);
                 }}
                 fetchOptions={fetchStudents}
                 error={paymentForm.formState.errors.student_id?.message}
@@ -605,7 +507,7 @@ export function BillingPage() {
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-[13px] font-medium text-slate-600">
                   Payment Method <span className="text-red-400">*</span>
@@ -631,9 +533,19 @@ export function BillingPage() {
               <FormInput
                 id="payment-reference"
                 label="Reference"
-                placeholder="Transaction code (optional)"
+                required
+                placeholder="Transaction code or receipt number"
                 error={paymentForm.formState.errors.reference?.message}
                 {...paymentForm.register("reference")}
+              />
+
+              <FormInput
+                id="payment-date"
+                label="Payment Date"
+                type="date"
+                required
+                error={paymentForm.formState.errors.payment_date?.message}
+                {...paymentForm.register("payment_date")}
               />
             </div>
 
@@ -668,8 +580,8 @@ export function BillingPage() {
       <Modal
         open={isAdjustmentModalOpen}
         onClose={() => setIsAdjustmentModalOpen(false)}
-        title="Fee Waiver"
-        description="Apply a discount, waiver, bursary, or HELB adjustment to an invoice."
+        title="Fee Adjustment"
+        description="Apply a credit adjustment or penalty to an invoice."
         size="lg"
       >
         <form id="adjustment-form" onSubmit={adjustmentForm.handleSubmit(onSubmitAdjustment)}>
@@ -687,8 +599,9 @@ export function BillingPage() {
               placeholder="Search by invoice number or student name"
               required
               value={adjustmentForm.watch("adjustment_invoice_id")}
-              onChange={(id) => {
+              onChange={(id, option) => {
                 adjustmentForm.setValue("adjustment_invoice_id", id, { shouldValidate: true });
+                setSelectedAdjustmentInvoice(option ?? null);
               }}
               selectedOption={selectedAdjustmentInvoice}
               fetchOptions={fetchInvoices}

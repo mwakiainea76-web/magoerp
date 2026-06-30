@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\DataExportService;
+use App\Exports\StreamingPdfWriter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorestaffsRequest;
 use App\Http\Requests\UpdatestaffsRequest;
@@ -11,39 +13,56 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 
 class StaffsController extends Controller
 {
     use PaginationMeta;
 
+    public function __construct(
+        protected DataExportService $exportService,
+        protected StreamingPdfWriter $pdfWriter,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
-        // User must have staff.view permission to view
         abort_unless($request->user()?->can('staff.view'), 403);
-        $search         = trim((string) $request->string('q', ''));
-        $sortBy         = (string) $request->string('sort_by', 'created_at');
-        $sortDirection  = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
-        $perPage        = max(1, min((int) $request->integer('per_page', 10), 100));
+
+        $search          = trim((string) $request->string('q', ''));
+        $departmentId    = (string) $request->string('department_id', '');
+        $employmentType  = (string) $request->string('employment_type', '');
+        $status          = (string) $request->string('status', 'all');
+        $sortBy          = (string) $request->string('sort_by', 'created_at');
+        $sortDirection   = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
+        $perPage         = max(1, min((int) $request->integer('per_page', 10), 100));
 
         $sortableColumns = [
             'employee_number' => 'employee_number',
+            'first_name'      => 'users.first_name',
             'job_title'       => 'job_title',
             'created_at'      => 'created_at',
         ];
 
         $staffs = staffs::query()
+            ->select('staffs.*')
+            ->leftJoin('users', 'users.id', '=', 'staffs.user_id')
             ->with(['user', 'department'])
-           ->when($search !== '', function ($query) use ($search) {
-    $query->where(function ($q) use ($search) {
-        $q->where('employee_number', 'like', "%{$search}%")
-          ->orWhereHas('user', fn ($uq) =>
-              $uq->where('email', 'like', "%{$search}%")
-                 ->orWhere('national_id', 'like', "%{$search}%")
-          );
-    });
-})
-            ->orderBy($sortableColumns[$sortBy] ?? 'employee_number', $sortDirection)
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('staffs.employee_number', 'like', "%{$search}%")
+                      ->orWhere('users.email', 'like', "%{$search}%")
+                      ->orWhere('users.national_id', 'like', "%{$search}%")
+                      ->orWhere(DB::raw("CONCAT(users.first_name, ' ', users.middle_name, ' ', users.last_name)"), 'like', "%{$search}%")
+                      ->orWhere('users.first_name', 'like', "%{$search}%")
+                      ->orWhere('users.last_name', 'like', "%{$search}%");
+                });
+            })
+            ->when($departmentId !== '', fn ($q) => $q->where('staffs.department_id', $departmentId))
+            ->when($employmentType !== '', fn ($q) => $q->where('staffs.employment_type', $employmentType))
+            ->when($status === 'active', fn ($q) => $q->where('staffs.status', true))
+            ->when($status === 'inactive', fn ($q) => $q->where('staffs.status', false))
+            ->orderBy($sortableColumns[$sortBy] ?? 'staffs.employee_number', $sortDirection)
             ->paginate($perPage)
             ->withQueryString();
 
@@ -52,9 +71,12 @@ class StaffsController extends Controller
                 ->map(fn (staffs $staff) => $this->transformStaff($staff, includeSalary: false))
                 ->values(),
             'meta' => $this->paginationMeta($staffs, [
-                'q'              => $search,
-                'sort_by'        => $sortBy,
-                'sort_direction' => $sortDirection,
+                'q'               => $search,
+                'department_id'   => $departmentId,
+                'employment_type' => $employmentType,
+                'status'          => $status,
+                'sort_by'         => $sortBy,
+                'sort_direction'  => $sortDirection,
             ]),
         ]);
     }
@@ -238,6 +260,64 @@ class StaffsController extends Controller
         return response()->json([
             'message' => 'Staff deleted successfully.',
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        abort_unless($request->user()?->can('staff.view'), 403);
+
+        $validated = $request->validate([
+            'format'          => ['nullable', 'in:csv,xlsx,pdf'],
+            'q'               => ['nullable', 'string', 'max:200'],
+            'department_id'   => ['nullable', 'string', 'max:36'],
+            'employment_type' => ['nullable', 'string', 'max:50'],
+            'status'          => ['nullable', 'in:active,inactive,all'],
+        ]);
+        $format         = $validated['format'] ?? 'csv';
+        $search         = trim((string) ($validated['q'] ?? ''));
+        $departmentId   = (string) ($validated['department_id'] ?? '');
+        $employmentType = (string) ($validated['employment_type'] ?? '');
+        $status         = (string) ($validated['status'] ?? 'all');
+
+        $query = staffs::query()
+            ->select('staffs.*')
+            ->leftJoin('users', 'users.id', '=', 'staffs.user_id')
+            ->with(['user', 'department'])
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('staffs.employee_number', 'like', "%{$search}%")
+                          ->orWhere('users.email', 'like', "%{$search}%")
+                          ->orWhere('users.national_id', 'like', "%{$search}%")
+                          ->orWhere(DB::raw("CONCAT(users.first_name, ' ', users.middle_name, ' ', users.last_name)"), 'like', "%{$search}%")
+                          ->orWhere('users.first_name', 'like', "%{$search}%")
+                          ->orWhere('users.last_name', 'like', "%{$search}%");
+                });
+            })
+            ->when($departmentId !== '', fn ($q) => $q->where('staffs.department_id', $departmentId))
+            ->when($employmentType !== '', fn ($q) => $q->where('staffs.employment_type', $employmentType))
+            ->when($status === 'active', fn ($q) => $q->where('staffs.status', true))
+            ->when($status === 'inactive', fn ($q) => $q->where('staffs.status', false))
+            ->orderBy('staffs.employee_number');
+
+        $i = 0;
+        $columns = [
+            ['key' => '#', 'value' => function () use (&$i) { return ++$i; }],
+            ['key' => 'Employee Number', 'value' => fn (staffs $s) => $s->employee_number],
+            ['key' => 'Name', 'value' => fn (staffs $s) => $s->user ? trim(collect([$s->user->first_name, $s->user->middle_name, $s->user->last_name])->filter()->implode(' ')) : ''],
+            ['key' => 'Job Title', 'value' => fn (staffs $s) => $s->job_title ?? ''],
+            ['key' => 'Department', 'value' => fn (staffs $s) => $s->department?->name ?? 'Unassigned'],
+            ['key' => 'Employment Type', 'value' => fn (staffs $s) => $s->employment_type ?? ''],
+            ['key' => 'Status', 'value' => fn (staffs $s) => $s->status ? 'Active' : 'Inactive'],
+        ];
+
+        return $this->exportService->export(
+            query: $query,
+            columns: $columns,
+            format: $format,
+            filename: 'staff_directory',
+            pdfRenderer: fn (array $headers, iterable $rows) =>
+                $this->pdfWriter->output($headers, $rows, 'Staff Directory'),
+        );
     }
 
     // -------------------------------------------------------------------------

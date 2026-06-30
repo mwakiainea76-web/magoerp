@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthenticateApiTokenCookie;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -8,10 +9,10 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use App\Http\Middleware\AuthenticateApiTokenCookie;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -37,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
-                
+
                 'message' => 'Unauthenticated.',
             ], 401);
         });
@@ -48,7 +49,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
-                
+
                 'message' => 'You are not authorized to perform this action.',
             ], 403);
         });
@@ -59,7 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
-                
+
                 'message' => 'Resource not found.',
             ], 404);
         });
@@ -70,9 +71,24 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
-                
+
                 'message' => 'This action is not available.',
             ], 405);
+        });
+
+        $exceptions->render(function (HttpException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            $status = $exception->getStatusCode();
+            $message = match ($status) {
+                403 => 'You are not authorized to perform this action.',
+                429 => 'Too many requests. Please try again shortly.',
+                default => $exception->getMessage() ?: 'The request could not be completed.',
+            };
+
+            return response()->json(['message' => $message], $status, $exception->getHeaders());
         });
 
         $exceptions->render(function (ValidationException $exception, Request $request) {
@@ -81,13 +97,13 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
-                
+
                 'message' => $exception->getMessage(),
                 'errors' => $exception->errors(),
             ], 422);
         });
 
-        $exceptions->render(function (\Throwable $exception, Request $request) {
+        $exceptions->render(function (Throwable $exception, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
             }

@@ -8,6 +8,10 @@ export function useLedgerApi() {
         const response = await authClient.get("/ledger", { params });
         return response.data;
       },
+      myLedger: async () => {
+        const response = await authClient.get('/my/ledger');
+        return response.data;
+      },
     }),
     [],
   );

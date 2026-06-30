@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import {
@@ -75,16 +75,7 @@ export function DepartmentsPage() {
     return () => {
       isMounted = false;
     };
-  }, [departmentsApi, page, perPage, query, reloadKey, sortBy, sortDirection]);
-
-  async function fetchDepartmentOptions(queryText) {
-    const response = await lookupApi.search("departments", {
-      query: queryText,
-      limit: 5,
-    });
-
-    return response.data ?? [];
-  }
+  }, [departmentsApi, page, perPage, reloadKey, sortBy, sortDirection]);
 
   async function handleDelete(department) {
     const confirmed = window.confirm(`Delete ${department.name}?`);
@@ -113,6 +104,62 @@ export function DepartmentsPage() {
     setPage(1);
   }
 
+  const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState("csv");
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (exportRef.current && !exportRef.current.contains(event.target)) {
+        setShowExportMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function handleExport(format) {
+    setExporting(true);
+    setShowExportMenu(false);
+    setExportFormat(format);
+
+    try {
+      const response = await departmentsApi.exportDepartments({ format });
+
+      const disposition = response.headers?.["content-disposition"] ?? "";
+      const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const regularMatch = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = encodedMatch
+        ? decodeURIComponent(encodedMatch[1])
+        : regularMatch?.[1] ?? `departments.${format}`;
+
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Export failed."));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function fetchDepartmentOptions(queryText) {
+    const response = await lookupApi.search("departments", {
+      query: queryText,
+      limit: 5,
+    });
+
+    return response.data ?? [];
+  }
+
   function handleFilterSubmit(event) {
     event.preventDefault();
     setPage(1);
@@ -128,9 +175,11 @@ export function DepartmentsPage() {
     setPage(1);
   }
 
+  const exportLabels = { csv: "CSV", xlsx: "Excel", pdf: "PDF" };
+
   return (
     <section className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">
             Departments
@@ -140,12 +189,67 @@ export function DepartmentsPage() {
           </p>
         </div>
 
-        <Link to="/departments/create">
-          <FormButton className="w-full sm:w-auto sm:px-5">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Department
-          </FormButton>
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative" ref={exportRef}>
+            <div className="flex">
+              <FormButton
+                type="button"
+                variant="secondary"
+                disabled={exporting}
+                onClick={() => handleExport(exportFormat)}
+                className="rounded-r-none border-r-0 sm:px-4"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {exporting ? "Exporting..." : `Export ${exportLabels[exportFormat]}`}
+              </FormButton>
+              <FormButton
+                type="button"
+                variant="secondary"
+                disabled={exporting}
+                onClick={() => setShowExportMenu((prev) => !prev)}
+                aria-label="Choose export format"
+                aria-expanded={showExportMenu}
+                className="rounded-l-none border-l border-slate-200 px-2 sm:px-2"
+                style={{ minWidth: 0 }}
+              >
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </FormButton>
+            </div>
+
+            {showExportMenu && (
+              <div className="absolute right-0 z-30 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-[0_12px_30px_rgba(15,23,42,0.12)]">
+                {[
+                  { value: "csv", label: "CSV (.csv)" },
+                  { value: "xlsx", label: "Excel (.xlsx)" },
+                  { value: "pdf", label: "PDF (.pdf)" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={exporting}
+                    onClick={() => handleExport(opt.value)}
+                    className={`flex w-full px-4 py-2.5 text-left text-[14px] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 ${
+                      exportFormat === opt.value
+                        ? "bg-emerald-50 font-medium text-emerald-700"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Link to="/departments/create">
+            <FormButton className="w-full sm:w-auto sm:px-5">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Department
+            </FormButton>
+          </Link>
+        </div>
       </div>
 
       <form
@@ -200,7 +304,7 @@ export function DepartmentsPage() {
           </div>
         ) : departments.length === 0 ? (
           <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>
-            No departments found for the current filters.
+            No departments found.
           </div>
         ) : (
           <TableWrapper>
@@ -209,7 +313,8 @@ export function DepartmentsPage() {
                 <Th className="w-10 text-center">#</Th>
                 <SortableTh sortKey="code" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Code</SortableTh>
                 <SortableTh sortKey="name" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Name</SortableTh>
-                <Th>Head of Department</Th>                <Th className="text-right">Actions</Th>
+                <Th>Head of Department</Th>
+                <Th className="text-right">Actions</Th>
               </tr>
             </Thead>
             <Tbody>
@@ -225,7 +330,6 @@ export function DepartmentsPage() {
                       ? `${department.head_of_department_name}${department.head_of_department_employee_number ? ` (${department.head_of_department_employee_number})` : ""}`
                       : "Not assigned"}
                   </Td>
-
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link

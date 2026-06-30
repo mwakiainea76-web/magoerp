@@ -9,6 +9,7 @@ use App\Models\CourseEnrolment;
 use App\Models\CourseCurriculum;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Models\StudentLedgerEntry;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
@@ -98,11 +99,22 @@ class StudentDashboardController extends Controller
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
             ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw('amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as balance_due');
+            ->selectRaw('COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0) as adjustment_amount')
+            ->selectRaw('GREATEST(0, amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) - COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)) as balance_due');
 
         $invoices = $invoiceBaseQuery->get();
         $outstandingBalance = (float) $invoices->where('balance_due', '>', 0)->sum('balance_due');
-        $totalPaid = (float) $invoices->sum('paid_amount');
+        $totalAdjustments = (float) $invoices->sum('adjustment_amount');
+
+        $payments = Payment::query()
+            ->where('student_id', $student->id)
+            ->where('status', 'completed')
+            ->withSum('allocations', 'amount')
+            ->get();
+        $totalPaid = (float) $payments->sum('amount');
+        $unallocatedCredit = (float) $payments->sum(
+            fn (Payment $payment) => max(0, (float) $payment->amount - (float) ($payment->allocations_sum_amount ?? 0)),
+        );
 
         $nextDueInvoice = $invoices
             ->where('balance_due', '>', 0)
@@ -155,6 +167,8 @@ class StudentDashboardController extends Controller
                 'finance' => [
                     'outstanding_balance' => $outstandingBalance,
                     'total_paid' => $totalPaid,
+                    'total_adjustments' => $totalAdjustments,
+                    'unallocated_credit' => $unallocatedCredit,
                     'next_due_date' => $nextDueInvoice?->due_date?->format('Y-m-d'),
                 ],
                 'course' => $course ? [
@@ -217,4 +231,3 @@ class StudentDashboardController extends Controller
         ]);
     }
 }
-

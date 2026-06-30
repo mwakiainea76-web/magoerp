@@ -119,7 +119,9 @@ return new class extends Migration
             $table->index(['payment_id', 'invoice_id']);
         });
 
-        DB::statement('ALTER TABLE invoice_payment_allocations ADD CONSTRAINT invoice_payment_allocations_amount_check CHECK (amount > 0)');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE invoice_payment_allocations ADD CONSTRAINT invoice_payment_allocations_amount_check CHECK (amount > 0)');
+        }
 
         Schema::create('student_fee_adjustments', function (Blueprint $table) {
             $table->uuid('id')->primary();

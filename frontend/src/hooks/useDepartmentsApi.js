@@ -31,6 +31,13 @@ export function useDepartmentsApi() {
         const response = await authClient.delete(`/departments/${id}`);
         return response.data;
       },
+      exportDepartments: async (params = {}) => {
+        const response = await authClient.get("/departments/export", {
+          params,
+          responseType: "arraybuffer",
+        });
+        return response;
+      },
     }),
     [],
   );
