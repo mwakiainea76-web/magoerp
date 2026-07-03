@@ -18,7 +18,7 @@ class AdmissionNumberService
             ?? AcademicYear::query()->orderByDesc('start_date')->first();
 
         $count = CourseEnrolment::query()
-            ->where('course_id', $course->id)
+            ->whereHas('courseCurriculum', fn ($q) => $q->where('course_id', $course->id))
             ->whereHas('student', fn ($q) => $q->withTrashed())
             ->count();
 

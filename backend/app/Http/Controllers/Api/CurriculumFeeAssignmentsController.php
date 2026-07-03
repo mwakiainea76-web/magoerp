@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\AcademicSession;
+use App\Http\Controllers\Api\Traits\PaginationMeta;
+use App\Models\AcademicYear;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\FeeTemplate;
 use Illuminate\Http\JsonResponse;
@@ -13,28 +14,57 @@ use Illuminate\Validation\Rule;
 
 class CurriculumFeeAssignmentsController extends Controller
 {
+    use PaginationMeta;
+
     public function index(Request $request, FeeTemplate $fee_template): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $items = CurriculumFeeAssignment::query()
+        $search = trim((string) $request->string('q', ''));
+        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+
+        $query = CurriculumFeeAssignment::query()
             ->where('fee_template_id', $fee_template->id)
             ->whereNull('parent_assignment_id')
-            ->with($this->loadRelations())
+            ->with($this->loadRelations());
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->whereHas('courseCurriculum.course', fn ($cq) => $cq->where('name', 'like', $like)
+                    ->orWhere('code', 'like', $like))
+                  ->orWhereHas('courseCurriculum.curriculum', fn ($cq) => $cq->where('name', 'like', $like)
+                    ->orWhere('code', 'like', $like))
+                  ->orWhereHas('department', fn ($dq) => $dq->where('name', 'like', $like)
+                    ->orWhere('code', 'like', $like));
+            });
+        }
+
+        $assignments = $query
             ->orderBy('year_level')
             ->orderBy('session_number')
-            ->get()
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $collection = $assignments->getCollection()
             ->map(fn (CurriculumFeeAssignment $assignment) => $this->transform($assignment))
             ->values();
 
+        $hasItems = $collection->isNotEmpty()
+            || CurriculumFeeAssignment::query()
+                ->where('fee_template_id', $fee_template->id)
+                ->whereNull('parent_assignment_id')
+                ->exists();
+
         return response()->json([
             'status_code' => 200,
-            'data' => $items,
+            'data' => $collection,
+            'meta' => $this->paginationMeta($assignments, ['q' => $search]),
             'fee_template_name' => $fee_template->name,
             'fee_template_code' => $fee_template->code,
             'fee_template_is_issued' => $fee_template->is_issued,
-            'fee_template_is_assigned' => $items->isNotEmpty(),
-            'fee_template_is_locked' => $fee_template->is_issued || $items->isNotEmpty(),
+            'fee_template_is_assigned' => $hasItems,
+            'fee_template_is_locked' => $fee_template->is_issued || $hasItems,
             'fee_template_total_amount' => (float) $fee_template->items()->where('is_active', true)->sum('amount'),
             'fee_template_total_items' => (int) $fee_template->items()->where('is_active', true)->count(),
         ]);
@@ -50,81 +80,46 @@ class CurriculumFeeAssignmentsController extends Controller
             ], 422);
         }
 
-        $request->mergeIfMissing(['issuance_type' => 'per_session']);
+        $request->mergeIfMissing([
+            'assignment_scope' => $request->filled('department_id') ? 'department' : 'course',
+        ]);
 
         $validated = $request->validate([
-            'course_curriculum_id' => ['required', 'uuid', Rule::exists('course_curricula', 'id')],
-            'academic_session_id' => ['required', 'uuid', Rule::exists('academic_sessions', 'id')],
-            'year_level' => ['required', 'integer', 'min:1', 'max:10'],
-            'session_number' => ['required_if:issuance_type,per_session', 'nullable', 'integer', 'min:1', 'max:10'],
+            'assignment_scope' => ['required', Rule::in(['course', 'department'])],
+            'course_curriculum_id' => ['required_if:assignment_scope,course', 'nullable', 'uuid', Rule::exists('course_curricula', 'id')],
+            'department_id' => ['required_if:assignment_scope,department', 'nullable', 'uuid', Rule::exists('departments', 'id')],
+            'academic_year_id' => ['required', 'uuid', Rule::exists('academic_years', 'id')],
+            'year_level' => ['required', 'integer', 'min:0', 'max:4'],
             'is_approved' => ['sometimes', 'boolean'],
-            'issuance_type' => ['required', Rule::in(['per_session', 'per_year'])],
             'split_ratios' => ['nullable', 'array'],
             'split_ratios.*' => ['numeric', 'min:0.01', 'max:100'],
         ]);
 
-        return $validated['issuance_type'] === 'per_year'
-            ? $this->createPerYearAssignments($request, $fee_template, $validated)
-            : $this->createPerSessionAssignment($request, $fee_template, $validated);
-    }
-
-    private function createPerSessionAssignment(Request $request, FeeTemplate $template, array $validated): JsonResponse
-    {
-        $exists = CurriculumFeeAssignment::query()
-            ->where('issuance_type', 'per_session')
-            ->where('course_curriculum_id', $validated['course_curriculum_id'])
-            ->where('academic_session_id', $validated['academic_session_id'])
-            ->where('year_level', $validated['year_level'])
-            ->where('session_number', $validated['session_number'])
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'This session fee assignment already exists.'], 409);
-        }
-
-        $approved = $request->boolean('is_approved');
-        $assignment = CurriculumFeeAssignment::create([
-            'course_curriculum_id' => $validated['course_curriculum_id'],
-            'fee_template_id' => $template->id,
-            'academic_session_id' => $validated['academic_session_id'],
-            'issuance_type' => 'per_session',
-            'parent_assignment_id' => null,
-            'dormant' => false,
-            'split_amount' => null,
-            'split_ratio' => null,
-            'year_level' => $validated['year_level'],
-            'session_number' => $validated['session_number'],
-            'is_approved' => $approved,
-            'approved_by' => $approved ? $request->user()->id : null,
-            'approved_at' => $approved ? now() : null,
-            'created_by' => $request->user()->id,
-            'updated_by' => $request->user()->id,
-        ]);
-
-        return response()->json([
-            'message' => 'Per-session fee assignment created successfully.',
-            'data' => $this->transform($assignment->load($this->loadRelations())),
-        ], 201);
+        return $this->createPerYearAssignments($request, $fee_template, $validated);
     }
 
     private function createPerYearAssignments(Request $request, FeeTemplate $template, array $validated): JsonResponse
     {
-        $referenceSession = AcademicSession::with('year.sessions')->findOrFail($validated['academic_session_id']);
-        $sessions = $referenceSession->year->sessions()->orderBy('start_date')->orderBy('code')->get();
+        $academicYear = AcademicYear::findOrFail($validated['academic_year_id']);
+        $sessions = $academicYear->sessions()->orderBy('start_date')->orderBy('code')->get();
 
-        if ($sessions->isEmpty() || $sessions->first()->id !== $referenceSession->id) {
+        if ($sessions->isEmpty()) {
             return response()->json([
-                'message' => 'A yearly fee must be issued against the first session of the academic year.',
+                'message' => 'The selected academic year has no sessions to receive the yearly fee.',
             ], 422);
         }
 
         $existing = CurriculumFeeAssignment::query()
             ->whereNull('parent_assignment_id')
             ->where('issuance_type', 'per_year')
-            ->where('course_curriculum_id', $validated['course_curriculum_id'])
+            ->where(function ($query) use ($validated) {
+                $validated['assignment_scope'] === 'department'
+                    ? $query->where('department_id', $validated['department_id'])->whereNull('course_curriculum_id')
+                    : $query->where('course_curriculum_id', $validated['course_curriculum_id'])->whereNull('department_id');
+            })
             ->where('year_level', $validated['year_level'])
             ->whereHas('childAssignments.academicSession', fn ($query) => $query
-                ->where('academic_year_id', $referenceSession->academic_year_id))
+                ->where('academic_year_id', $academicYear->id))
             ->exists();
 
         if ($existing) {
@@ -147,7 +142,8 @@ class CurriculumFeeAssignmentsController extends Controller
         $approved = $request->boolean('is_approved');
         $parent = DB::transaction(function () use ($request, $template, $validated, $sessions, $ratios, $totalAmount, $approved, $hasCustomRatios) {
             $parent = CurriculumFeeAssignment::create([
-                'course_curriculum_id' => $validated['course_curriculum_id'],
+                'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
+                'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
                 'fee_template_id' => $template->id,
                 'academic_session_id' => null,
                 'issuance_type' => 'per_year',
@@ -177,7 +173,8 @@ class CurriculumFeeAssignmentsController extends Controller
                     : round($amount / $totalAmount * 100, 2);
 
                 CurriculumFeeAssignment::create([
-                    'course_curriculum_id' => $validated['course_curriculum_id'],
+                    'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
+                    'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
                     'fee_template_id' => $template->id,
                     'academic_session_id' => $session->id,
                     'issuance_type' => 'per_year',
@@ -297,6 +294,62 @@ class CurriculumFeeAssignmentsController extends Controller
         ]);
     }
 
+    public function search(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
+        $search = trim((string) $request->string('q', ''));
+        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+        $academicYearId = $request->string('academic_year_id', '');
+        $academicSessionId = $request->string('academic_session_id', '');
+
+        $query = CurriculumFeeAssignment::query()
+            ->whereNull('parent_assignment_id')
+            ->where('issuance_type', 'per_year')
+            ->with(array_merge($this->loadRelations(), ['feeTemplate:id,code,name']));
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->whereHas('courseCurriculum.course', fn ($cq) => $cq->where('name', 'like', $like)
+                    ->orWhere('code', 'like', $like))
+                  ->orWhereHas('courseCurriculum.curriculum', fn ($cq) => $cq->where('name', 'like', $like)
+                    ->orWhere('code', 'like', $like))
+                  ->orWhereHas('department', fn ($dq) => $dq->where('name', 'like', $like)
+                    ->orWhere('code', 'like', $like))
+                  ->orWhereHas('feeTemplate', fn ($fq) => $fq->where('name', 'like', $like)
+                    ->orWhere('code', 'like', $like));
+            });
+        }
+
+        if ($academicYearId !== '') {
+            $query->where(function ($q) use ($academicYearId) {
+                $q->whereHas('childAssignments.academicSession', fn ($cq) => $cq
+                    ->where('academic_year_id', $academicYearId));
+            });
+        }
+
+        if ($academicSessionId !== '') {
+            $query->whereHas('childAssignments', fn ($q) => $q
+                ->where('academic_session_id', $academicSessionId));
+        }
+
+        $assignments = $query
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $collection = $assignments->getCollection()
+            ->map(fn (CurriculumFeeAssignment $assignment) => $this->transform($assignment))
+            ->values();
+
+        return response()->json([
+            'status_code' => 200,
+            'data' => $collection,
+            'meta' => $this->paginationMeta($assignments, ['q' => $search, 'academic_year_id' => $academicYearId, 'academic_session_id' => $academicSessionId]),
+        ]);
+    }
+
     public function destroy(Request $request, FeeTemplate $fee_template, CurriculumFeeAssignment $curriculum_fee_assignment): JsonResponse
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
@@ -325,19 +378,23 @@ class CurriculumFeeAssignmentsController extends Controller
     private function transform(CurriculumFeeAssignment $assignment): array
     {
         $mapping = $assignment->courseCurriculum;
+        $department = $assignment->department;
 
         return [
             'id' => $assignment->id,
+            'assignment_scope' => $assignment->department_id ? 'department' : 'course',
             'course_curriculum_id' => $assignment->course_curriculum_id,
+            'department_id' => $assignment->department_id,
+            'department_name' => $department?->name,
             'course_code' => $mapping?->course?->code,
             'course_name' => $mapping?->course?->name,
+            'assignment_target_name' => $department?->name ?? $mapping?->course?->name,
+            'fee_template_id' => $assignment->fee_template_id,
+            'fee_template_name' => $assignment->feeTemplate?->name,
             'course_curriculum_name' => $mapping?->curriculum
                 ? trim($mapping->curriculum->code.' '.$mapping->curriculum->name)
                 : null,
             'course_level_name' => $mapping?->course?->level?->name,
-            'academic_session_id' => $assignment->academic_session_id,
-            'academic_session_name' => $assignment->academicSession?->name,
-            'academic_session_code' => $assignment->academicSession?->code,
             'issuance_type' => $assignment->issuance_type,
             'parent_assignment_id' => $assignment->parent_assignment_id,
             'dormant' => (bool) $assignment->dormant,
@@ -366,7 +423,7 @@ class CurriculumFeeAssignmentsController extends Controller
     private function loadRelations(): array
     {
         return [
-            'academicSession:id,name,code,academic_year_id',
+            'department:id,code,name',
             'courseCurriculum.course.level:id,name',
             'courseCurriculum.course:id,code,name,certification_level_id',
             'courseCurriculum.curriculum:id,code,name',

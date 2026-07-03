@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\StudentStatus;
 use App\Models\AcademicSession;
+use App\Models\AcademicSessionEnrolment;
 use App\Models\AcademicYear;
 use App\Models\CourseCurriculum;
+use App\Models\CourseEnrolment;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\FeeTemplate;
 use App\Models\FeeTemplateItem;
@@ -348,6 +350,120 @@ class FinanceIntegrityTest extends TestCase
             ->assertJsonPath('data.0.id', $graduated->id)
             ->assertJsonPath('data.0.status', 'graduated');
     }
+    public function test_department_assignment_applies_to_a_course_in_that_department(): void
+    {
+        $session = AcademicSession::factory()->active()->create();
+        $mapping = CourseCurriculum::factory()->create();
+        $mapping->load('course');
+        $student = Student::factory()->create();
+        CourseEnrolment::factory()->create([
+            'student_id' => $student->id,
+            'course_curriculum_id' => $mapping->id,
+            'academic_session_id' => $session->id,
+            'status' => 'enrolled',
+        ]);
+        AcademicSessionEnrolment::factory()->create([
+            'student_id' => $student->id,
+            'academic_session_id' => $session->id,
+            'year_of_study' => 2,
+            'session_number' => 2,
+            'module' => 5,
+            'status' => 'enrolled',
+        ]);
+        $template = FeeTemplate::create([
+            'code' => 'DEPARTMENT-FEE',
+            'name' => 'Department shared fee',
+            'type' => 'fees',
+            'is_active' => true,
+        ]);
+        FeeTemplateItem::create([
+            'fee_template_id' => $template->id,
+            'name' => 'Shared department charge',
+            'amount' => 2500,
+            'is_active' => true,
+        ]);
+
+        $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
+            'assignment_scope' => 'department',
+            'department_id' => $mapping->course->department_id,
+            'issuance_type' => 'per_session',
+            'year_level' => 2,
+            'session_number' => 2,
+            'is_approved' => true,
+        ])->assertCreated()
+            ->assertJsonPath('data.assignment_scope', 'department')
+            ->assertJsonPath('data.department_id', $mapping->course->department_id);
+
+        $invoice = app(BillingService::class)->createInvoiceForStudent($student, $this->admin->id, $session);
+
+        $this->assertSame(2500.0, (float) $invoice->fresh()->amount_due);
+    }
+    public function test_all_years_assignment_applies_to_a_year_four_student(): void
+    {
+        $session = AcademicSession::factory()->active()->create();
+        $student = Student::factory()->create();
+        $mapping = CourseCurriculum::factory()->create();
+        CourseEnrolment::factory()->create([
+            'student_id' => $student->id,
+            'course_curriculum_id' => $mapping->id,
+            'academic_session_id' => $session->id,
+            'status' => 'enrolled',
+        ]);
+        AcademicSessionEnrolment::factory()->create([
+            'student_id' => $student->id,
+            'academic_session_id' => $session->id,
+            'year_of_study' => 4,
+            'session_number' => 1,
+            'module' => 10,
+            'status' => 'enrolled',
+        ]);
+        $template = FeeTemplate::create([
+            'code' => 'ALL-YEARS-FEE',
+            'name' => 'All years fee',
+            'type' => 'fees',
+            'is_active' => true,
+        ]);
+        FeeTemplateItem::create([
+            'fee_template_id' => $template->id,
+            'name' => 'Course fee',
+            'amount' => 4000,
+            'is_active' => true,
+        ]);
+        CurriculumFeeAssignment::create([
+            'course_curriculum_id' => $mapping->id,
+            'fee_template_id' => $template->id,
+            'academic_session_id' => null,
+            'issuance_type' => 'per_session',
+            'dormant' => false,
+            'year_level' => CurriculumFeeAssignment::ALL_YEAR_LEVELS,
+            'session_number' => 1,
+            'is_approved' => true,
+        ]);
+
+        $invoice = app(BillingService::class)->createInvoiceForStudent($student, $this->admin->id, $session);
+
+        $this->assertSame(4000.0, (float) $invoice->fresh()->amount_due);
+    }
+    public function test_per_session_assignment_uses_progression_session_without_an_academic_session(): void
+    {
+        $mapping = CourseCurriculum::factory()->create();
+        $template = FeeTemplate::create([
+            'code' => 'SESSION-PROGRESSION',
+            'name' => 'Progression session fee',
+            'type' => 'fees',
+            'is_active' => true,
+        ]);
+
+        $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
+            'course_curriculum_id' => $mapping->id,
+            'issuance_type' => 'per_session',
+            'year_level' => 2,
+            'session_number' => 3,
+            'is_approved' => false,
+        ])->assertCreated()
+            ->assertJsonPath('data.academic_session_id', null)
+            ->assertJsonPath('data.session_number', 3);
+    }
     public function test_academic_year_creation_generates_three_inactive_sessions(): void
     {
         $response = $this->postJson('/api/academic-years', [
@@ -377,7 +493,7 @@ class FinanceIntegrityTest extends TestCase
 
         $parentId = $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
             'course_curriculum_id' => $courseCurriculum->id,
-            'academic_session_id' => $sessions[0]->id,
+            'academic_year_id' => $year->id,
             'issuance_type' => 'per_year',
             'year_level' => 1,
             'split_ratios' => [40, 30, 30],
@@ -407,7 +523,7 @@ class FinanceIntegrityTest extends TestCase
         FeeTemplateItem::create(['fee_template_id' => $template->id, 'name' => 'Annual fee', 'amount' => 9000, 'is_active' => true]);
         $parentId = $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
             'course_curriculum_id' => $mapping->id,
-            'academic_session_id' => $sessions[0]->id,
+            'academic_year_id' => $year->id,
             'issuance_type' => 'per_year',
             'year_level' => 1,
             'is_approved' => true,

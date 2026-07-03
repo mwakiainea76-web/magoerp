@@ -176,8 +176,19 @@ class InvoicesController extends Controller
             return response()->json(['data' => []], 200);
         }
 
+        $courseCurriculum = CourseCurriculum::query()->with('course:id,department_id')->find($courseCurriculumId);
+        $departmentId = $courseCurriculum?->course?->department_id;
+
         $templates = CurriculumFeeAssignment::query()
-            ->where('course_curriculum_id', $courseCurriculumId)
+            ->where(function ($query) use ($courseCurriculumId, $departmentId) {
+                $query->where('course_curriculum_id', $courseCurriculumId);
+                if ($departmentId) {
+                    $query->orWhere(function ($departmentQuery) use ($departmentId) {
+                        $departmentQuery->where('department_id', $departmentId)
+                            ->whereNull('course_curriculum_id');
+                    });
+                }
+            })
             ->where('is_approved', true)
             ->whereHas('feeTemplate', fn ($q) => $q->where('is_active', true))
             ->with(['feeTemplate' => function ($q) {
@@ -465,15 +476,28 @@ class InvoicesController extends Controller
         // Dormant portions are exposed only for explicitly requested future scopes.
         $dormantFees = collect();
         if ($includeDormant && $sessionIds !== [] && $enrolment?->course_curriculum_id) {
+            $studentYearLevel = $latestSessionEnrolment?->year_of_study ?? 1;
+            $departmentId = $enrolment->courseCurriculum?->course?->department_id;
             $dormantFees = CurriculumFeeAssignment::query()
-                ->where('course_curriculum_id', $enrolment->course_curriculum_id)
-                ->where('year_level', $latestSessionEnrolment?->year_of_study ?? 1)
+                ->where(function ($query) use ($enrolment, $departmentId) {
+                    $query->where('course_curriculum_id', $enrolment->course_curriculum_id);
+                    if ($departmentId) {
+                        $query->orWhere(function ($departmentQuery) use ($departmentId) {
+                            $departmentQuery->where('department_id', $departmentId)
+                                ->whereNull('course_curriculum_id');
+                        });
+                    }
+                })
+                ->whereIn('year_level', [$studentYearLevel, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
                 ->where('issuance_type', 'per_year')
                 ->where('is_approved', true)
                 ->where('dormant', true)
                 ->whereIn('academic_session_id', $sessionIds)
                 ->with(['academicSession:id,name,code', 'feeTemplate:id,code,name'])
+                ->orderByRaw('course_curriculum_id = ? desc', [$enrolment->course_curriculum_id])
+                ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$studentYearLevel])
                 ->get()
+                ->unique('academic_session_id')
                 ->map(fn (CurriculumFeeAssignment $assignment) => [
                     'assignment_id' => $assignment->id,
                     'session_id' => $assignment->academic_session_id,

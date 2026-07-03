@@ -72,15 +72,25 @@ class StudentDashboardController extends Controller
 
             $courseInvoiceTemplate = $courseCurriculumId
                 ? CurriculumFeeAssignment::query()
-                    ->where('course_curriculum_id', $courseCurriculumId)
+                    ->where(function ($query) use ($courseCurriculumId, $course) {
+                        $query->where('course_curriculum_id', $courseCurriculumId);
+                        if ($course?->department_id) {
+                            $query->orWhere(function ($departmentQuery) use ($course) {
+                                $departmentQuery->where('department_id', $course->department_id)
+                                    ->whereNull('course_curriculum_id');
+                            });
+                        }
+                    })
                     ->where('is_approved', true)
-                    ->where('year_level', $currentSessionEnrolment->year_of_study)
+                    ->whereIn('year_level', [$currentSessionEnrolment->year_of_study, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
                     ->where('session_number', $currentSessionEnrolment->session_number)
                     ->where(function ($query) use ($currentSession) {
                         $query->where('academic_session_id', $currentSession->id)
                             ->orWhereNull('academic_session_id');
                     })
                     ->with(['feeTemplate.items' => fn ($query) => $query->where('is_active', true)])
+                    ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])
+                    ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$currentSessionEnrolment->year_of_study])
                     ->orderByRaw('academic_session_id = ? desc', [$currentSession->id])
                     ->first()
                 : null;

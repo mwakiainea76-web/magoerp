@@ -220,8 +220,8 @@ class CourseEnrolmentsController extends Controller
             $courseCurriculumId = $pivot?->id;
         }
 
-        if (!$courseCurriculumId && $student->courseCurriculum) {
-            $courseCurriculumId = $student->courseCurriculum->id;
+        if (!$courseCurriculumId && $student->activeEnrolment) {
+            $courseCurriculumId = $student->activeEnrolment->course_curriculum_id;
         }
 
         $session = AcademicSession::query()

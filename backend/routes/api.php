@@ -116,6 +116,8 @@ Route::middleware([
     Route::put('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'update']);
     Route::delete('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'destroy']);
 
+    Route::get('/course-assignments', [CurriculumFeeAssignmentsController::class, 'search']);
+
     Route::get('/my/invoices', [InvoicesController::class, 'myInvoices']);
     Route::get('/my/finance-summary', [InvoicesController::class, 'financeSummary']);
     Route::get('/my/ledger', [StudentLedgerController::class, 'myLedger']);

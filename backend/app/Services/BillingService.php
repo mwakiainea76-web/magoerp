@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\StudentStatus;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
+use App\Models\CourseCurriculum;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\FeeTemplate;
 use App\Models\Hostel;
@@ -66,6 +67,10 @@ class BillingService
                 ]);
             }
 
+            $departmentId = CourseCurriculum::query()
+                ->with('course:id,department_id')
+                ->find($courseCurriculumId)?->course?->department_id;
+
             // 2. Resolve the target academic session
             $targetSession = $session ?? AcademicSession::query()
                 ->where('is_active', true)
@@ -108,13 +113,27 @@ class BillingService
                     $invoiceTemplateId,
                     fn ($q) => $q->whereHas('feeTemplate', fn ($q) => $q->where('id', $invoiceTemplateId))
                 )
-                ->where('course_curriculum_id', $courseCurriculumId)
-                ->where('academic_session_id', $targetSession->id)
-                ->where('year_level', $enrolment->year_of_study)
+                ->where(function ($query) use ($courseCurriculumId, $departmentId) {
+                    $query->where('course_curriculum_id', $courseCurriculumId);
+                    if ($departmentId) {
+                        $query->orWhere(function ($departmentQuery) use ($departmentId) {
+                            $departmentQuery->where('department_id', $departmentId)
+                                ->whereNull('course_curriculum_id');
+                        });
+                    }
+                })
+                ->where(function ($query) use ($targetSession) {
+                    $query->where('academic_session_id', $targetSession->id)
+                        ->orWhereNull('academic_session_id');
+                })
+                ->whereIn('year_level', [$enrolment->year_of_study, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
                 ->where('session_number', $enrolment->session_number)
                 ->where('is_approved', true)
                 ->where('dormant', false)
                 ->with(['feeTemplate.items' => fn ($q) => $q->where('is_active', true)->where('amount', '>', 0)])
+                ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])
+                ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$enrolment->year_of_study])
+                ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
                 ->first();
 
             if (!$assignment?->feeTemplate) {

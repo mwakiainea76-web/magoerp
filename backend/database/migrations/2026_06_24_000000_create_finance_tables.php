@@ -41,6 +41,7 @@ return new class extends Migration
         Schema::create('curriculum_fee_assignments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
+            $table->foreignUuid('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->foreignUuid('fee_template_id')->constrained('fee_templates')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->string('issuance_type', 20)->default('per_session');
@@ -48,7 +49,7 @@ return new class extends Migration
             $table->boolean('dormant')->default(false);
             $table->decimal('split_amount', 12, 2)->nullable();
             $table->decimal('split_ratio', 5, 2)->nullable();
-            $table->integer('year_level');
+            $table->unsignedTinyInteger('year_level')->comment('0 applies to all course years; otherwise 1-4');
             $table->integer('session_number');
             $table->boolean('is_approved')->default(false);
             $table->foreignUuid('approved_by')->nullable()->constrained('users')->nullOnDelete();
@@ -58,11 +59,16 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['course_curriculum_id', 'academic_session_id', 'year_level', 'session_number'], 'curriculum_fee_assignment_unique');
+            $table->unique(['department_id', 'academic_session_id', 'year_level', 'session_number'], 'department_fee_assignment_unique');
             $table->index(['fee_template_id', 'parent_assignment_id', 'year_level', 'session_number'], 'fee_assignment_template_list_idx');
             $table->index(['parent_assignment_id', 'dormant', 'session_number'], 'fee_assignment_parent_dormant_idx');
             $table->index(
                 ['course_curriculum_id', 'year_level', 'issuance_type', 'is_approved', 'dormant', 'academic_session_id'],
                 'fee_assignment_billing_scope_idx',
+            );
+            $table->index(
+                ['department_id', 'year_level', 'issuance_type', 'is_approved', 'dormant', 'academic_session_id'],
+                'department_fee_assignment_scope_idx',
             );
         });
 

@@ -317,9 +317,10 @@ class HostelsController extends Controller
         $courseName = CourseEnrolment::query()
             ->where('student_id', $student->id)
             ->where('status', 'enrolled')
+            ->with('courseCurriculum.course:id,name')
             ->latest()
             ->first()
-            ?->course?->name;
+            ?->courseCurriculum?->course?->name;
 
         $hostels = Hostel::where('is_active', true)
             ->where(function ($q) use ($courseName) {

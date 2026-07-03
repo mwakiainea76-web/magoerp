@@ -11,6 +11,8 @@ class CurriculumFeeAssignment extends Model
 {
     use HasUuids;
 
+    public const ALL_YEAR_LEVELS = 0;
+
     protected $table = 'curriculum_fee_assignments';
 
     protected $keyType = 'string';
@@ -19,6 +21,7 @@ class CurriculumFeeAssignment extends Model
 
     protected $fillable = [
         'course_curriculum_id',
+        'department_id',
         'fee_template_id',
         'academic_session_id',
         'issuance_type',
@@ -43,6 +46,7 @@ class CurriculumFeeAssignment extends Model
             'approved_at' => 'datetime',
             'split_amount' => 'float',
             'split_ratio' => 'float',
+            'year_level' => 'integer',
         ];
     }
 
@@ -54,6 +58,11 @@ class CurriculumFeeAssignment extends Model
     public function feeTemplate(): BelongsTo
     {
         return $this->belongsTo(FeeTemplate::class, 'fee_template_id');
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Departments::class);
     }
 
     public function academicSession(): BelongsTo
