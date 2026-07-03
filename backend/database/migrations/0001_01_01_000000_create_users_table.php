@@ -68,6 +68,10 @@ return new class extends Migration
             // Timestamps
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index(['role', 'status', 'deleted_at'], 'users_role_status_active_idx');
+            $table->index(['status', 'deleted_at', 'last_name', 'first_name'], 'users_status_name_idx');
+            $table->index('last_login_at');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

@@ -32,6 +32,8 @@ return new class extends Migration
 
             $table->index(['academic_session_id', 'start_date']);
             $table->index(['academic_session_id', 'event_type_id']);
+            $table->index(['event_type_id', 'start_date'], 'calendar_events_type_date_idx');
+            $table->index(['academic_session_id', 'end_date'], 'calendar_events_session_end_idx');
         });
 
         Schema::create('holiday_sync_logs', function (Blueprint $table) {
@@ -42,6 +44,9 @@ return new class extends Migration
             $table->json('raw_response')->nullable();
             $table->string('status', 20)->default('pending');
             $table->timestamps();
+
+            $table->unique(['country_code', 'year'], 'holiday_sync_country_year_unique');
+            $table->index(['status', 'synced_at'], 'holiday_sync_status_date_idx');
         });
     }
 

@@ -26,7 +26,10 @@ return new class extends Migration
                 ->references('id')->on('users')
                 ->nullOnDelete();
 
-            $table->index('curriculum_fee_assignment_id');
+            $table->index(
+                ['curriculum_fee_assignment_id', 'created_at'],
+                'fee_assignment_audits_assignment_date_idx',
+            );
         });
     }
 

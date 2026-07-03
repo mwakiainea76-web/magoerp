@@ -18,6 +18,8 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index(['is_active', 'deleted_at', 'name'], 'lecture_rooms_active_name_idx');
         });
 
         Schema::create('academic_timetables', function (Blueprint $table) {
@@ -54,9 +56,10 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['academic_session_id', 'day_of_week']);
-            $table->index(['trainer_staff_id']);
-            $table->index(['lecture_room_id', 'day_of_week']);
+            $table->index(['academic_session_id', 'day_of_week', 'start_time', 'end_time'], 'timetables_session_day_time_idx');
+            $table->index(['trainer_staff_id', 'day_of_week', 'start_time'], 'timetables_trainer_day_time_idx');
+            $table->index(['lecture_room_id', 'day_of_week', 'start_time'], 'timetables_room_day_time_idx');
+            $table->index(['unit_id', 'academic_session_id'], 'timetables_unit_session_idx');
         });
     }
 

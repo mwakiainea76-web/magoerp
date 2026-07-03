@@ -20,8 +20,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['academic_timetable_id', 'student_id', 'attendance_date'], 'attendance_unique');
-            $table->index(['student_id', 'attendance_date']);
+            $table->index(['student_id', 'attendance_date', 'status'], 'attendances_student_date_status_idx');
             $table->index(['academic_timetable_id', 'attendance_date']);
+            $table->index(['academic_session_id', 'attendance_date', 'status'], 'attendances_session_date_status_idx');
         });
     }
 

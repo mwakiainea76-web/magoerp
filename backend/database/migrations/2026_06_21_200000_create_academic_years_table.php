@@ -23,6 +23,7 @@ return new class extends Migration
 
             $table->unique('code');
             $table->unique('name');
+            $table->index(['is_active', 'start_date'], 'academic_years_active_date_idx');
         });
 
         if (DB::connection()->getDriverName() === 'mysql') {

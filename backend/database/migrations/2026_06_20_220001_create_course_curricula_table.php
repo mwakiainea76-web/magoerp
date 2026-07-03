@@ -16,6 +16,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['course_id', 'curriculum_id']);
+            $table->index(['course_id', 'is_active'], 'course_curricula_course_active_idx');
+            $table->index(['curriculum_id', 'is_active'], 'course_curricula_curriculum_active_idx');
         });
     }
 

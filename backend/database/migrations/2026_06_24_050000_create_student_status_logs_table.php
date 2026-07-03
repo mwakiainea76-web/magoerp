@@ -20,6 +20,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['student_id', 'effective_date']);
+            $table->index(['course_enrolment_id', 'effective_date'], 'status_logs_enrolment_date_idx');
+            $table->index(['to_status', 'effective_date'], 'status_logs_status_date_idx');
         });
     }
 

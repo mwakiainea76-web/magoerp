@@ -18,8 +18,8 @@ return new class extends Migration
             $table->foreignUuid('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index('student_id');
-            $table->index('transfer_date');
+            $table->index(['student_id', 'transfer_date'], 'curriculum_transfers_student_date_idx');
+            $table->index(['to_curriculum_mapping_id', 'transfer_date'], 'curriculum_transfers_target_date_idx');
         });
 
         Schema::create('course_change_logs', function (Blueprint $table) {
@@ -36,7 +36,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->index('student_id');
+            $table->index(['student_id', 'changed_at'], 'course_change_logs_student_date_idx');
+            $table->index(['new_course_curriculum_id', 'changed_at'], 'course_change_logs_target_date_idx');
             $table->index('changed_at');
         });
     }

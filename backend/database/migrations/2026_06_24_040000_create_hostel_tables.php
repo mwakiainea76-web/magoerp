@@ -32,7 +32,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();
-            $table->index(['hostel_id', 'is_active']);
+            $table->index(['hostel_id', 'is_active', 'name'], 'hostel_rooms_hostel_active_name_idx');
         });
 
         Schema::create('hostel_beds', function (Blueprint $table) {
@@ -64,6 +64,9 @@ return new class extends Migration
 
             $table->unique(['academic_session_enrolment_id', 'hostel_bed_id'], 'ha_ase_id_hb_id_unique');
             $table->index(['academic_session_enrolment_id', 'status'], 'ha_ase_id_status_idx');
+            $table->index(['hostel_bed_id', 'status'], 'hostel_allocations_bed_status_idx');
+            $table->index(['hostel_room_id', 'status'], 'hostel_allocations_room_status_idx');
+            $table->index(['status', 'allocated_on'], 'hostel_allocations_status_date_idx');
         });
     }
 

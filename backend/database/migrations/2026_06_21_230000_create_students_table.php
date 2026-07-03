@@ -18,6 +18,8 @@ return new class extends Migration
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index(['status', 'deleted_at', 'created_at'], 'students_status_created_idx');
         });
     }
 

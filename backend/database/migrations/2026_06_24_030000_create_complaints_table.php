@@ -27,8 +27,9 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index('status');
-            $table->index('student_id');
+            $table->index(['status', 'deleted_at', 'created_at'], 'complaints_status_created_idx');
+            $table->index(['student_id', 'deleted_at', 'created_at'], 'complaints_student_created_idx');
+            $table->index(['escalated_to', 'status'], 'complaints_assignee_status_idx');
         });
     }
 

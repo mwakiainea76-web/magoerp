@@ -20,7 +20,8 @@ return new class extends Migration
                 $table->timestamp('processed_at')->nullable();
                 $table->timestamps();
 
-                $table->index(['student_id', 'status']);
+                $table->index(['student_id', 'status', 'processed_at'], 'refunds_student_status_date_idx');
+                $table->index(['invoice_id', 'status'], 'refunds_invoice_status_idx');
             });
         }
     }

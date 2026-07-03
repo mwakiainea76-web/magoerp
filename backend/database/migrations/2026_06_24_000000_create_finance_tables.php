@@ -20,6 +20,8 @@ return new class extends Migration
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
+
+            $table->index(['is_active', 'created_at'], 'fee_templates_active_created_idx');
         });
 
         Schema::create('fee_template_items', function (Blueprint $table) {
@@ -32,6 +34,8 @@ return new class extends Migration
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
+
+            $table->index(['fee_template_id', 'is_active']);
         });
 
         Schema::create('curriculum_fee_assignments', function (Blueprint $table) {
@@ -54,8 +58,12 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['course_curriculum_id', 'academic_session_id', 'year_level', 'session_number'], 'curriculum_fee_assignment_unique');
-            $table->index(['issuance_type', 'dormant']);
-            $table->index('parent_assignment_id');
+            $table->index(['fee_template_id', 'parent_assignment_id', 'year_level', 'session_number'], 'fee_assignment_template_list_idx');
+            $table->index(['parent_assignment_id', 'dormant', 'session_number'], 'fee_assignment_parent_dormant_idx');
+            $table->index(
+                ['course_curriculum_id', 'year_level', 'issuance_type', 'is_approved', 'dormant', 'academic_session_id'],
+                'fee_assignment_billing_scope_idx',
+            );
         });
 
         Schema::create('invoices', function (Blueprint $table) {
@@ -82,7 +90,8 @@ return new class extends Migration
             $table->index('status');
             $table->index('due_date');
             $table->index(['student_id', 'academic_session_id']);
-            $table->index(['student_id', 'status']);
+            $table->index(['student_id', 'status', 'issue_date'], 'invoices_student_status_date_idx');
+            $table->index(['academic_session_id', 'status'], 'invoices_session_status_idx');
         });
 
         Schema::create('invoice_line_items', function (Blueprint $table) {
@@ -113,6 +122,8 @@ return new class extends Migration
 
             $table->index('payment_date');
             $table->index('status');
+            $table->index(['student_id', 'status', 'payment_date'], 'payments_student_status_date_idx');
+            $table->index(['status', 'payment_date'], 'payments_status_date_idx');
         });
 
         Schema::create('invoice_payment_allocations', function (Blueprint $table) {
@@ -124,6 +135,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['payment_id', 'invoice_id']);
+            $table->index(['invoice_id', 'payment_id']);
         });
 
         if (DB::getDriverName() !== 'sqlite') {
@@ -146,6 +158,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index('type');
+            $table->index(['invoice_id', 'deleted_at', 'type'], 'fee_adjustments_invoice_active_type_idx');
         });
 
         Schema::create('student_ledger_entries', function (Blueprint $table) {
@@ -165,7 +178,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['student_id', 'transaction_date']);
-            $table->index(['student_id', 'academic_session_id']);
+            $table->index(['student_id', 'academic_session_id', 'transaction_date'], 'ledger_student_session_date_idx');
+            $table->index(['payment_id', 'type', 'created_at'], 'ledger_payment_type_date_idx');
             $table->index('type');
         });
 

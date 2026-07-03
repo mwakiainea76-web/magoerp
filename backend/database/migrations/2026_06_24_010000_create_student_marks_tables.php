@@ -19,6 +19,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['academic_session_enrolment_id', 'unit_id'], 'stu_reg_unique');
+            $table->index(['unit_id', 'academic_session_enrolment_id'], 'student_unit_registrations_unit_idx');
         });
 
         Schema::create('student_marks', function (Blueprint $table) {
@@ -41,8 +42,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['academic_session_enrolment_id', 'unit_id', 'assessment_type', 'assessment_number'], 'marks_unique_assessment');
-            $table->index(['academic_session_enrolment_id']);
             $table->index(['unit_id', 'assessment_type', 'assessment_number', 'academic_session_enrolment_id'], 'marks_lookup_index');
+            $table->index(['unit_id', 'is_published', 'academic_session_enrolment_id'], 'marks_unit_published_enrolment_idx');
         });
     }
 

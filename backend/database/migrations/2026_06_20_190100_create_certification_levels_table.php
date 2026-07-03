@@ -24,7 +24,8 @@ return new class extends Migration
 
             $table->unique(['certification_authority_id', 'code'], 'cert_levels_authority_code_unique');
             $table->unique(['certification_authority_id', 'name'], 'cert_levels_authority_name_unique');
-            $table->index(['certification_authority_id', 'name'], 'cert_levels_authority_name_index');
+            $table->index(['certification_authority_id', 'is_active', 'name'], 'cert_levels_authority_active_name_idx');
+            $table->index(['is_active', 'name'], 'cert_levels_active_name_idx');
         });
     }
 

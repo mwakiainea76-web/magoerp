@@ -22,6 +22,8 @@ return new class extends Migration
 
             $table->unique(['unit_enrolment_id', 'session_date', 'start_time'], 'class_attendance_unique');
             $table->index(['unit_id', 'session_date', 'start_time'], 'class_attendance_meeting_idx');
+            $table->index(['trainer_id', 'session_date'], 'class_attendance_trainer_date_idx');
+            $table->index(['unit_id', 'status', 'session_date'], 'class_attendance_unit_status_idx');
         });
     }
 

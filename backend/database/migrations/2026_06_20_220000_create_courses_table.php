@@ -22,6 +22,10 @@ return new class extends Migration
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
+
+            $table->index(['department_id', 'is_active', 'name'], 'courses_department_active_name_idx');
+            $table->index(['certification_authority_id', 'certification_level_id', 'is_active'], 'courses_authority_level_active_idx');
+            $table->index(['is_active', 'name'], 'courses_active_name_idx');
         });
     }
 

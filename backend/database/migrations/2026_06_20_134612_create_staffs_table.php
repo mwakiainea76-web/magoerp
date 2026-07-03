@@ -47,6 +47,10 @@ $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelet
 $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
 $table->timestamps();
 $table->softDeletes();
+
+$table->index(['department_id', 'status', 'is_teaching_staff'], 'staffs_department_status_teaching_idx');
+$table->index(['status', 'deleted_at', 'date_joined'], 'staffs_status_joined_idx');
+$table->index('contract_end_date');
         });
     }
 
