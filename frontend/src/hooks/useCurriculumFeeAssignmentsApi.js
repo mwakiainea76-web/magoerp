@@ -4,8 +4,8 @@ import { authClient } from "@/lib/api/authClient";
 export function useCurriculumFeeAssignmentsApi() {
   return useMemo(
     () => ({
-      list: async (templateId) => {
-        const response = await authClient.get(`/fee-templates/${templateId}/course-assignments`);
+      list: async (templateId, params = {}) => {
+        const response = await authClient.get(`/fee-templates/${templateId}/course-assignments`, { params });
         return response.data;
       },
       create: async (templateId, payload) => {
@@ -18,6 +18,10 @@ export function useCurriculumFeeAssignmentsApi() {
       },
       remove: async (templateId, itemId) => {
         const response = await authClient.delete(`/fee-templates/${templateId}/course-assignments/${itemId}`);
+        return response.data;
+      },
+      searchAll: async (params = {}) => {
+        const response = await authClient.get('/course-assignments', { params });
         return response.data;
       },
     }),

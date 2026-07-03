@@ -4,7 +4,7 @@ import { Pencil, Plus, Settings2, Trash2, Link2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
-import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
@@ -123,6 +123,9 @@ export function FeeTemplatesPage() {
         </div>
 
         <div className="flex gap-3">
+          <Link to="/finance/fee-assignments">
+            <FormButton variant="secondary" className="sm:px-5"><Link2 className="mr-2 h-4 w-4" />View Assignments</FormButton>
+          </Link>
           <Link to="/finance/fee-templates/items">
             <FormButton variant="secondary" className="sm:px-5">View Components</FormButton>
           </Link>

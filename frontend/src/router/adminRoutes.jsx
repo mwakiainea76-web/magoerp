@@ -32,6 +32,7 @@ import { InvoicesPage } from "@/pages/finance/InvoicesPage";
 import { LedgerPage } from "@/pages/finance/LedgerPage";
 import { PaymentsPage } from "@/pages/finance/PaymentsPage";
 import { StudentStatementPage } from "@/pages/finance/StudentStatementPage";
+import { AllFeeAssignmentsPage } from "@/pages/feeTemplates/AllFeeAssignmentsPage";
 import { FeeTemplateAssignmentsPage } from "@/pages/feeTemplates/FeeTemplateAssignmentsPage";
 import { FeeTemplateFormPage } from "@/pages/feeTemplates/FeeTemplateFormPage";
 import { FeeTemplateItemsPage } from "@/pages/feeTemplates/FeeTemplateItemsPage";
@@ -103,6 +104,7 @@ export function AdminRoutes() {
       <Route path="/finance/fee-templates/create" element={<FeeTemplateFormPage />} />
       <Route path="/finance/fee-templates/:templateId/edit" element={<FeeTemplateFormPage />} />
       <Route path="/finance/fee-templates/:templateId/assign" element={<FeeTemplateAssignmentsPage />} />
+      <Route path="/finance/fee-assignments" element={<AllFeeAssignmentsPage />} />
       <Route path="/finance/fee-templates/items" element={<FeeTemplateItemsPage />} />
       <Route path="/staffs" element={<StaffsPage />} />
       <Route path="/staffs/create" element={<StaffFormPage />} />
