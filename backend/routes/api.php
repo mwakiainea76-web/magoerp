@@ -26,7 +26,9 @@ use App\Http\Controllers\Api\StudentFeeAdjustmentsController;
 use App\Http\Controllers\Api\InvoiceAdjustmentsController;
 use App\Http\Controllers\Api\InvoicesController;
 use App\Http\Controllers\Api\StudentLedgerController;
-use App\Http\Controllers\Api\FinanceDashboardController;
+use App\Http\Controllers\Api\FinanceReportsDashboardController;
+use App\Http\Controllers\Api\FinanceReportsController;
+use App\Http\Controllers\Api\FinanceDataExportsController;
 use App\Http\Controllers\Api\PaymentsController;
 use App\Http\Controllers\Api\RefundsController;
 use App\Http\Controllers\Api\LookupController;
@@ -103,7 +105,13 @@ Route::middleware([
     Route::get('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'index']);
     Route::get('/academic-session-enrolments/{academic_session_enrolment}', [AcademicSessionEnrolmentsController::class, 'show']);
 
-    Route::get('/finance/dashboard', FinanceDashboardController::class);
+    Route::get('/finance/dashboard', FinanceReportsDashboardController::class);
+    Route::get('/finance/reports', [FinanceReportsController::class, 'index']);
+    Route::get('/finance/reports/export', [FinanceReportsController::class, 'export'])->middleware('throttle:6,1');
+    Route::get('/finance/dashboard/export', [FinanceDataExportsController::class, 'dashboard'])->middleware('throttle:6,1');
+    Route::get('/invoices/export', [FinanceDataExportsController::class, 'invoices'])->middleware('throttle:6,1');
+    Route::get('/payments/export', [FinanceDataExportsController::class, 'payments'])->middleware('throttle:6,1');
+    Route::get('/ledger/export', [FinanceDataExportsController::class, 'ledger'])->middleware('throttle:6,1');
 
     Route::apiResource('fee-templates', FeeTemplatesController::class)
         ->parameters(['fee-templates' => 'fee_template']);

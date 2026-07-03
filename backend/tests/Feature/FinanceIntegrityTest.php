@@ -6,6 +6,7 @@ use App\Enums\StudentStatus;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\AcademicYear;
+use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
 use App\Models\CurriculumFeeAssignment;
@@ -349,6 +350,47 @@ class FinanceIntegrityTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $graduated->id)
             ->assertJsonPath('data.0.status', 'graduated');
+    }
+    public function test_fee_assignments_search_by_course_name_and_paginate(): void
+    {
+        $businessCourse = Course::factory()->create(['name' => 'Diploma in Business Management']);
+        $engineeringCourse = Course::factory()->create(['name' => 'Electrical Engineering']);
+        $businessMapping = CourseCurriculum::factory()->create(['course_id' => $businessCourse->id]);
+        $engineeringMapping = CourseCurriculum::factory()->create(['course_id' => $engineeringCourse->id]);
+        $template = FeeTemplate::create([
+            'code' => 'FILTERED-ASSIGNMENTS',
+            'name' => 'Filterable assignments',
+            'type' => 'fees',
+            'is_active' => true,
+        ]);
+
+        foreach ([$businessMapping, $engineeringMapping] as $mapping) {
+            CurriculumFeeAssignment::create([
+                'course_curriculum_id' => $mapping->id,
+                'fee_template_id' => $template->id,
+                'issuance_type' => 'per_year',
+                'dormant' => true,
+                'split_amount' => 3000,
+                'split_ratio' => 100,
+                'year_level' => 1,
+                'session_number' => 0,
+                'is_approved' => false,
+            ]);
+        }
+
+        $this->getJson("/api/fee-templates/{$template->id}/course-assignments?q=Business&per_page=1")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.course_name', 'Diploma in Business Management')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('meta.current_page', 1);
+
+        $this->getJson("/api/fee-templates/{$template->id}/course-assignments?per_page=1&page=2")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.last_page', 2);
     }
     public function test_department_assignment_applies_to_a_course_in_that_department(): void
     {

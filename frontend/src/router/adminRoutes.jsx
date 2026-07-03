@@ -28,10 +28,11 @@ import { DepartmentFormPage } from "@/pages/departments/DepartmentFormPage";
 import { DepartmentsPage } from "@/pages/departments/DepartmentsPage";
 import { BillingPage } from "@/pages/finance/BillingPage";
 import { FinanceDashboardPage } from "@/pages/finance/FinanceDashboardPage";
+import { FinanceReportsPage } from "@/pages/finance/FinanceReportsPage";
 import { InvoicesPage } from "@/pages/finance/InvoicesPage";
 import { LedgerPage } from "@/pages/finance/LedgerPage";
 import { PaymentsPage } from "@/pages/finance/PaymentsPage";
-import { StudentStatementPage } from "@/pages/finance/StudentStatementPage";
+import { StudentFeeStatementPage } from "@/pages/finance/StudentFeeStatementPage";
 import { AllFeeAssignmentsPage } from "@/pages/feeTemplates/AllFeeAssignmentsPage";
 import { FeeTemplateAssignmentsPage } from "@/pages/feeTemplates/FeeTemplateAssignmentsPage";
 import { FeeTemplateFormPage } from "@/pages/feeTemplates/FeeTemplateFormPage";
@@ -94,8 +95,9 @@ export function AdminRoutes() {
       <Route path="/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
       <Route path="/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
       <Route path="/finance/dashboard" element={<FinanceDashboardPage />} />
-      <Route path="/finance/statement" element={<StudentStatementPage />} />
-      <Route path="/finance/statement/:studentId" element={<StudentStatementPage />} />
+      <Route path="/finance/reports" element={<FinanceReportsPage />} />
+      <Route path="/finance/statement" element={<StudentFeeStatementPage />} />
+      <Route path="/finance/statement/:studentId" element={<StudentFeeStatementPage />} />
       <Route path="/finance/billing" element={<BillingPage />} />
       <Route path="/finance/invoices" element={<InvoicesPage />} />
       <Route path="/finance/payments" element={<PaymentsPage />} />

@@ -30,6 +30,7 @@ import {
 } from "@/components/DataTable";
 import { SearchSelect } from "@/components/SearchSelect";
 import { useFinanceDashboardApi } from "@/hooks/useFinanceDashboardApi";
+import { useFinanceReportsApi } from "@/hooks/useFinanceReportsApi";
 import { bodyTextClassName } from "@/lib/styles";
 
 const money = (value) =>
@@ -61,6 +62,7 @@ function StatCard({ icon: Icon, label, value, sub, accent }) {
 
 export function FinanceDashboardPage() {
   const api = useFinanceDashboardApi();
+  const reportsApi = useFinanceReportsApi();
 
   // Filter state (local — only submitted on Apply)
   const [pendingDept, setPendingDept] = useState(null);
@@ -82,6 +84,7 @@ export function FinanceDashboardPage() {
   // Data
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
   const fetchData = useCallback(
@@ -123,6 +126,16 @@ export function FinanceDashboardPage() {
     if (pendingSession) filters.academic_session_id = pendingSession;
     setActiveFilters(filters);
     fetchData(filters);
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const blob = await reportsApi.exportDashboard(activeFilters);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = "finance-dashboard.csv"; anchor.click(); URL.revokeObjectURL(url);
+    } finally { setExporting(false); }
   }
 
   function handleClear() {
@@ -196,13 +209,9 @@ export function FinanceDashboardPage() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">
-          Finance Analytics
-        </h1>
-        <p className="mt-1 text-[14px] text-slate-500">
-          Overview of revenue, collections, and outstanding balances.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Finance Analytics</h1><p className="mt-1 text-[14px] text-slate-500">Overview of revenue, collections, and outstanding balances.</p></div>
+        <button type="button" onClick={handleExport} disabled={exporting} className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60"><Download className="size-4" />{exporting ? "Exporting..." : "Export CSV"}</button>
       </div>
 
       {/* Filter Bar */}

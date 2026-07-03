@@ -77,6 +77,9 @@ return new class extends Migration
             $table->string('invoice_number')->unique();
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
+            $table->foreignUuid('course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
+            $table->foreignUuid('course_id')->nullable()->constrained('courses')->nullOnDelete();
+            $table->foreignUuid('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->foreignUuid('fee_template_id')->nullable()->constrained('fee_templates')->nullOnDelete();
             $table->string('invoice_type', 50)->default('fees');
             $table->string('status', 50)->default('issued');
@@ -98,6 +101,9 @@ return new class extends Migration
             $table->index(['student_id', 'academic_session_id']);
             $table->index(['student_id', 'status', 'issue_date'], 'invoices_student_status_date_idx');
             $table->index(['academic_session_id', 'status'], 'invoices_session_status_idx');
+            $table->index(['department_id', 'academic_session_id', 'status'], 'invoices_department_session_status_idx');
+            $table->index(['course_id', 'academic_session_id', 'status'], 'invoices_course_session_status_idx');
+            $table->index(['fee_template_id', 'academic_session_id', 'status'], 'invoices_template_session_status_idx');
         });
 
         Schema::create('invoice_line_items', function (Blueprint $table) {
@@ -111,6 +117,9 @@ return new class extends Migration
             $table->decimal('total_amount', 12, 2)->default(0);
             $table->json('snapshot_data')->nullable();
             $table->timestamps();
+
+            $table->index(['invoice_id', 'fee_template_item_id'], 'invoice_items_invoice_template_idx');
+            $table->index(['fee_template_item_id', 'created_at'], 'invoice_items_template_date_idx');
         });
 
         Schema::create('payments', function (Blueprint $table) {

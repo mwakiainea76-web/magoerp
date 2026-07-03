@@ -1,4 +1,4 @@
-﻿import { Route } from "react-router";
+import { Route } from "react-router";
 
 import { StudentDashboard } from "@/pages/student/StudentDashboard";
 import { MyResultsPage } from "@/pages/grades/MyResultsPage";
@@ -7,7 +7,7 @@ import { CreateComplaintPage } from "@/pages/complaints/CreateComplaintPage";
 import { MyComplaintsPage } from "@/pages/complaints/MyComplaintsPage";
 import { MyHostelPage } from "@/pages/hostels/MyHostelPage";
 import { StudentHostelBookingPage } from "@/pages/hostels/StudentHostelBookingPage";
-import { StudentStatementPage } from "@/pages/finance/StudentStatementPage";
+import { StudentFeeStatementPage } from "@/pages/finance/StudentFeeStatementPage";
 
 export function StudentRoutes() {
   return (
@@ -19,8 +19,8 @@ export function StudentRoutes() {
       <Route path="/complaints/create" element={<CreateComplaintPage />} />
       <Route path="/hostel" element={<MyHostelPage />} />
       <Route path="/hostel-book" element={<StudentHostelBookingPage />} />
-      <Route path="/finance/statements" element={<StudentStatementPage selfService />} />
-      <Route path="/finance/statement" element={<StudentStatementPage selfService />} />
+      <Route path="/finance/statements" element={<StudentFeeStatementPage selfService />} />
+      <Route path="/finance/statement" element={<StudentFeeStatementPage selfService />} />
     </>
   );
 }

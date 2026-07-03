@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowRightLeft,
   Award,
   BarChart3,
@@ -124,6 +124,7 @@ export const sidebarNavigationByRole = {
       icon: Landmark,
       children: [
         { label: "Dashboard", to: "/finance/dashboard" },
+        { label: "Fee Reports", to: "/finance/reports" },
         { label: "Billing", to: "/finance/billing" },
         { label: "Invoices", to: "/finance/invoices" },
         { label: "Payments", to: "/finance/payments" },

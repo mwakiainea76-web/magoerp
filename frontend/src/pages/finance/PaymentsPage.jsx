@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Filter, X } from "lucide-react";
+import { Download, Filter, X } from "lucide-react";
 
 import { initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { LookupSelect } from "@/components/LookupSelect";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
+import { useFinanceReportsApi } from "@/hooks/useFinanceReportsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 
 const currency = (amount) =>
@@ -35,10 +36,12 @@ const statusOptions = [
 
 export function PaymentsPage() {
   const paymentsApi = usePaymentsApi();
+  const reportsApi = useFinanceReportsApi();
   const lookupApi = useLookupApi();
   const [payments, setPayments] = useState([]);
   const [meta, setMeta] = useState(initialMeta);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -110,6 +113,19 @@ export function PaymentsPage() {
 
   const hasActiveFilters = Object.keys(activeFilters).length > 0;
 
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const blob = await reportsApi.exportPayments(activeFilters);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "payments.csv";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } finally { setIsExporting(false); }
+  }
+
   const fetchDepartments = useCallback(
     async (query) => {
       const res = await lookupApi.search("departments", { query, limit: 10 });
@@ -140,9 +156,9 @@ export function PaymentsPage() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Payments</h1>
-        <p className="mt-1 text-[14px] text-slate-500">View all student payments recorded in the system.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Payments</h1><p className="mt-1 text-[14px] text-slate-500">View all student payments recorded in the system.</p></div>
+        <button type="button" onClick={handleExport} disabled={isExporting} className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60"><Download className="size-4" />{isExporting ? "Exporting..." : "Export CSV"}</button>
       </div>
 
       {/* Filter Bar */}

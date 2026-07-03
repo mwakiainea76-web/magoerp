@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { bodyTextClassName, selectClassName, labelClassName } from "@/lib/styles";
 import { LookupSelect } from "@/components/LookupSelect";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { useLedgerApi } from "@/hooks/useLedgerApi";
+import { useFinanceReportsApi } from "@/hooks/useFinanceReportsApi";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
 import { useStudentsApi } from "@/hooks/useStudentsApi";
 
 export function LedgerPage() {
   const ledgerApi = useLedgerApi();
+  const reportsApi = useFinanceReportsApi();
   const sessionsApi = useAcademicSessionsApi();
   const studentsApi = useStudentsApi();
 
   const [entries, setEntries] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState("");
 
   const [sessions, setSessions] = useState([]);
@@ -67,11 +71,21 @@ export function LedgerPage() {
     loadData();
   }, [loadData]);
 
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const blob = await reportsApi.exportLedger({ student_id: filterStudent || undefined, academic_session_id: filterSession || undefined });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = "student-ledger.csv"; anchor.click(); URL.revokeObjectURL(url);
+    } finally { setIsExporting(false); }
+  }
+
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Student Ledger</h1>
-        <p className="text-[13px] text-slate-500">View all financial transactions across students</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Student Ledger</h1><p className="text-[13px] text-slate-500">View all financial transactions across students</p></div>
+        <button type="button" onClick={handleExport} disabled={isExporting} className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60"><Download className="size-4" />{isExporting ? "Exporting..." : "Export CSV"}</button>
       </div>
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">

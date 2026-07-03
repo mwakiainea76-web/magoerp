@@ -23,6 +23,9 @@ class Invoice extends Model
         'invoice_number',
         'student_id',
         'academic_session_id',
+        'course_curriculum_id',
+        'course_id',
+        'department_id',
         'fee_template_id',
         'invoice_type',
         'status',
@@ -46,6 +49,27 @@ class Invoice extends Model
 
     public $incrementing = false;
 
+    protected static function booted(): void
+    {
+        static::creating(function (Invoice $invoice) {
+            if (! $invoice->student_id || $invoice->course_curriculum_id) {
+                return;
+            }
+
+            $enrolment = CourseEnrolment::query()
+                ->with('courseCurriculum.course:id,department_id')
+                ->where('student_id', $invoice->student_id)
+                ->where('status', 'enrolled')
+                ->orderByDesc('enrolment_date')
+                ->orderByDesc('created_at')
+                ->first();
+
+            $invoice->course_curriculum_id = $enrolment?->course_curriculum_id;
+            $invoice->course_id = $enrolment?->courseCurriculum?->course_id;
+            $invoice->department_id = $enrolment?->courseCurriculum?->course?->department_id;
+        });
+    }
+
     public static function generateInvoiceNumber(): string
     {
         return app(\App\Services\InvoiceNumberService::class)->generate();
@@ -59,6 +83,21 @@ class Invoice extends Model
     public function academicSession(): BelongsTo
     {
         return $this->belongsTo(AcademicSession::class);
+    }
+
+    public function courseCurriculum(): BelongsTo
+    {
+        return $this->belongsTo(CourseCurriculum::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(departments::class, 'department_id');
     }
 
     public function items(): HasMany

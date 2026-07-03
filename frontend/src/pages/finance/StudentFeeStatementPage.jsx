@@ -1,16 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Download, FileText, HandCoins, Wallet } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router';
 import { Table, TableHeader, TableWrapper, Tbody, Td, Th, Thead } from '@/components/DataTable';
+import { LookupSelect } from '@/components/LookupSelect';
 import { useAcademicSessionsApi } from '@/hooks/useAcademicSessionsApi';
 import { useAcademicYearsApi } from '@/hooks/useAcademicYearsApi';
 import { useInvoicesApi } from '@/hooks/useInvoicesApi';
+import { useLookupApi } from '@/hooks/useLookupApi';
 import { getApiErrorMessage } from '@/lib/api/authClient';
 
 const money = (value) => `Ksh ${Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const scopes = { session_to_date: 'Session 1 to date', per_session: 'Single session', per_year: 'Full academic year', custom: 'Custom session range' };
 
-export function StudentFeeStatementPage() {
+export function StudentFeeStatementPage({ selfService = false }) {
   const invoicesApi = useInvoicesApi();
+  const lookupApi = useLookupApi();
+  const navigate = useNavigate();
+  const { studentId: paramId } = useParams();
+  const studentId = selfService ? 'me' : paramId;
   const sessionsApi = useAcademicSessionsApi();
   const yearsApi = useAcademicYearsApi();
   const [statement, setStatement] = useState(null);
@@ -30,13 +37,19 @@ export function StudentFeeStatementPage() {
       .catch(() => {});
   }, [sessionsApi, yearsApi]);
   useEffect(() => {
+    if (!studentId) { setLoading(false); return undefined; }
+    if (filters.scope === 'per_session' && !filters.academic_session_id) { setStatement(null); setLoading(false); return undefined; }
+    if (filters.scope === 'custom' && (!filters.academic_session_id || !filters.to_academic_session_id)) { setStatement(null); setLoading(false); return undefined; }
     let current = true;
-    invoicesApi.myStatement(params)
+    setLoading(true);
+    setError('');
+    const request = selfService ? invoicesApi.myStatement(params) : invoicesApi.studentStatement(studentId, params);
+    request
       .then((response) => { if (current) setStatement(response.data); })
-      .catch((requestError) => { if (current) setError(getApiErrorMessage(requestError, 'Failed to load your fee statement.')); })
+      .catch((requestError) => { if (current) setError(getApiErrorMessage(requestError, 'Failed to load the fee statement.')); })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [invoicesApi, params]);
+  }, [filters.academic_session_id, filters.scope, filters.to_academic_session_id, invoicesApi, params, selfService, studentId]);
 
   function update(name, value) {
     setFilters((current) => ({ ...current, [name]: value, ...(name === 'academic_year_id' ? { academic_session_id: '', to_academic_session_id: '' } : {}) }));
@@ -44,13 +57,21 @@ export function StudentFeeStatementPage() {
   async function download() {
     setDownloading(true);
     try {
-      const blob = await invoicesApi.downloadMyStatement(params);
+      const blob = selfService
+        ? await invoicesApi.downloadMyStatement(params)
+        : await invoicesApi.downloadStudentStatement(studentId, params);
       const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
       anchor.href = url; anchor.download = `fee-statement-${filters.scope}.pdf`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
     } catch (requestError) { setError(getApiErrorMessage(requestError, 'Failed to download the statement.')); }
     finally { setDownloading(false); }
   }
   const summary = statement?.summary ?? {};
+  const fetchStudents = (query) => lookupApi.search('students', { query, limit: 10 }).then((response) => response.data ?? []).catch(() => []);
+
+  if (!studentId) return <section className="space-y-6">
+    <div><h1 className="text-xl font-semibold text-slate-950">Student Fee Statement</h1><p className="mt-1 text-sm text-slate-500">Select a student, then choose the exact reporting scope.</p></div>
+    <div className="max-w-md"><LookupSelect label="Student" placeholder="Search by admission number or name" value="" onChange={(id) => navigate(`/finance/statement/${id}`)} fetchOptions={fetchStudents} /></div>
+  </section>;
 
   return <section className="space-y-5">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-slate-950">Fee Statement</h1><p className="mt-1 text-sm text-slate-500">Choose exactly which sessions the statement should cover.</p></div><button type="button" onClick={download} disabled={downloading || !statement} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"><Download className="size-4" />{downloading ? 'Downloading...' : 'Download PDF'}</button></div>
