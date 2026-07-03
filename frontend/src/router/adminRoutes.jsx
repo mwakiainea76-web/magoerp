@@ -1,6 +1,7 @@
 import { Route } from "react-router";
 
 import { AccessRoleFormPage } from "@/pages/access/AccessRoleFormPage";
+import { CalendarPage } from "@/pages/calendar/CalendarPage";
 import { StudentStatusLogsPage } from "@/pages/enrolments/StudentStatusLogsPage";
 import { SystemConfigurationsPage } from "@/pages/admin/SystemConfigurationsPage";
 import { AccessRolePermissionsPage } from "@/pages/access/AccessRolePermissionsPage";
@@ -11,6 +12,8 @@ import { AcademicSessionsPage } from "@/pages/academicCalendar/AcademicSessionsP
 import { AcademicYearFormPage } from "@/pages/academicCalendar/AcademicYearFormPage";
 import { SessionEnrolmentsPage } from "@/pages/academicCalendar/SessionEnrolmentsPage";
 import { AcademicYearsPage } from "@/pages/academicCalendar/AcademicYearsPage";
+import { AttendanceIndexPage } from "@/pages/attendance/AttendanceIndexPage";
+import { AttendanceMarkPage } from "@/pages/attendance/AttendanceMarkPage";
 import { CertificationAuthoritiesPage } from "@/pages/certificationAuthorities/CertificationAuthoritiesPage";
 import { CertificationAuthorityFormPage } from "@/pages/certificationAuthorities/CertificationAuthorityFormPage";
 import { CertificationLevelFormPage } from "@/pages/certificationAuthorities/CertificationLevelFormPage";
@@ -24,7 +27,11 @@ import { CurriculumsPage } from "@/pages/curriculums/CurriculumsPage";
 import { DepartmentFormPage } from "@/pages/departments/DepartmentFormPage";
 import { DepartmentsPage } from "@/pages/departments/DepartmentsPage";
 import { BillingPage } from "@/pages/finance/BillingPage";
+import { FinanceDashboardPage } from "@/pages/finance/FinanceDashboardPage";
+import { InvoicesPage } from "@/pages/finance/InvoicesPage";
 import { LedgerPage } from "@/pages/finance/LedgerPage";
+import { PaymentsPage } from "@/pages/finance/PaymentsPage";
+import { StudentStatementPage } from "@/pages/finance/StudentStatementPage";
 import { FeeTemplateAssignmentsPage } from "@/pages/feeTemplates/FeeTemplateAssignmentsPage";
 import { FeeTemplateFormPage } from "@/pages/feeTemplates/FeeTemplateFormPage";
 import { FeeTemplateItemsPage } from "@/pages/feeTemplates/FeeTemplateItemsPage";
@@ -85,7 +92,12 @@ export function AdminRoutes() {
       <Route path="/academic-calendar/sessions" element={<AcademicSessionsPage />} />
       <Route path="/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
       <Route path="/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
+      <Route path="/finance/dashboard" element={<FinanceDashboardPage />} />
+      <Route path="/finance/statement" element={<StudentStatementPage />} />
+      <Route path="/finance/statement/:studentId" element={<StudentStatementPage />} />
       <Route path="/finance/billing" element={<BillingPage />} />
+      <Route path="/finance/invoices" element={<InvoicesPage />} />
+      <Route path="/finance/payments" element={<PaymentsPage />} />
       <Route path="/finance/ledger" element={<LedgerPage />} />
       <Route path="/finance/fee-templates" element={<FeeTemplatesPage />} />
       <Route path="/finance/fee-templates/create" element={<FeeTemplateFormPage />} />
@@ -114,6 +126,9 @@ export function AdminRoutes() {
       <Route path="/timetables" element={<TimetableViewPage />} />
       <Route path="/timetables/create" element={<TimetableCreatePage />} />
       <Route path="/timetables/:timetableId/edit" element={<TimetableCreatePage />} />
+      <Route path="/academic-calendar/calendar" element={<CalendarPage />} />
+      <Route path="/attendance" element={<AttendanceIndexPage />} />
+      <Route path="/attendance/mark" element={<AttendanceMarkPage />} />
       <Route path="/complaints" element={<AdminComplaintsPage />} />
       <Route path="/complaints/:complaintId" element={<AdminComplaintDetailPage />} />
       <Route path="/hostels" element={<HostelsPage />} />

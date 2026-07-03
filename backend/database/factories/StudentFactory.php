@@ -15,7 +15,7 @@ class StudentFactory extends Factory
         return [
             'user_id' => User::factory()->student(),
             'admission_number' => 'STU/' . fake()->unique()->numerify('#####') . '/' . fake()->numberBetween(24, 27),
-            'status' => true,
+            'status' => 'active',
             'created_by' => null,
             'updated_by' => null,
         ];

@@ -4,15 +4,25 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
+use App\Models\AcademicSession;
+use App\Models\AcademicSessionEnrolment;
+use App\Models\AcademicYear;
+use App\Models\CourseEnrolment;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\FeeTemplate;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\InvoicePaymentAllocation;
 use App\Models\Student;
+use App\Models\StudentAccountBalance;
+use App\Models\StudentLedgerEntry;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class InvoicesController extends Controller
 {
@@ -30,7 +40,16 @@ class InvoicesController extends Controller
         $status = (string) $request->string('status', 'all');
         $sortBy = (string) $request->string('sort_by', 'created_at');
         $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
-        $perPage = max(1, min((int) $request->integer('per_page', $search === '' ? 6 : 10), 100));
+        $studentId = (string) $request->string('student_id', '');
+        $perPage = max(1, min((int) $request->integer('per_page', $studentId !== '' ? 50 : ($search === '' ? 6 : 10)), 200));
+
+        $admissionNumber = trim((string) $request->string('admission_number', ''));
+        $departmentId = (string) $request->string('department_id', '');
+        $courseId = (string) $request->string('course_id', '');
+        $academicYearId = (string) $request->string('academic_year_id', '');
+        $academicSessionId = (string) $request->string('academic_session_id', '');
+        $dateFrom = (string) $request->string('date_from', '');
+        $dateTo = (string) $request->string('date_to', '');
 
         $sortableColumns = [
             'invoice_number' => 'invoice_number',
@@ -43,26 +62,86 @@ class InvoicesController extends Controller
         ];
 
         $invoices = Invoice::query()
-            ->with(['student', 'academicSession'])
+            ->with(['student.user', 'academicSession', 'paymentAllocations', 'adjustments'])
             ->when($search !== '', function ($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                    ->orWhereHas('student', function ($sq) use ($search) {
-                        $sq->where('admission_number', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('student.user', function ($uq) use ($search) {
-                        $uq->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('middle_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%");
-                    });
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('invoice_number', 'like', "%{$search}%")
+                        ->orWhereHas('student', function ($sq) use ($search) {
+                            $sq->where('admission_number', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('student.user', function ($uq) use ($search) {
+                            $uq->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('middle_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        });
+                });
             })
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($admissionNumber !== '', fn ($q) => $q->whereHas('student', fn ($sq) => $sq->where('admission_number', 'like', "%{$admissionNumber}%")))
+            ->when($departmentId !== '', fn ($q) => $q->whereHas('student.activeEnrolment.courseCurriculum.course', fn ($cq) => $cq->where('department_id', $departmentId)))
+            ->when($courseId !== '', fn ($q) => $q->whereHas('student.activeEnrolment.courseCurriculum', fn ($cq) => $cq->where('course_id', $courseId)))
+            ->when($academicSessionId !== '', fn ($q) => $q->where('academic_session_id', $academicSessionId))
+            ->when($academicYearId !== '' && $academicSessionId === '', fn ($q) => $q->whereHas('academicSession', fn ($sq) => $sq->where('academic_year_id', $academicYearId)))
+            ->when($dateFrom !== '', fn ($q) => $q->whereDate('issue_date', '>=', $dateFrom))
+            ->when($dateTo !== '', fn ($q) => $q->whereDate('issue_date', '<=', $dateTo))
+            ->when($studentId !== '', fn ($q) => $q->where('student_id', $studentId))
             ->orderBy($sortableColumns[$sortBy] ?? 'created_at', $sortDirection)
             ->paginate($perPage)
             ->withQueryString();
 
+        // FIFO credit: distribute unallocated payments to oldest invoices first
+        $collection = $invoices->getCollection();
+        $studentIds = $collection->pluck('student_id')->unique()->values()->toArray();
+
+        $creditFifo = [];
+        if (!empty($studentIds)) {
+            $unallocatedCredit = [];
+            Payment::query()
+                ->whereIn('student_id', $studentIds)
+                ->where('status', 'completed')
+                ->chunk(100, function ($payments) use (&$unallocatedCredit) {
+                    $paymentIds = $payments->pluck('id');
+                    $allocatedSums = InvoicePaymentAllocation::query()
+                        ->whereIn('payment_id', $paymentIds)
+                        ->groupBy('payment_id')
+                        ->select('payment_id', DB::raw('SUM(amount) as total'))
+                        ->pluck('total', 'payment_id');
+
+                    foreach ($payments as $p) {
+                        $allocated = (float) ($allocatedSums[$p->id] ?? 0);
+                        $unallocatedCredit[$p->student_id] = ($unallocatedCredit[$p->student_id] ?? 0)
+                            + (float) $p->amount - $allocated;
+                    }
+                });
+
+            if (!empty($unallocatedCredit)) {
+                $studentInvoices = Invoice::query()
+                    ->whereIn('student_id', array_keys($unallocatedCredit))
+                    ->where('status', '!=', 'cancelled')
+                    ->orderBy('issue_date')
+                    ->orderBy('created_at')
+                    ->get(['id', 'student_id', 'amount_due']);
+
+                $grouped = $studentInvoices->groupBy('student_id');
+                foreach ($grouped as $sid => $invs) {
+                    $remaining = (float) ($unallocatedCredit[$sid] ?? 0);
+                    foreach ($invs as $inv) {
+                        $alreadyPaid = $collection->firstWhere('id', $inv->id)
+                            ? (float) $collection->firstWhere('id', $inv->id)->paymentAllocations->sum('amount')
+                            : 0;
+                        $balance = max(0, (float) $inv->amount_due - $alreadyPaid);
+                        $alloc = min($balance, $remaining);
+                        $creditFifo[$inv->id] = $alloc;
+                        $remaining -= $alloc;
+                        if ($remaining <= 0) break;
+                    }
+                }
+            }
+        }
+
         return response()->json([
             'status_code' => 200,
-            'data' => $invoices->getCollection()->map(fn (Invoice $i) => $this->transform($i))->values(),
+            'data' => $collection->map(fn (Invoice $i) => $this->transform($i, $creditFifo[$i->id] ?? 0))->values(),
             'meta' => $this->paginationMeta($invoices, [
                 'q' => $search,
                 'status' => $status,
@@ -76,7 +155,7 @@ class InvoicesController extends Controller
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $invoice->load(['student', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerTransactions']);
+        $invoice->load(['student.user', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerEntries']);
 
         return response()->json([
             'status_code' => 200,
@@ -123,6 +202,450 @@ class InvoicesController extends Controller
         return response()->json(['data' => $templates], 200);
     }
 
+    public function creditBalance(Student $student): JsonResponse
+    {
+        abort_unless(request()->user()?->can('finance.view'), 403);
+
+        $student->load('user');
+
+        $activeSession = \App\Models\AcademicSession::query()
+            ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
+            ->latest('start_date')
+            ->first();
+
+        $credit = 0;
+        if ($activeSession) {
+            $balance = StudentAccountBalance::query()
+                ->where('student_id', $student->id)
+                ->where('academic_session_id', $activeSession->id)
+                ->value('balance');
+
+            if ($balance !== null && (float) $balance < 0) {
+                $credit = abs((float) $balance);
+            }
+        }
+
+        return response()->json([
+            'data' => [
+                'credit_balance' => $credit,
+                'student_id' => $student->id,
+                'student_name' => $this->studentName($student),
+                'admission_number' => $student->admission_number,
+            ],
+        ]);
+    }
+
+    public function studentStatement(Request $request, Student $student): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
+        return $this->statementResponse($student, $request);
+    }
+
+    public function myStatement(Request $request): JsonResponse
+    {
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
+        }
+
+        return $this->statementResponse($student, $request);
+    }
+
+    private function statementResponse(Student $student, ?Request $request = null): JsonResponse
+    {
+        $scope = $request?->string('scope', 'session_to_date') ?? 'session_to_date';
+        $academicSessionId = $request?->string('academic_session_id', '');
+        $toAcademicSessionId = $request?->string('to_academic_session_id', '');
+        $academicYearId = $request?->string('academic_year_id', '');
+
+        $data = $this->prepareStatementData($student, $scope, $academicSessionId, $toAcademicSessionId, $academicYearId);
+
+        return response()->json(['data' => $data], 200);
+    }
+
+    public function statementDownload(Request $request, Student $student)
+    {
+        $user = $request->user();
+        abort_unless($user?->can('finance.view') || $user?->student?->id === $student->id, 403);
+
+        $data = $this->prepareStatementData(
+            $student,
+            (string) $request->string('scope', 'session_to_date'),
+            (string) $request->string('academic_session_id', ''),
+            (string) $request->string('to_academic_session_id', ''),
+            (string) $request->string('academic_year_id', ''),
+        );
+        $data['generated_at'] = now()->format('d/m/Y H:i');
+
+        $safeAdmissionNumber = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $student->admission_number);
+
+        return Pdf::loadView('pdf.statement', $data)
+            ->download('fee-statement-' . trim($safeAdmissionNumber, '-') . '.pdf');
+    }
+
+    public function myStatementDownload(Request $request)
+    {
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
+        }
+
+        return $this->statementDownload($request, $student);
+    }
+    private function prepareStatementData(
+        Student $student,
+        string $scope = 'session_to_date',
+        string $academicSessionId = '',
+        string $toAcademicSessionId = '',
+        string $academicYearId = ''
+    ): array {
+        $student->load('user');
+
+        $enrolment = CourseEnrolment::query()
+            ->with(['courseCurriculum.course.department', 'courseCurriculum.course.authority', 'courseCurriculum.course.level', 'courseCurriculum.curriculum', 'academicSession.year'])
+            ->where('student_id', $student->id)
+            ->latest()
+            ->first();
+
+        $course = $enrolment?->courseCurriculum?->course;
+        $latestSessionEnrolment = AcademicSessionEnrolment::query()
+            ->with('academicSession.year')
+            ->where('student_id', $student->id)
+            ->latest('enrolled_at')
+            ->latest('created_at')
+            ->first();
+
+        // Resolve which session IDs to include based on scope
+        $sessionsScope = $this->resolveStatementSessions($student, $scope, $academicSessionId, $toAcademicSessionId, $academicYearId);
+        $sessionIds = $sessionsScope['session_ids'];
+        $includeDormant = $sessionsScope['include_dormant'];
+
+        // Current active session info for context
+        $activeSession = AcademicSession::query()
+            ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
+            ->latest('start_date')
+            ->first(['id', 'name', 'code', 'academic_year_id']);
+
+        // Build all ledger transactions filtered by scope
+        $runningBalance = 0.0;
+        $sessionCounters = [];
+        $transactions = StudentLedgerEntry::query()
+            ->where('student_id', $student->id)
+            ->with(['academicSession.year', 'invoice', 'payment'])
+            ->orderBy('transaction_date')
+            ->orderBy('created_at')
+            ->get()
+            ->filter(fn (StudentLedgerEntry $entry) => empty($sessionIds) || in_array($entry->academic_session_id, $sessionIds) || $entry->academic_session_id === null)
+            ->values()
+            ->map(function (StudentLedgerEntry $entry) use (&$runningBalance, &$sessionCounters) {
+                $debit = (float) $entry->debit;
+                $credit = (float) $entry->credit;
+                $runningBalance += $debit - $credit;
+                $sessionKey = $entry->academic_session_id ?: 'other';
+                $sessionCounters[$sessionKey] = ($sessionCounters[$sessionKey] ?? 0) + 1;
+
+                return [
+                    'id' => $entry->id,
+                    'payment_id' => $entry->payment_id,
+                    'number' => $sessionCounters[$sessionKey],
+                    'date' => $entry->transaction_date?->format('d/m/Y'),
+                    'reference' => $entry->reference
+                        ?? $entry->invoice?->invoice_number
+                        ?? $entry->payment?->reference,
+                    'description' => $entry->description ?: str($entry->type)->replace('_', ' ')->headline()->toString(),
+                    'debit' => $debit,
+                    'credit' => $credit,
+                    'balance' => $runningBalance,
+                    'academic_session_id' => $entry->academic_session_id,
+                    'session_name' => $entry->academicSession?->name,
+                    'academic_year' => $entry->academicSession?->year?->code,
+                    'session_label' => $entry->academicSession?->name
+                        ?? $entry->academicSession?->year?->code,
+                    'sort_date' => $entry->transaction_date?->format('Y-m-d'),
+                    'sort_order' => $entry->created_at?->format('Y-m-d H:i:s.u'),
+                ];
+            });
+
+        // Invoices filtered by scope
+        $invoices = Invoice::query()
+            ->where('student_id', $student->id)
+            ->where('status', '!=', 'cancelled')
+            ->with([
+                'academicSession',
+                'items',
+                'adjustments' => fn ($q) => $q->whereNull('deleted_at'),
+                'paymentAllocations.payment',
+            ])
+            ->orderBy('issue_date')
+            ->get()
+            ->filter(fn (Invoice $inv) => empty($sessionIds) || in_array($inv->academic_session_id, $sessionIds))
+            ->map(fn ($inv) => $this->transformFull($inv))
+            ->values();
+
+        // Payments filtered by scope (payments linked to scoped invoices)
+        $paymentModels = Payment::query()
+            ->where('student_id', $student->id)
+            ->where('status', 'completed')
+            ->with('allocations')
+            ->orderByDesc('payment_date')
+            ->get();
+
+        if (!empty($sessionIds)) {
+            $scopedInvoiceIds = $invoices->pluck('id')->toArray();
+            $paymentModels = $paymentModels->filter(function (Payment $p) use ($scopedInvoiceIds) {
+                return $p->allocations->isEmpty()
+                    || $p->allocations->pluck('invoice_id')->intersect($scopedInvoiceIds)->isNotEmpty();
+            });
+        }
+
+        $payments = $paymentModels->map(fn ($p) => [
+                'id' => $p->id,
+                'amount' => (float) $p->amount,
+                'method' => $p->method,
+                'reference' => $p->reference,
+                'payment_date' => $p->payment_date?->format('Y-m-d'),
+                'allocated_total' => (float) $p->allocations->sum('amount'),
+                'unallocated' => (float) $p->amount - (float) $p->allocations->sum('amount'),
+            ]);
+
+        // Unallocated payment transactions (always included regardless of scope)
+        $missingPaymentTransactions = $paymentModels->map(function (Payment $payment) use ($transactions) {
+            $postedCredit = (float) $transactions
+                ->where('payment_id', $payment->id)
+                ->sum('credit');
+            $unpostedCredit = max(0, (float) $payment->amount - $postedCredit);
+
+            if ($unpostedCredit <= 0) {
+                return null;
+            }
+
+            return [
+                'id' => 'payment:' . $payment->id,
+                'payment_id' => $payment->id,
+                'date' => $payment->payment_date?->format('d/m/Y'),
+                'reference' => $payment->reference,
+                'description' => $payment->notes ?: 'Payment received via ' . ($payment->method ?: 'unspecified method') . '.',
+                'debit' => 0.0,
+                'credit' => $unpostedCredit,
+                'academic_session_id' => null,
+                'session_name' => null,
+                'academic_year' => null,
+                'session_label' => 'UNALLOCATED PAYMENTS',
+                'sort_date' => $payment->payment_date?->format('Y-m-d'),
+                'sort_order' => $payment->created_at?->format('Y-m-d H:i:s.u'),
+            ];
+        })->filter();
+
+        // Merge, re-sort, re-number
+        $transactions = $transactions->concat($missingPaymentTransactions);
+        $runningBalance = 0.0;
+        $sessionCounters = [];
+        $transactions = $transactions
+            ->sort(function (array $left, array $right) {
+                return [$left['sort_date'], $left['sort_order']]
+                    <=> [$right['sort_date'], $right['sort_order']];
+            })
+            ->values()
+            ->map(function (array $transaction) use (&$runningBalance, &$sessionCounters) {
+                $sessionKey = $transaction['academic_session_id'] ?: 'other';
+                $sessionCounters[$sessionKey] = ($sessionCounters[$sessionKey] ?? 0) + 1;
+                $runningBalance += (float) $transaction['debit'] - (float) $transaction['credit'];
+                $transaction['number'] = $sessionCounters[$sessionKey];
+                $transaction['balance'] = $runningBalance;
+                unset($transaction['payment_id'], $transaction['sort_date'], $transaction['sort_order']);
+
+                return $transaction;
+            });
+
+        // Dormant portions are exposed only for explicitly requested future scopes.
+        $dormantFees = collect();
+        if ($includeDormant && $sessionIds !== [] && $enrolment?->course_curriculum_id) {
+            $dormantFees = CurriculumFeeAssignment::query()
+                ->where('course_curriculum_id', $enrolment->course_curriculum_id)
+                ->where('year_level', $latestSessionEnrolment?->year_of_study ?? 1)
+                ->where('issuance_type', 'per_year')
+                ->where('is_approved', true)
+                ->where('dormant', true)
+                ->whereIn('academic_session_id', $sessionIds)
+                ->with(['academicSession:id,name,code', 'feeTemplate:id,code,name'])
+                ->get()
+                ->map(fn (CurriculumFeeAssignment $assignment) => [
+                    'assignment_id' => $assignment->id,
+                    'session_id' => $assignment->academic_session_id,
+                    'session_name' => $assignment->academicSession?->name,
+                    'session_code' => $assignment->academicSession?->code,
+                    'template_name' => $assignment->feeTemplate?->name,
+                    'amount' => (float) $assignment->split_amount,
+                    'status' => 'dormant',
+                ])
+                ->values();
+        }
+
+        $dormantTotal = (float) $dormantFees->sum('amount');
+        $totalInvoiced = (float) $invoices->sum('amount_due') + $dormantTotal;
+        $totalPaid = (float) $invoices->sum('paid_amount');
+        $totalAdjustments = (float) \App\Models\StudentFeeAdjustment::query()
+            ->whereHas('invoice', fn ($q) => $q->where('student_id', $student->id))
+            ->whereNull('deleted_at')
+            ->selectRaw('COALESCE(SUM(CASE WHEN type IN (\'discount\',\'waiver\',\'bursary\',\'helb\',\'reversal\') THEN amount ELSE -amount END), 0) as total')
+            ->value('total');
+        // Keep the balance signed: positive means owed, negative means available credit.
+        $outstanding = $runningBalance + $dormantTotal;
+
+        $scopeSessions = AcademicSession::query()
+            ->whereIn('id', $sessionIds)
+            ->orderBy('start_date')
+            ->orderBy('code')
+            ->get(['id', 'name', 'code', 'is_active']);
+        $sessionBreakdown = $scopeSessions->map(function (AcademicSession $session) use ($invoices, $dormantFees) {
+            $sessionInvoices = $invoices->where('academic_session_id', $session->id);
+            $dormant = $dormantFees->where('session_id', $session->id);
+
+            return [
+                'session_id' => $session->id,
+                'session_name' => $session->name,
+                'session_code' => $session->code,
+                'status' => $session->is_active ? 'active' : ($dormant->isNotEmpty() ? 'dormant' : 'inactive'),
+                'fees' => (float) $sessionInvoices->sum('amount_due') + (float) $dormant->sum('amount'),
+                'paid' => (float) $sessionInvoices->sum('paid_amount'),
+                'outstanding' => (float) $sessionInvoices->sum('balance_due') + (float) $dormant->sum('amount'),
+            ];
+        })->values();
+
+        return [
+            'institution_name' => config('institution.name'),
+            'institution' => config('institution'),
+            'statement_mode' => [
+                'scope' => $scope,
+                'include_dormant' => $includeDormant,
+                'session_ids' => $sessionIds,
+                'active_session_id' => $activeSession?->id,
+                'active_session_name' => $activeSession?->name,
+            ],
+            'dormant_fees' => $dormantFees,
+            'session_breakdown' => $sessionBreakdown,
+            'student' => [
+                'name' => $this->studentName($student),
+                'admission_number' => $student->admission_number,
+                'phone' => $student->user?->phone_number,
+                'email' => $student->user?->email,
+                'type' => 'Regular',
+                'admission_year' => $enrolment?->enrolment_date?->format('Y'),
+                'year_of_study' => $latestSessionEnrolment?->year_of_study,
+                'term' => $latestSessionEnrolment?->session_number,
+            ],
+            'course' => $course ? [
+                'name' => $course->name,
+                'code' => $course->code,
+                'department' => $course->department?->name,
+                'school' => $course->authority?->name,
+                'level' => $course->level?->name,
+            ] : null,
+            'invoices' => $invoices,
+            'payments' => $payments,
+            'transactions' => $transactions,
+            'summary' => [
+                'total_invoiced' => $totalInvoiced,
+                'dormant_total' => $dormantTotal,
+                'total_paid' => $totalPaid,
+                'total_adjustments' => $totalAdjustments,
+                'outstanding_balance' => $outstanding,
+                'total_debit' => (float) $transactions->sum('debit'),
+                'total_credit' => (float) $transactions->sum('credit'),
+                'ledger_balance' => $runningBalance,
+            ],
+        ];
+    }
+
+    /**
+     * Resolve which sessions to include in the statement based on scope.
+     */
+    private function resolveStatementSessions(
+        Student $student,
+        string $scope,
+        string $academicSessionId,
+        string $toAcademicSessionId,
+        string $academicYearId
+    ): array {
+        $sessionIds = [];
+        $includeDormant = false;
+
+        if ($scope === 'per_session' && $academicSessionId) {
+            $sessionIds = [$academicSessionId];
+            $includeDormant = true;
+        } elseif ($scope === 'per_year') {
+            $year = $academicYearId
+                ? AcademicYear::find($academicYearId)
+                : AcademicYear::query()->where('is_active', true)->latest('start_date')->first();
+
+            if ($year) {
+                $sessionIds = $year->sessions()->pluck('id')->toArray();
+                $includeDormant = true;
+            }
+        } elseif ($scope === 'custom' && $academicSessionId) {
+            $fromSession = AcademicSession::find($academicSessionId);
+            $toSession = $toAcademicSessionId
+                ? AcademicSession::find($toAcademicSessionId)
+                : $fromSession;
+
+            if ($fromSession && $toSession) {
+                $yearId = $fromSession->academic_year_id;
+                $sessions = AcademicSession::query()
+                    ->where('academic_year_id', $yearId)
+                    ->orderBy('start_date')
+                    ->orderBy('code')
+                    ->get();
+
+                $started = false;
+                foreach ($sessions as $s) {
+                    if ($s->id === $fromSession->id) {
+                        $started = true;
+                    }
+                    if ($started) {
+                        $sessionIds[] = $s->id;
+                    }
+                    if ($s->id === $toSession->id) {
+                        break;
+                    }
+                }
+                $includeDormant = true;
+            }
+        } else {
+            // Default: session-to-date — all sessions from first to currently active
+            $activeSession = AcademicSession::query()
+                ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
+                ->latest('start_date')
+                ->first();
+
+            if ($activeSession) {
+                $sessions = AcademicSession::query()
+                    ->where('academic_year_id', $activeSession->academic_year_id)
+                    ->orderBy('start_date')
+                    ->orderBy('code')
+                    ->get();
+
+                foreach ($sessions as $s) {
+                    $sessionIds[] = $s->id;
+                    if ($s->id === $activeSession->id) {
+                        break;
+                    }
+                }
+            }
+            $includeDormant = false;
+        }
+
+        return [
+            'session_ids' => $sessionIds,
+            'include_dormant' => $includeDormant,
+        ];
+    }
+
     public function store(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('finance.create'), 403);
@@ -149,7 +672,7 @@ class InvoicesController extends Controller
             ], 422);
         }
 
-        $invoice->load(['student', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerTransactions']);
+        $invoice->load(['student.user', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerEntries']);
 
         return response()->json([
             'status_code' => 201,
@@ -167,7 +690,7 @@ class InvoicesController extends Controller
 
         $invoices = Invoice::query()
             ->where('student_id', $student->id)
-            ->with(['student', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerTransactions'])
+            ->with(['student.user', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerEntries'])
             ->latest()
             ->get()
             ->map(fn (Invoice $i) => $this->transformFull($i))
@@ -183,6 +706,7 @@ class InvoicesController extends Controller
             return response()->json([
                 'status_code' => 200,
                 'outstanding_balance' => 0,
+                'net_balance' => 0,
                 'total_paid' => 0,
                 'total_adjustments' => 0,
                 'unallocated_credit' => 0,
@@ -190,17 +714,23 @@ class InvoicesController extends Controller
             ], 200);
         }
 
+        $balanceExpression = "amount_due
+            - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)
+            - COALESCE((SELECT SUM(CASE WHEN type IN ('discount', 'waiver', 'bursary', 'helb', 'reversal') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)";
         $baseQuery = Invoice::query()
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
             ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw('COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0) as adjustment_amount')
-            ->selectRaw('GREATEST(0, amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) - COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)) as balance_due');
+            ->selectRaw("CASE WHEN ({$balanceExpression}) > 0 THEN ({$balanceExpression}) ELSE 0 END as balance_due");
 
         $invoices = $baseQuery->get();
         $outstanding = (float) $invoices->sum('balance_due');
-        $totalAdjustments = (float) $invoices->sum('adjustment_amount');
+        $totalAdjustments = (float) \App\Models\StudentFeeAdjustment::query()
+            ->whereHas('invoice', fn ($q) => $q->where('student_id', $student->id))
+            ->whereNull('deleted_at')
+            ->selectRaw('COALESCE(SUM(CASE WHEN type IN (\'discount\',\'waiver\',\'bursary\',\'helb\',\'reversal\') THEN amount ELSE -amount END), 0) as total')
+            ->value('total');
 
         $payments = Payment::query()
             ->where('student_id', $student->id)
@@ -211,6 +741,13 @@ class InvoicesController extends Controller
         $unallocatedCredit = (float) $payments->sum(
             fn (Payment $payment) => max(0, (float) $payment->amount - (float) ($payment->allocations_sum_amount ?? 0)),
         );
+        $totalRefunded = Schema::hasTable('refunds')
+            ? (float) \App\Models\Refund::query()
+                ->where('student_id', $student->id)
+                ->where('status', 'processed')
+                ->sum('amount')
+            : 0.0;
+        $netBalance = $outstanding - $unallocatedCredit + $totalRefunded;
 
         $nextDueInvoice = $invoices
             ->where('balance_due', '>', 0)
@@ -220,6 +757,7 @@ class InvoicesController extends Controller
         return response()->json([
             'status_code' => 200,
             'outstanding_balance' => $outstanding,
+            'net_balance' => $netBalance,
             'total_paid' => $totalPaid,
             'total_adjustments' => $totalAdjustments,
             'unallocated_credit' => $unallocatedCredit,
@@ -227,13 +765,14 @@ class InvoicesController extends Controller
         ], 200);
     }
 
-    private function transform(Invoice $invoice): array
+    private function transform(Invoice $invoice, float $fifoCredit = 0): array
     {
-        $paidAmount = (float) $invoice->paymentAllocations()->sum('amount');
         $amountDue = (float) $invoice->amount_due;
         $creditTypes = ['discount', 'waiver', 'bursary', 'helb', 'reversal'];
-        $adjustmentAmount = (float) $invoice->adjustments()->whereIn('type', $creditTypes)->sum('amount')
-            - (float) $invoice->adjustments()->whereNotIn('type', $creditTypes)->sum('amount');
+        $allocatedPayments = (float) $invoice->paymentAllocations->sum('amount');
+        $adjustmentAmount = (float) $invoice->adjustments->whereIn('type', $creditTypes)->sum('amount')
+            - (float) $invoice->adjustments->whereNotIn('type', $creditTypes)->sum('amount');
+        $paidAmount = $allocatedPayments + $fifoCredit;
 
         return [
             'id' => $invoice->id,
@@ -249,7 +788,6 @@ class InvoicesController extends Controller
             'amount_due' => $amountDue,
             'computed_amount' => (float) $invoice->computed_amount,
             'paid_amount' => $paidAmount,
-            'adjustment_amount' => $adjustmentAmount,
             'balance_due' => max(0, $amountDue - $paidAmount - $adjustmentAmount),
             'created_at' => $invoice->created_at,
         ];
@@ -270,6 +808,8 @@ class InvoicesController extends Controller
                 'id' => $adj->id,
                 'type' => $adj->type,
                 'amount' => (float) $adj->amount,
+                'discount_type' => $adj->discount_type,
+                'discount_percentage' => $adj->discount_percentage ? (float) $adj->discount_percentage : null,
                 'description' => $adj->description,
                 'applied_at' => $adj->applied_at?->format('Y-m-d'),
             ])->values()->all(),

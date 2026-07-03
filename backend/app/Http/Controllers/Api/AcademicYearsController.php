@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAcademicYearRequest;
 use App\Http\Requests\UpdateAcademicYearRequest;
 use App\Models\AcademicYear;
+use App\Models\AcademicSession;
+use App\Models\SystemConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -64,11 +66,33 @@ class AcademicYearsController extends Controller
             'updated_by' => $userId,
         ]);
 
+        // Auto-generate default sessions for the academic year
+        $sessionsPerYear = max(1, (int) SystemConfiguration::getValue(
+            'sessions_per_academic_year',
+            config('academic.sessions_per_academic_year', 3),
+        ));
+        $sessions = [];
+        for ($i = 1; $i <= $sessionsPerYear; $i++) {
+            $sessions[] = AcademicSession::create([
+                'academic_year_id' => $year->id,
+                'code' => $year->code . '-S' . $i,
+                'name' => $year->name . ' - Session ' . $i,
+                'is_active' => false,
+                'created_by' => $userId,
+                'updated_by' => $userId,
+            ]);
+        }
+
         $year->loadCount('sessions');
 
         return response()->json([
-            'message' => 'Academic year created successfully.',
+            'message' => 'Academic year created successfully with ' . $sessionsPerYear . ' sessions.',
             'data' => $this->transformYear($year),
+            'sessions' => array_map(fn (AcademicSession $s) => [
+                'id' => $s->id,
+                'code' => $s->code,
+                'name' => $s->name,
+            ], $sessions),
         ], 201);
     }
 

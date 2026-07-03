@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAcademicSessionRequest;
 use App\Http\Requests\UpdateAcademicSessionRequest;
 use App\Models\AcademicSession;
+use App\Models\CurriculumFeeAssignment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -92,15 +93,34 @@ class AcademicSessionsController extends Controller
 
     public function update(UpdateAcademicSessionRequest $request, AcademicSession $academic_session): JsonResponse
     {
+        $wasActivated = false;
+
+        if ($request->boolean('is_active') && !$academic_session->is_active) {
+            $wasActivated = true;
+        }
+
         $academic_session->update([
             ...$request->validated(),
             'updated_by' => $request->user()?->id,
         ]);
 
+        // Auto-activate dormant fee portions when a session becomes active
+        if ($wasActivated && $academic_session->is_active) {
+            $activated = CurriculumFeeAssignment::query()
+                ->where('academic_session_id', $academic_session->id)
+                ->where('dormant', true)
+                ->where('issuance_type', 'per_year')
+                ->update(['dormant' => false]);
+
+            if ($activated > 0) {
+                \Illuminate\Support\Facades\Log::info("Session [{$academic_session->id}] activated: {$activated} dormant fee portion(s) made active.");
+            }
+        }
+
         $academic_session->load($this->sessionRelations());
 
         return response()->json([
-            'message' => 'Academic session updated successfully.',
+            'message' => 'Academic session updated successfully.' . ($wasActivated ? ' Dormant fee portions have been activated.' : ''),
             'data' => $this->transformSession($academic_session),
         ]);
     }

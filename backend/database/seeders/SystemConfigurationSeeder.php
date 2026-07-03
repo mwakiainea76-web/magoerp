@@ -13,20 +13,11 @@ class SystemConfigurationSeeder extends Seeder
     public function run(): void
     {
         SystemConfiguration::updateOrCreate(
-            ['key' => 'sessions_per_full_year'],
+            ['key' => 'sessions_per_academic_year'],
             [
-                'value' => '3',
-                'label' => 'Sessions per Full Academic Year',
+                'value' => (string) config('academic.sessions_per_academic_year', 3),
+                'label' => 'Sessions per Academic Year',
                 'type' => 'integer',
-            ]
-        );
-
-        SystemConfiguration::updateOrCreate(
-            ['key' => 'billing_period'],
-            [
-                'value' => 'session',
-                'label' => 'Billing Period (session or annual)',
-                'type' => 'string',
             ]
         );
     }

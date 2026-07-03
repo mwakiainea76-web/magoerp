@@ -21,7 +21,7 @@ class UpdateFeeTemplateItemRequest extends FormRequest
         return [
             'fee_template_id' => ['required', 'uuid', Rule::exists('fee_templates', 'id')],
             'name' => ['required', 'string', 'max:255'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],
         ];

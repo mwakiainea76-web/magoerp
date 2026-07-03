@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignUuid('user_id')->unique()->constrained('users')->cascadeOnDelete();
             $table->string('admission_number')->unique();
 
-            $table->boolean('status')->default(true);
+            $table->string('status', 20)->default('active');
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();

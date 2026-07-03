@@ -20,6 +20,8 @@ class StudentFeeAdjustment extends Model
     protected $fillable = [
         'invoice_id',
         'type',
+        'discount_type',
+        'discount_percentage',
         'amount',
         'idempotency_key',
         'description',
@@ -32,6 +34,7 @@ class StudentFeeAdjustment extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'discount_percentage' => 'decimal:2',
             'applied_at' => 'date',
             'ledger_posted' => 'boolean',
         ];

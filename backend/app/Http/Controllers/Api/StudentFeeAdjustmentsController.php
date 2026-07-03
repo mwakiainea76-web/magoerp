@@ -21,6 +21,8 @@ class StudentFeeAdjustmentsController extends Controller
         $validated = $request->validate([
             'type' => ['required', 'string', 'in:discount,waiver,bursary,helb,reversal,penalty'],
             'amount' => ['required', 'numeric', 'min:0.01'],
+            'discount_type' => ['nullable', 'string', 'in:percentage,fixed'],
+            'discount_percentage' => ['nullable', 'numeric', 'min:0.01', 'max:100'],
             'description' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -30,6 +32,8 @@ class StudentFeeAdjustmentsController extends Controller
             (float) $validated['amount'],
             $request->user()->id,
             $validated['description'] ?? null,
+            $validated['discount_type'] ?? null,
+            isset($validated['discount_percentage']) ? (float) $validated['discount_percentage'] : null,
         );
 
         return response()->json([
@@ -37,6 +41,8 @@ class StudentFeeAdjustmentsController extends Controller
             'data' => [
                 'id' => $adjustment->id,
                 'type' => $adjustment->type,
+                'discount_type' => $adjustment->discount_type,
+                'discount_percentage' => $adjustment->discount_percentage !== null ? (float) $adjustment->discount_percentage : null,
                 'amount' => (float) $adjustment->amount,
                 'description' => $adjustment->description,
                 'applied_at' => $adjustment->applied_at?->format('Y-m-d'),

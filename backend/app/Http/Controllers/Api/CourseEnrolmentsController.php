@@ -37,7 +37,7 @@ class CourseEnrolmentsController extends Controller
         ];
 
         $enrolments = CourseEnrolment::query()
-            ->with(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession'])
+            ->with(['student.user', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
@@ -75,7 +75,7 @@ class CourseEnrolmentsController extends Controller
     {
         abort_unless($request->user()?->can('enrolments.view'), 403);
 
-        $course_enrolment->load(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
+        $course_enrolment->load(['student.user', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
 
         return response()->json([
             'data' => $this->transform($course_enrolment),
@@ -121,7 +121,7 @@ class CourseEnrolmentsController extends Controller
                 'recorded_by' => $request->user()->id,
             ]);
 
-            $course_enrolment->load(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
+            $course_enrolment->load(['student.user', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
 
             return response()->json([
                 'message' => 'Student transferred to new course successfully.',
@@ -148,7 +148,7 @@ class CourseEnrolmentsController extends Controller
             'recorded_by' => $request->user()->id,
         ]);
 
-        $course_enrolment->load(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
+        $course_enrolment->load(['student.user', 'courseCurriculum.course', 'courseCurriculum.curriculum', 'academicSession']);
 
         return response()->json([
             'message' => 'Enrolment status updated successfully.',
@@ -165,7 +165,7 @@ class CourseEnrolmentsController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
 
         $logs = StudentStatusLog::query()
-            ->with(['student', 'recordedBy'])
+            ->with(['student.user', 'recordedBy'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->whereHas('student', function ($sq) use ($search) {
@@ -254,7 +254,7 @@ class CourseEnrolmentsController extends Controller
         $status = (string) ($validated['status'] ?? '');
 
         $query = CourseEnrolment::query()
-            ->with(['student', 'courseCurriculum.course', 'courseCurriculum.curriculum'])
+            ->with(['student.user', 'courseCurriculum.course', 'courseCurriculum.curriculum'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner

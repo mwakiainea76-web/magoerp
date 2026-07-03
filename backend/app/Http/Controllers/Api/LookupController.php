@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\StudentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicYear;
@@ -16,6 +17,7 @@ use App\Models\Role;
 use App\Models\staffs;
 use App\Models\Student;
 use App\Models\Unit;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -327,11 +329,13 @@ class LookupController extends Controller
 
         $authorityId = (string) $request->string('authority_id', '');
         $levelId = (string) $request->string('level_id', '');
+        $departmentId = (string) $request->string('department_id', '');
 
         $items = Course::query()
             ->where('is_active', true)
             ->when($authorityId !== '', fn ($q) => $q->where('certification_authority_id', $authorityId))
             ->when($levelId !== '', fn ($q) => $q->where('certification_level_id', $levelId))
+            ->when($departmentId !== '', fn ($q) => $q->where('department_id', $departmentId))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery
@@ -415,30 +419,34 @@ class LookupController extends Controller
             403,
         );
 
+        if (strlen($search) < 2) {
+            return response()->json(['data' => []]);
+        }
+
+        $status = $request->enum('status', StudentStatus::class) ?? StudentStatus::Active;
+
         $items = Student::query()
-            ->with('user:id,phone_number')
-            ->where('status', true)
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($innerQuery) use ($search) {
-                    $innerQuery
-                        ->whereHas('user', function ($uq) use ($search) {
-                            $uq->where('first_name', 'like', "%{$search}%")
-                                ->orWhere('middle_name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%");
-                        })
-                        ->orWhere('admission_number', 'like', "%{$search}%");
-                });
+            ->select('students.*', 'users.first_name', 'users.middle_name', 'users.last_name')
+            ->join('users', 'users.id', '=', 'students.user_id')
+            ->where('students.status', $status->value)
+            ->where(function ($query) use ($search) {
+                $query
+                    ->where('users.first_name', 'like', "%{$search}%")
+                    ->orWhere('users.middle_name', 'like', "%{$search}%")
+                    ->orWhere('users.last_name', 'like', "%{$search}%")
+                    ->orWhere('students.admission_number', 'like', "%{$search}%");
             })
-            ->orderBy(User::select('first_name')->whereColumn('users.id', 'students.user_id'))
-            ->orderBy(User::select('last_name')->whereColumn('users.id', 'students.user_id'))
+            ->orderBy('users.first_name')
+            ->orderBy('users.last_name')
             ->limit($limit)
             ->get()
             ->map(function (Student $student) {
-                $name = trim(collect([$student->user->first_name, $student->user->middle_name, $student->user->last_name])->filter()->implode(' '));
+                $name = trim(collect([$student->first_name, $student->middle_name, $student->last_name])->filter()->implode(' '));
 
                 return [
                     'id' => $student->id,
                     'label' => trim($student->admission_number . ' ' . $name),
+                    'status' => $student->status,
                 ];
             })
             ->values();

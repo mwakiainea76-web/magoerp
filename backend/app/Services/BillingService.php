@@ -2,19 +2,21 @@
 
 namespace App\Services;
 
+use App\Enums\StudentStatus;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\CurriculumFeeAssignment;
+use App\Models\FeeTemplate;
 use App\Models\Hostel;
 use App\Models\Invoice;
 use App\Models\InvoiceLineItem;
 use App\Models\InvoicePaymentAllocation;
 use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\Student;
 use App\Models\StudentAccountBalance;
 use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
-use App\Models\SystemConfiguration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -50,9 +52,7 @@ class BillingService
         ?AcademicSession $session = null,
         ?string $invoiceTemplateId = null
     ): Invoice {
-        $billingPeriod = SystemConfiguration::getValue('billing_period', 'session');
-
-        return DB::transaction(function () use ($student, $createdBy, $session, $billingPeriod, $invoiceTemplateId) {
+        return DB::transaction(function () use ($student, $createdBy, $session, $invoiceTemplateId) {
 
             // 1. Resolve the student's active curriculum
             $courseCurriculumId = $student->courseEnrolments()
@@ -69,6 +69,7 @@ class BillingService
             // 2. Resolve the target academic session
             $targetSession = $session ?? AcademicSession::query()
                 ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
                 ->latest('start_date')
                 ->first();
 
@@ -90,9 +91,7 @@ class BillingService
 
             // 4. Build the idempotency key and check for an existing invoice
             //    ONE check only — no duplicate check further down.
-            $idempotencyKey = $billingPeriod === 'annual'
-                ? "fees:{$student->id}:year{$enrolment->year_of_study}:annual"
-                : "fees:{$student->id}:{$targetSession->id}";
+            $idempotencyKey = "fees:{$student->id}:{$targetSession->id}";
 
             $existingInvoice = Invoice::query()
                 ->where('idempotency_key', $idempotencyKey)
@@ -114,7 +113,8 @@ class BillingService
                 ->where('year_level', $enrolment->year_of_study)
                 ->where('session_number', $enrolment->session_number)
                 ->where('is_approved', true)
-                ->with(['feeTemplate.items' => fn ($q) => $q->where('is_active', true)])
+                ->where('dormant', false)
+                ->with(['feeTemplate.items' => fn ($q) => $q->where('is_active', true)->where('amount', '>', 0)])
                 ->first();
 
             if (!$assignment?->feeTemplate) {
@@ -145,31 +145,45 @@ class BillingService
                 'created_by'          => $createdBy,
             ]);
 
-            // 7. Snapshot line items from the fee template
-            foreach ($assignment->feeTemplate->items as $item) {
+            // 7. Snapshot line items. Yearly assignments bill only this session's split.
+            $templateItems = $assignment->feeTemplate->items->values();
+            $templateTotal = (float) $templateItems->sum('amount');
+            $invoiceTotal = $assignment->issuance_type === 'per_year'
+                ? (float) $assignment->split_amount
+                : $templateTotal;
+            $allocatedLineTotal = 0.0;
+
+            foreach ($templateItems as $index => $item) {
+                $lineAmount = $index === $templateItems->count() - 1
+                    ? round($invoiceTotal - $allocatedLineTotal, 2)
+                    : round($invoiceTotal * ((float) $item->amount / $templateTotal), 2);
+                $allocatedLineTotal += $lineAmount;
+
                 InvoiceLineItem::create([
-                    'invoice_id'           => $invoice->id,
+                    'invoice_id' => $invoice->id,
                     'fee_template_item_id' => $item->id,
-                    'name'                 => $item->name,
-                    'description'          => $item->description,
-                    'amount'               => $item->amount,
-                    'quantity'             => 1,
-                    'total_amount'         => $item->amount,
-                    'snapshot_data'        => [
-                        'template_code'        => $assignment->feeTemplate->code,
-                        'template_name'        => $assignment->feeTemplate->name,
-                        'item_name'            => $item->name,
-                        'item_amount'          => $item->amount,
-                        'item_description'     => $item->description,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'amount' => $lineAmount,
+                    'quantity' => 1,
+                    'total_amount' => $lineAmount,
+                    'snapshot_data' => [
+                        'template_code' => $assignment->feeTemplate->code,
+                        'template_name' => $assignment->feeTemplate->name,
+                        'item_name' => $item->name,
+                        'template_item_amount' => (float) $item->amount,
+                        'billed_item_amount' => $lineAmount,
+                        'issuance_type' => $assignment->issuance_type,
+                        'annual_split_amount' => $assignment->split_amount,
+                        'annual_split_ratio' => $assignment->split_ratio,
                         'course_curriculum_id' => $courseCurriculumId,
-                        'academic_session_id'  => $targetSession->id,
-                        'year_level'           => $enrolment->year_of_study,
-                        'session_number'       => $enrolment->session_number,
-                        'snapshot_taken_at'    => now()->toDateTimeString(),
+                        'academic_session_id' => $targetSession->id,
+                        'year_level' => $enrolment->year_of_study,
+                        'session_number' => $enrolment->session_number,
+                        'snapshot_taken_at' => now()->toDateTimeString(),
                     ],
                 ]);
             }
-
             // 8. Mark the template as issued (if not already)
             if (!$assignment->feeTemplate->is_issued) {
                 $assignment->feeTemplate->update(['is_issued' => true]);
@@ -215,6 +229,7 @@ class BillingService
     ): Invoice {
         $targetSession = AcademicSession::query()
             ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
             ->latest('start_date')
             ->first();
 
@@ -291,6 +306,7 @@ class BillingService
             ]);
 
             // 5. Sync account balance AFTER the ledger entry is written
+            $this->applyAvailableCredits($invoice, $createdBy);
             $this->syncAccountBalance($student->id, $targetSession->id);
 
             return $invoice->fresh();
@@ -331,8 +347,15 @@ class BillingService
 
         return DB::transaction(function () use ($invoice, $amount, $method, $createdBy, $reference, $paymentDate, $notes) {
 
-            // Lock the invoice row to prevent concurrent payment race conditions
+            // Lock both records so payment references and invoice balances remain consistent.
+            $student = Student::query()->lockForUpdate()->findOrFail($invoice->student_id);
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
+
+            if ($invoice->status === 'cancelled') {
+                throw ValidationException::withMessages([
+                    'invoice' => 'Cannot record a payment against a cancelled invoice.',
+                ]);
+            }
 
             // Idempotency: same student + reference = same payment
             $idempotencyKey = $reference
@@ -423,6 +446,9 @@ class BillingService
 
         return DB::transaction(function () use ($student, $amount, $method, $createdBy, $reference, $paymentDate, $notes) {
 
+            // Serialize payments for this student so idempotency and FIFO allocation are race-safe.
+            $student = Student::query()->lockForUpdate()->findOrFail($student->id);
+
             // Idempotency check
             $idempotencyKey = $reference
                 ? "pay:{$student->id}:{$reference}"
@@ -506,6 +532,33 @@ class BillingService
                 }
             }
 
+            // Record any amount that could not be allocated as a real ledger
+            // credit so it appears on statements and can fund a later invoice.
+            if ($remaining > 0) {
+                $activeSessionId = AcademicSession::query()
+                    ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
+                    ->latest('start_date')
+                    ->value('id');
+
+                StudentLedgerEntry::create([
+                    'student_id' => $student->id,
+                    'payment_id' => $payment->id,
+                    'academic_session_id' => $activeSessionId,
+                    'type' => 'payment',
+                    'debit' => 0,
+                    'credit' => $remaining,
+                    'reference' => $reference,
+                    'description' => 'Payment received as unallocated credit.',
+                    'transaction_date' => $paymentDate ?? now()->toDateString(),
+                    'created_by' => $createdBy,
+                ]);
+
+                if ($activeSessionId) {
+                    $sessionsSynced[$activeSessionId] = true;
+                }
+            }
+
             // 3. Sync balance for every session that was touched
             //    Always runs — even if no invoices were found, the payment
             //    exists and the balance snapshot should reflect it.
@@ -514,6 +567,7 @@ class BillingService
                 // Sync the current active session so the credit is visible.
                 $activeSession = AcademicSession::query()
                     ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
                     ->latest('start_date')
                     ->value('id');
 
@@ -540,6 +594,10 @@ class BillingService
      * Credit types  (reduce what the student owes): discount, waiver, bursary, helb, reversal
      * Debit types   (increase what the student owes): penalty, fine, etc.
      *
+     * When type=discount and discountType='percentage' the amount is computed as
+     * (discountPercentage / 100) * invoice items total, capped at the outstanding
+     * balance so credits never exceed debits.
+     *
      * Every adjustment is posted to the ledger and the ledger_posted flag
      * is set to true atomically within the same transaction.
      */
@@ -548,7 +606,9 @@ class BillingService
         string $type,
         float $amount,
         ?string $createdBy,
-        ?string $description = null
+        ?string $description = null,
+        ?string $discountType = null,
+        ?float $discountPercentage = null
     ): StudentFeeAdjustment {
         if ($amount <= 0) {
             throw ValidationException::withMessages([
@@ -562,23 +622,52 @@ class BillingService
             ]);
         }
 
-        return DB::transaction(function () use ($invoice, $type, $amount, $createdBy, $description) {
+        return DB::transaction(function () use ($invoice, $type, $amount, $createdBy, $description, $discountType, $discountPercentage) {
 
             // Lock invoice row
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
 
             $isCredit = in_array($type, self::CREDIT_ADJUSTMENT_TYPES);
 
+            // Resolve effective amount: percentage discount computes from invoice total
+            $effectiveAmount = $amount;
+            $storeDiscountType = null;
+            $storeDiscountPct = null;
+
+            if ($type === 'discount' && $discountType === 'percentage' && $discountPercentage !== null) {
+                $storeDiscountType = 'percentage';
+                $storeDiscountPct = $discountPercentage;
+                $itemsTotal = (float) $invoice->items()->sum('total_amount');
+                $effectiveAmount = round($itemsTotal * $discountPercentage / 100, 2);
+            } elseif ($type === 'discount') {
+                $storeDiscountType = 'fixed';
+            }
+
+            // Prevent credit adjustments from exceeding what the student owes
+            if ($isCredit) {
+                $outstanding = $this->calculateOutstanding($invoice);
+                if ($effectiveAmount > $outstanding) {
+                    $effectiveAmount = $outstanding;
+                }
+                if ($effectiveAmount <= 0) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'No outstanding balance to apply a credit adjustment against.',
+                    ]);
+                }
+            }
+
             // 1. Create adjustment record (ledger_posted starts false)
             $adjustment = StudentFeeAdjustment::create([
-                'invoice_id'      => $invoice->id,
-                'type'            => $type,
-                'amount'          => $amount,
-                'idempotency_key' => "adj:{$invoice->id}:{$type}:" . now()->format('YmdHisv'),
-                'description'     => $description,
-                'applied_at'      => now()->toDateString(),
-                'ledger_posted'   => false,
-                'created_by'      => $createdBy,
+                'invoice_id'          => $invoice->id,
+                'type'                => $type,
+                'discount_type'       => $storeDiscountType,
+                'discount_percentage' => $storeDiscountPct,
+                'amount'              => $effectiveAmount,
+                'idempotency_key'     => "adj:{$invoice->id}:{$type}:" . now()->format('YmdHisv'),
+                'description'        => $description,
+                'applied_at'         => now()->toDateString(),
+                'ledger_posted'      => false,
+                'created_by'         => $createdBy,
             ]);
 
             // 2. Post to ledger with direct adjustment_id traceability
@@ -588,8 +677,8 @@ class BillingService
                 'adjustment_id'       => $adjustment->id,
                 'academic_session_id' => $invoice->academic_session_id,
                 'type'                => 'adjustment',
-                'debit'               => $isCredit ? 0 : $amount,
-                'credit'              => $isCredit ? $amount : 0,
+                'debit'               => $isCredit ? 0 : $effectiveAmount,
+                'credit'              => $isCredit ? $effectiveAmount : 0,
                 'description'         => $description ?? ucfirst($type) . ' adjustment applied.',
                 'transaction_date'    => now()->toDateString(),
                 'created_by'          => $createdBy,
@@ -606,6 +695,131 @@ class BillingService
 
             return $adjustment->fresh();
         });
+    }
+
+    /**
+     * Process a refund — issues money back to the student for unallocated credit.
+     *
+     * The refund amount is capped at the student's net credit balance
+     * (negative balance on the current active session), ensuring credits
+     * never exceed debits.
+     */
+    public function processRefund(
+        Student $student,
+        float $amount,
+        ?string $reason = null,
+        ?string $processedBy = null,
+        ?Invoice $invoice = null
+    ): Refund {
+        if ($amount <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'Refund amount must be greater than zero.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($student, $amount, $reason, $processedBy, $invoice) {
+            // Serialize refunds for a student so concurrent requests cannot spend
+            // the same credit balance twice.
+            $student = Student::query()->lockForUpdate()->findOrFail($student->id);
+
+            if ($student->status !== StudentStatus::Graduated) {
+                throw ValidationException::withMessages([
+                    'student' => 'Refunds can only be issued to graduated students.',
+                ]);
+            }
+
+            if ($invoice) {
+                $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
+
+                if ($invoice->student_id !== $student->id) {
+                    throw ValidationException::withMessages([
+                        'invoice_id' => 'The selected invoice does not belong to this student.',
+                    ]);
+                }
+
+                if ($invoice->status === 'cancelled') {
+                    throw ValidationException::withMessages([
+                        'invoice_id' => 'A refund cannot be linked to a cancelled invoice.',
+                    ]);
+                }
+            }
+
+            $targetSession = $invoice?->academicSession
+                ?? AcademicSession::query()->where('is_active', true)->latest('start_date')->first();
+
+            if (!$targetSession) {
+                throw ValidationException::withMessages([
+                    'session' => 'No active academic session found.',
+                ]);
+            }
+
+            $this->syncAccountBalance($student->id, $targetSession->id);
+            $balance = StudentAccountBalance::query()
+                ->where('student_id', $student->id)
+                ->where('academic_session_id', $targetSession->id)
+                ->lockForUpdate()
+                ->value('balance');
+
+            $availableCredit = max(0, (float) ($balance !== null ? -$balance : 0));
+
+            if ($availableCredit <= 0) {
+                throw ValidationException::withMessages([
+                    'amount' => 'This student has no credit balance to refund.',
+                ]);
+            }
+
+            if ($amount > $availableCredit) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Refund amount cannot exceed the available credit balance.',
+                ]);
+            }
+
+            $refund = Refund::create([
+                'student_id'    => $student->id,
+                'invoice_id'    => $invoice?->id,
+                'amount'        => $amount,
+                'reason'        => $reason,
+                'status'        => 'processed',
+                'processed_by'  => $processedBy,
+                'processed_at'  => now(),
+            ]);
+
+            StudentLedgerEntry::create([
+                'student_id'          => $student->id,
+                'invoice_id'          => $invoice?->id,
+                'academic_session_id' => $targetSession->id,
+                'type'                => 'refund',
+                'debit'               => $amount,
+                'credit'              => 0,
+                'reference'           => $refund->id,
+                'description'         => $reason ?? 'Refund of excess credit.',
+                'transaction_date'    => now()->toDateString(),
+                'created_by'          => $processedBy,
+            ]);
+
+            $this->syncAccountBalance($student->id, $targetSession->id);
+
+            return $refund;
+        });
+    }
+    public function calculateCreditBalance(Student $student): float
+    {
+        $session = AcademicSession::query()
+            ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
+            ->latest('start_date')
+            ->first();
+
+        if (!$session) return 0;
+
+        $this->syncAccountBalance($student->id, $session->id);
+
+        $balance = StudentAccountBalance::query()
+            ->where('student_id', $student->id)
+            ->where('academic_session_id', $session->id)
+            ->value('balance');
+
+        return max(0, (float) ($balance !== null ? -$balance : 0));
     }
 
     // =========================================================================
@@ -674,19 +888,13 @@ class BillingService
                 'allocated_at' => now()->toDateString(),
             ]);
 
-            StudentLedgerEntry::create([
-                'student_id'          => $invoice->student_id,
-                'invoice_id'          => $invoice->id,
-                'payment_id'          => $payment->id,
-                'academic_session_id' => $invoice->academic_session_id,
-                'type'                => 'payment',
-                'debit'               => 0,
-                'credit'              => $allocationAmount,
-                'reference'           => $payment->reference,
-                'description'         => 'Existing credit applied to new invoice.',
-                'transaction_date'    => now()->toDateString(),
-                'created_by'          => $createdBy,
-            ]);
+            $this->allocatePaymentLedgerCredit(
+                $payment,
+                $invoice,
+                $allocationAmount,
+                now()->toDateString(),
+                $createdBy,
+            );
 
             $invoice->recalculateTotals();
 
@@ -695,11 +903,261 @@ class BillingService
         }
     }
 
+
     /**
-     * Rebuild the student_account_balances snapshot from the ledger.
+     * Move an existing unallocated payment credit onto an invoice without
+     * increasing the total credit posted for that payment.
+     */
+    private function allocatePaymentLedgerCredit(
+        Payment $payment,
+        Invoice $invoice,
+        float $amount,
+        string $allocatedAt,
+        ?string $createdBy
+    ): void {
+        $remaining = $amount;
+
+        $unallocatedEntries = StudentLedgerEntry::query()
+            ->where('payment_id', $payment->id)
+            ->where('type', 'payment')
+            ->whereNull('invoice_id')
+            ->where('credit', '>', 0)
+            ->orderBy('created_at')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($unallocatedEntries as $entry) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $available = (float) $entry->credit;
+            $moved = min($remaining, $available);
+
+            if ($moved >= $available) {
+                $entry->update([
+                    'invoice_id' => $invoice->id,
+                    'academic_session_id' => $invoice->academic_session_id,
+                    'description' => 'Existing credit applied to new invoice.',
+                    'transaction_date' => $allocatedAt,
+                    'created_by' => $createdBy ?? $entry->created_by,
+                ]);
+            } else {
+                $entry->update(['credit' => $available - $moved]);
+
+                StudentLedgerEntry::create([
+                    'student_id' => $invoice->student_id,
+                    'invoice_id' => $invoice->id,
+                    'payment_id' => $payment->id,
+                    'academic_session_id' => $invoice->academic_session_id,
+                    'type' => 'payment',
+                    'debit' => 0,
+                    'credit' => $moved,
+                    'reference' => $payment->reference,
+                    'description' => 'Existing credit applied to new invoice.',
+                    'transaction_date' => $allocatedAt,
+                    'created_by' => $createdBy,
+                ]);
+            }
+
+            $remaining -= $moved;
+        }
+
+        // Historical payments may have no ledger row. Post only the portion
+        // that has never been represented in the ledger.
+        if ($remaining > 0) {
+            StudentLedgerEntry::create([
+                'student_id' => $invoice->student_id,
+                'invoice_id' => $invoice->id,
+                'payment_id' => $payment->id,
+                'academic_session_id' => $invoice->academic_session_id,
+                'type' => 'payment',
+                'debit' => 0,
+                'credit' => $remaining,
+                'reference' => $payment->reference,
+                'description' => 'Existing credit applied to new invoice.',
+                'transaction_date' => $allocatedAt,
+                'created_by' => $createdBy,
+            ]);
+        }
+    }
+    /**
+     * Create an independent invoice for an ad-hoc debit such as a penalty.
+     */
+    public function createStandaloneChargeInvoice(
+        Student $student,
+        float $amount,
+        string $chargeType,
+        ?string $description = null,
+        ?string $createdBy = null
+    ): Invoice {
+        if ($amount <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'Invoice amount must be greater than zero.',
+            ]);
+        }
+
+        if (!in_array($chargeType, ['penalty'], true)) {
+            throw ValidationException::withMessages([
+                'charge_type' => 'Unsupported charge type.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($student, $amount, $chargeType, $description, $createdBy) {
+            $student = Student::query()->lockForUpdate()->findOrFail($student->id);
+            $targetSession = AcademicSession::query()
+                ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
+                ->latest('start_date')
+                ->first();
+
+            if (!$targetSession) {
+                throw ValidationException::withMessages([
+                    'session' => 'No active academic session found.',
+                ]);
+            }
+
+            $label = $chargeType === 'penalty' ? 'Penalty' : ucfirst($chargeType);
+            $invoice = Invoice::create([
+                'invoice_number' => Invoice::generateInvoiceNumber(),
+                'student_id' => $student->id,
+                'academic_session_id' => $targetSession->id,
+                'fee_template_id' => null,
+                'invoice_type' => $chargeType,
+                'status' => 'issued',
+                'issue_date' => now()->toDateString(),
+                'due_date' => now()->addDays(30)->toDateString(),
+                'amount_due' => 0,
+                'computed_amount' => 0,
+                'notes' => $description,
+                'created_by' => $createdBy,
+            ]);
+
+            InvoiceLineItem::create([
+                'invoice_id' => $invoice->id,
+                'fee_template_item_id' => null,
+                'name' => $label,
+                'description' => $description,
+                'amount' => $amount,
+                'quantity' => 1,
+                'total_amount' => $amount,
+                'snapshot_data' => [
+                    'charge_type' => $chargeType,
+                    'manual_amount' => $amount,
+                    'snapshot_taken_at' => now()->toDateTimeString(),
+                ],
+            ]);
+
+            $invoice->recalculateTotals();
+
+            StudentLedgerEntry::create([
+                'student_id' => $student->id,
+                'invoice_id' => $invoice->id,
+                'academic_session_id' => $targetSession->id,
+                'type' => 'invoice',
+                'debit' => (float) $invoice->amount_due,
+                'credit' => 0,
+                'reference' => $invoice->invoice_number,
+                'description' => $description ?? "{$label} invoice issued.",
+                'transaction_date' => now()->toDateString(),
+                'created_by' => $createdBy,
+            ]);
+
+            $this->applyAvailableCredits($invoice, $createdBy);
+            $this->syncAccountBalance($student->id, $targetSession->id);
+
+            return $invoice->fresh(['items']);
+        });
+    }
+    public function createManualInvoiceAdjustment(
+        Student $student,
+        FeeTemplate $feeTemplate,
+        float $amount,
+        ?string $description = null,
+        ?string $createdBy = null
+    ): Invoice {
+        if ($amount <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'Invoice amount must be greater than zero.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($student, $feeTemplate, $amount, $description, $createdBy) {
+
+            $targetSession = AcademicSession::query()
+                ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
+                ->latest('start_date')
+                ->first();
+
+            if (!$targetSession) {
+                throw ValidationException::withMessages([
+                    'session' => 'No active academic session found.',
+                ]);
+            }
+
+            $invoice = Invoice::create([
+                'invoice_number'      => Invoice::generateInvoiceNumber(),
+                'student_id'          => $student->id,
+                'academic_session_id' => $targetSession->id,
+                'fee_template_id'     => $feeTemplate->id,
+                'invoice_type'        => 'fees',
+                'status'              => 'issued',
+                'issue_date'          => now()->toDateString(),
+                'due_date'            => now()->addDays(30)->toDateString(),
+                'amount_due'          => 0,
+                'computed_amount'     => 0,
+                'notes'               => $description,
+                'created_by'          => $createdBy,
+            ]);
+
+            InvoiceLineItem::create([
+                'invoice_id'   => $invoice->id,
+                'name'         => $feeTemplate->name,
+                'description'  => $description,
+                'amount'       => $amount,
+                'quantity'     => 1,
+                'total_amount' => $amount,
+                'snapshot_data' => [
+                    'template_id'   => $feeTemplate->id,
+                    'template_code' => $feeTemplate->code,
+                    'template_name' => $feeTemplate->name,
+                    'manual_amount' => $amount,
+                    'snapshot_taken_at' => now()->toDateTimeString(),
+                ],
+            ]);
+
+            if (!$feeTemplate->is_issued) {
+                $feeTemplate->update(['is_issued' => true]);
+            }
+
+            $invoice->recalculateTotals();
+
+            StudentLedgerEntry::create([
+                'student_id'          => $student->id,
+                'invoice_id'          => $invoice->id,
+                'academic_session_id' => $targetSession->id,
+                'type'                => 'invoice',
+                'debit'               => (float) $invoice->amount_due,
+                'credit'              => 0,
+                'reference'           => $invoice->invoice_number,
+                'description'         => $description ?? 'Manual invoice adjustment.',
+                'transaction_date'    => now()->toDateString(),
+                'created_by'          => $createdBy,
+            ]);
+
+            $this->applyAvailableCredits($invoice, $createdBy);
+            $this->syncAccountBalance($student->id, $targetSession->id);
+
+            return $invoice->fresh();
+        });
+    }
+
+    /**
+     * Sync the student's account balance snapshot from the ledger.
      *
-     * This recalculates from scratch rather than incrementing, making it
-     * self-correcting — any prior inconsistency is fixed on the next write.
+     * This replaces any prior balance calculation for the given student + session
+     * with a clean recalculation of everything from the ledger table.
      *
      * Formula:
      *   balance = total_invoiced - total_paid - total_adjustments
@@ -725,6 +1183,10 @@ class BillingService
             ->where('type', 'payment')
             ->sum('credit');
 
+        $totalRefunded = (float) (clone $ledger)
+            ->where('type', 'refund')
+            ->sum('debit');
+
         // Adjustments: credit types reduce the balance, debit types increase it.
         // total_adjustments is stored as a net credit figure.
         // A positive value means more was forgiven than penalised.
@@ -749,7 +1211,7 @@ class BillingService
                 'total_invoiced'      => $totalInvoiced,
                 'total_paid'          => $totalPaid,
                 'total_adjustments'   => $totalAdjustments,
-                'balance'             => $totalInvoiced - $totalPaid - $totalAdjustments,
+                'balance'             => $totalInvoiced - $totalPaid + $totalRefunded - $totalAdjustments,
                 'last_transaction_at' => now(),
             ]
         );

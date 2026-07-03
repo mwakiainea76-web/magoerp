@@ -41,7 +41,7 @@ class AcademicSessionEnrolmentsController extends Controller
         ];
 
         $enrolments = AcademicSessionEnrolment::query()
-            ->with(['student', 'academicSession'])
+            ->with(['student.user', 'academicSession'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->whereHas('student', function ($studentQuery) use ($search) {
                     $studentQuery->where('admission_number', 'like', "%{$search}%")
@@ -104,6 +104,7 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $sessions = AcademicSession::query()
             ->where('is_active', true)
+            ->whereHas('year', fn ($query) => $query->where('is_active', true))
             ->whereNotIn('id', $alreadyEnrolledSessionIds)
             ->with('year')
             ->latest('start_date')
@@ -158,11 +159,18 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
         $module = $priorCount + 1;
-        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_full_year', 3);
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_academic_year', config('academic.sessions_per_academic_year', 3));
         $yearOfStudy = (int) floor(($module - 1) / $sessionsPerYear) + 1;
         $sessionNumber = (($module - 1) % $sessionsPerYear) + 1;
 
-        $session = AcademicSession::find($validated['academic_session_id']);
+        $session = AcademicSession::query()
+            ->whereKey($validated['academic_session_id'])
+            ->whereHas('year', fn ($query) => $query->where('is_active', true))
+            ->first();
+
+        if (! $session) {
+            return response()->json(['message' => 'Students can register only in the active session of the active academic year.'], 422);
+        }
 
         [$enrolment, $invoice] = DB::transaction(function () use ($student, $validated, $yearOfStudy, $sessionNumber, $module, $user, $session) {
             $enrolment = AcademicSessionEnrolment::create([
@@ -202,6 +210,7 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $activeSession = AcademicSession::query()
             ->where('is_active', true)
+            ->whereHas('year', fn ($query) => $query->where('is_active', true))
             ->latest('start_date')
             ->first();
 
@@ -228,7 +237,7 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
         $module = $priorCount + 1;
-        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_full_year', 3);
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_academic_year', config('academic.sessions_per_academic_year', 3));
         $yearOfStudy = (int) floor(($module - 1) / $sessionsPerYear) + 1;
         $sessionNumber = (($module - 1) % $sessionsPerYear) + 1;
 
@@ -351,7 +360,7 @@ class AcademicSessionEnrolmentsController extends Controller
             abort(403);
         }
 
-        $academic_session_enrolment->load(['student', 'academicSession']);
+        $academic_session_enrolment->load(['student.user', 'academicSession']);
 
         return response()->json([
             'data' => $this->transform($academic_session_enrolment),
@@ -393,7 +402,6 @@ class AcademicSessionEnrolmentsController extends Controller
             'amount_due' => $amountDue,
             'computed_amount' => (float) $invoice->computed_amount,
             'paid_amount' => $paidAmount,
-            'adjustment_amount' => $adjustmentAmount,
             'balance_due' => max(0, $amountDue - $paidAmount - $adjustmentAmount),
             'due_date' => $invoice->due_date?->format('Y-m-d'),
         ];

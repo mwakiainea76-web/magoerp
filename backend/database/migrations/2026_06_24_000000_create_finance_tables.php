@@ -39,6 +39,11 @@ return new class extends Migration
             $table->foreignUuid('course_curriculum_id')->nullable()->constrained('course_curricula')->nullOnDelete();
             $table->foreignUuid('fee_template_id')->constrained('fee_templates')->cascadeOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
+            $table->string('issuance_type', 20)->default('per_session');
+            $table->foreignUuid('parent_assignment_id')->nullable()->constrained('curriculum_fee_assignments')->cascadeOnDelete();
+            $table->boolean('dormant')->default(false);
+            $table->decimal('split_amount', 12, 2)->nullable();
+            $table->decimal('split_ratio', 5, 2)->nullable();
             $table->integer('year_level');
             $table->integer('session_number');
             $table->boolean('is_approved')->default(false);
@@ -49,6 +54,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['course_curriculum_id', 'academic_session_id', 'year_level', 'session_number'], 'curriculum_fee_assignment_unique');
+            $table->index(['issuance_type', 'dormant']);
+            $table->index('parent_assignment_id');
         });
 
         Schema::create('invoices', function (Blueprint $table) {
@@ -127,6 +134,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
             $table->string('type', 50);
+            $table->string('discount_type', 20)->nullable();
+            $table->decimal('discount_percentage', 5, 2)->nullable();
             $table->decimal('amount', 10, 2);
             $table->string('idempotency_key')->nullable()->unique();
             $table->text('description')->nullable();

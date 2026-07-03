@@ -43,26 +43,5 @@ class UpdateAcademicSessionRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            if ($this->boolean('is_active')) {
-                /** @var AcademicSession|null $session */
-                $session = $this->route('academic_session');
 
-                $conflicting = AcademicSession::where('is_active', true);
-
-                if ($session) {
-                    $conflicting->where('id', '!=', $session->id);
-                }
-
-                if ($conflicting->exists()) {
-                    $validator->errors()->add(
-                        'is_active',
-                        'Another academic session is already active. Please disable it first before activating this one.',
-                    );
-                }
-            }
-        });
-    }
 }

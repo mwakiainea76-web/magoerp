@@ -38,15 +38,5 @@ class StoreAcademicSessionRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            if ($this->boolean('is_active') && AcademicSession::where('is_active', true)->exists()) {
-                $validator->errors()->add(
-                    'is_active',
-                    'Another academic session is already active. Please disable it first before activating this one.',
-                );
-            }
-        });
-    }
+
 }

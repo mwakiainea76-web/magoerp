@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { bodyTextClassName, labelTextClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
-import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td } from "@/components/DataTable";
 import { useMarksApi } from "@/hooks/useMarksApi";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
 import { useUnitsApi } from "@/hooks/useUnitsApi";

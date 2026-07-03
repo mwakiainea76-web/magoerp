@@ -279,7 +279,7 @@ class StudentsController extends Controller
             ['key' => 'Course', 'value' => fn (Student $s) => $s->activeEnrolment?->courseCurriculum?->course?->name ?? ''],
             ['key' => 'Level', 'value' => fn (Student $s) => $s->activeEnrolment?->courseCurriculum?->course?->level?->name ?? ''],
             ['key' => 'Curriculum', 'value' => fn (Student $s) => $s->activeEnrolment?->courseCurriculum?->curriculum?->name ?? ''],
-            ['key' => 'Status', 'value' => fn (Student $s) => $s->status ? 'Active' : 'Inactive'],
+            ['key' => 'Status', 'value' => fn (Student $s) => ucfirst((string) $s->status)],
             ['key' => 'Gender', 'value' => fn (Student $s) => $s->user?->gender ?? ''],
         ];
 

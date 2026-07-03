@@ -13,7 +13,7 @@ class StudentQuery
     {
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:200'],
-            'status' => ['nullable', 'in:all,active,inactive'],
+            'status' => ['nullable', 'in:all,active,inactive,cleared,graduated'],
             'course_id' => ['nullable', 'uuid', 'exists:courses,id'],
             'curriculum_id' => ['nullable', 'uuid', 'exists:curriculums,id'],
             'level_id' => ['nullable', 'uuid', 'exists:certification_levels,id'],
@@ -73,7 +73,7 @@ class StudentQuery
             })
             ->when($filters['status'] !== 'all', fn (Builder $query) => $query->where(
                 'students.status',
-                $filters['status'] === 'active',
+                $filters['status'],
             ))
             ->when($filters['course_id'], fn (Builder $query, string $courseId) => $query->whereHas(
                 'activeEnrolment.courseCurriculum',

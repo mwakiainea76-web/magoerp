@@ -39,8 +39,18 @@ class AcademicSession extends Model
         static::saving(function ($model) {
             if ($model->is_active) {
                 static::where('id', '!=', $model->id)
+                    ->where('academic_year_id', $model->academic_year_id)
                     ->where('is_active', true)
                     ->update(['is_active' => false]);
+            }
+        });
+
+        static::saved(function (AcademicSession $session) {
+            if ($session->is_active && $session->wasChanged('is_active')) {
+                CurriculumFeeAssignment::query()
+                    ->where('academic_session_id', $session->id)
+                    ->where('dormant', true)
+                    ->update(['dormant' => false]);
             }
         });
     }
@@ -58,6 +68,11 @@ class AcademicSession extends Model
     public function timetables(): HasMany
     {
         return $this->hasMany(AcademicTimetable::class, 'academic_session_id');
+    }
+
+    public function calendarEvents(): HasMany
+    {
+        return $this->hasMany(CalendarEvent::class, 'academic_session_id');
     }
 
     public function createdBy(): BelongsTo

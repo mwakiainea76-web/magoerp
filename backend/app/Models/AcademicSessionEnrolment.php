@@ -77,7 +77,7 @@ class AcademicSessionEnrolment extends Model
             'current_year' => $last?->year_of_study ?? 0,
             'current_module' => $last?->session_number ?? 0,
             'current_module_number' => $last?->module ?? 0,
-            'modules_per_year' => (int) SystemConfiguration::getValue('sessions_per_full_year', 3),
+            'modules_per_year' => (int) SystemConfiguration::getValue('sessions_per_academic_year', config('academic.sessions_per_academic_year', 3)),
         ];
     }
 }

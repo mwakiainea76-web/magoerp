@@ -89,7 +89,7 @@ class UserSeeder extends Seeder
                 ['admission_number' => $s['adm']],
                 [
                     'user_id' => $user->id,
-                    'status' => true,
+                    'status' => 'active',
                 ]
             );
 

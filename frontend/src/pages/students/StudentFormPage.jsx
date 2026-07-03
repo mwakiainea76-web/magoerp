@@ -73,7 +73,7 @@ const studentSchema = yup.object({
   next_of_kin_email: yup.string().email("Invalid email").required("Next of kin email is required").max(255),
   next_of_kin_relationship: yup.string().required("Relationship is required").oneOf(relationshipOptions),
 
-  status: yup.boolean().required(),
+  status: yup.string().required().oneOf(["active", "inactive", "cleared", "graduated"]),
 });
 
 function normalizePayload(values) {
@@ -168,7 +168,7 @@ export function StudentFormPage() {
       next_of_kin_alt_phone: "",
       next_of_kin_email: "",
       next_of_kin_relationship: "",
-      status: true,
+      status: "active",
     },
   });
 
@@ -220,7 +220,7 @@ export function StudentFormPage() {
               next_of_kin_alt_phone: s.next_of_kin_alt_phone ?? "",
               next_of_kin_email: s.next_of_kin_email ?? "",
               next_of_kin_relationship: s.next_of_kin_relationship ?? "",
-              status: s.status ?? true,
+              status: s.status ?? "active",
             });
 
             if (s.exam_body_id) {
@@ -619,14 +619,19 @@ export function StudentFormPage() {
 
         {/* Status */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-          <label className="mb-1 block text-[13px] font-medium text-slate-600">
-            <input
-              type="checkbox"
-              className="mr-2 h-4 w-4 rounded border-slate-300 text-emerald-600"
-              {...register("status")}
-            />
-            Active
+          <label htmlFor="status" className="mb-1 block text-[13px] font-medium text-slate-600">
+            Status <span className="text-red-400">*</span>
           </label>
+          <select
+            id="status"
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+            {...register("status")}
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="cleared">Cleared</option>
+            <option value="graduated">Graduated</option>
+          </select>
           {errors.status ? <p className={`mt-1 text-red-600 ${bodyTextClassName}`}>{errors.status.message}</p> : null}
         </div>
 

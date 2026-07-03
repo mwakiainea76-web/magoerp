@@ -39,8 +39,8 @@ class CourseChangeController extends Controller
             return response()->json([ 'message' => 'Student not found.'], 404);
         }
 
-        if (!$student->status) {
-            return response()->json([ 'message' => 'Student is inactive.'], 422);
+        if ($student->status !== 'active') {
+            return response()->json([ 'message' => 'Student is not active.'], 422);
         }
 
         $activeEnrolment = $student->courseEnrolments->first();
@@ -118,7 +118,7 @@ class CourseChangeController extends Controller
         $result = DB::transaction(function () use ($validated, $processedBy) {
             $student = Student::query()->lockForUpdate()->findOrFail($validated['student_id']);
 
-            abort_unless((bool) $student->status, 422, 'Student is inactive.');
+            abort_unless($student->status === 'active', 422, 'Student is not active.');
 
             $oldEnrolment = CourseEnrolment::query()
                 ->lockForUpdate()
@@ -267,7 +267,7 @@ class CourseChangeController extends Controller
         ]);
 
         $logs = CourseChangeLog::query()
-            ->with(['student', 'processedBy'])
+            ->with(['student.user', 'processedBy'])
             ->where('student_id', $request->student_id)
             ->orderByDesc('changed_at')
             ->get()
@@ -291,7 +291,7 @@ class CourseChangeController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
 
         $transfers = CourseChangeLog::query()
-            ->with(['student', 'processedBy'])
+            ->with(['student.user', 'processedBy'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner

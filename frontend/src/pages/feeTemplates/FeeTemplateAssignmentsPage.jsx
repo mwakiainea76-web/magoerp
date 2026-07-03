@@ -1,283 +1,192 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Controller, useForm } from "react-hook-form";
-import { ArrowLeft, BadgeCheck, Coins, Trash2 } from "lucide-react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { ArrowLeft, BadgeCheck, Coins, Pencil } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
 import { FormButton } from "@/components/FormButton";
 import { LookupSelect } from "@/components/LookupSelect";
+import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
 import { useCurriculumFeeAssignmentsApi } from "@/hooks/useCurriculumFeeAssignmentsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
-import { bodyTextClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
-function formatCurrency(amount) {
-  return `Ksh ${Number(amount || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
+const money = (amount) => `Ksh ${Number(amount || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const assignmentSchema = yup.object({
-  course_id: yup.string().required("Course is required"),
-  year_level: yup.number().required(),
-  session_number: yup.number().required(),
+const schema = yup.object({
+  course_curriculum_id: yup.string().required("Course and curriculum are required"),
+  academic_session_id: yup.string().required("Academic session is required"),
+  issuance_type: yup.string().oneOf(["per_session", "per_year"]).required(),
+  year_level: yup.number().integer().min(1).required(),
+  session_number: yup.number().integer().min(1).nullable(),
   is_approved: yup.boolean(),
 });
 
 export function FeeTemplateAssignmentsPage() {
   const { templateId } = useParams();
   const assignmentsApi = useCurriculumFeeAssignmentsApi();
+  const sessionsApi = useAcademicSessionsApi();
   const lookupApi = useLookupApi();
-
-  const [templateName, setTemplateName] = useState("");
-  const [templateTotalAmount, setTemplateTotalAmount] = useState(0);
-  const [templateTotalItems, setTemplateTotalItems] = useState(0);
   const [assignments, setAssignments] = useState([]);
-  const [asLoading, setAsLoading] = useState(true);
-  const [asSaving, setAsSaving] = useState(false);
-  const [asDeletingId, setAsDeletingId] = useState(null);
-  const [asCourseOption, setAsCourseOption] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [template, setTemplate] = useState({ name: "", amount: 0, items: 0 });
+  const [courseOption, setCourseOption] = useState(null);
+  const [ratios, setRatios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    reset,
-    setError: setFormError,
-    watch,
-    formState: { errors },
-  } = useForm({
-    resolver: yupResolver(assignmentSchema),
+  const { register, control, handleSubmit, reset, setError, formState: { errors } } = useForm({
+    resolver: yupResolver(schema),
     defaultValues: {
-      course_id: "",
+      course_curriculum_id: "",
+      academic_session_id: "",
+      issuance_type: "per_session",
       year_level: 1,
       session_number: 1,
       is_approved: false,
     },
   });
 
-  const watchedCourseId = watch("course_id");
+  const issuanceType = useWatch({ control, name: "issuance_type" });
+  const selectedSessionId = useWatch({ control, name: "academic_session_id" });
+  const selectedSession = sessions.find((session) => session.id === selectedSessionId);
+  const yearSessions = useMemo(() => sessions
+    .filter((session) => selectedSession && session.academic_year_id === selectedSession.academic_year_id)
+    .sort((left, right) => String(left.start_date ?? left.code).localeCompare(String(right.start_date ?? right.code))), [sessions, selectedSession]);
 
-  const loadAssignments = useCallback(async () => {
-    setAsLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await assignmentsApi.list(templateId);
-      const items = response.data ?? [];
-      setAssignments(items);
-      setTemplateName(response.fee_template_name ?? "");
-      setTemplateTotalAmount(Number(response.fee_template_total_amount ?? 0));
-      setTemplateTotalItems(Number(response.fee_template_total_items ?? 0));
-    } catch {
-      // silent
+      const [assignmentResponse, sessionResponse] = await Promise.all([
+        assignmentsApi.list(templateId),
+        sessionsApi.list({ per_page: 100, status: "all", sort_by: "start_date", sort_direction: "asc" }),
+      ]);
+      setAssignments(assignmentResponse.data ?? []);
+      setSessions(sessionResponse.data ?? []);
+      setTemplate({
+        name: assignmentResponse.fee_template_name ?? "",
+        amount: Number(assignmentResponse.fee_template_total_amount ?? 0),
+        items: Number(assignmentResponse.fee_template_total_items ?? 0),
+      });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to load fee assignments."));
     } finally {
-      setAsLoading(false);
+      setLoading(false);
     }
-  }, [templateId, assignmentsApi]);
+  }, [assignmentsApi, sessionsApi, templateId]);
 
   useEffect(() => {
-    loadAssignments();
-  }, [loadAssignments]);
+    // The request updates state asynchronously; load also remains reusable after mutations.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
-  async function handleAddAssignment(data) {
-    setAsSaving(true);
+  useEffect(() => {
+    if (issuanceType !== "per_year" || yearSessions.length === 0) {
+      // Synchronize editable ratios when issuance mode or the selected year changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRatios([]);
+      return;
+    }
+    const base = Number((100 / yearSessions.length).toFixed(2));
+    const next = yearSessions.map((_, index) => index === yearSessions.length - 1
+      ? Number((100 - base * (yearSessions.length - 1)).toFixed(2))
+      : base);
+    setRatios(next);
+  }, [issuanceType, yearSessions]);
+
+  async function submit(values) {
+    if (issuanceType === "per_year" && Math.abs(ratios.reduce((sum, ratio) => sum + Number(ratio || 0), 0) - 100) > 0.01) {
+      setError("root", { message: "Yearly split ratios must total exactly 100%." });
+      return;
+    }
+
+    setSaving(true);
     try {
       await assignmentsApi.create(templateId, {
-        course_id: data.course_id,
-        year_level: Number(data.year_level),
-        session_number: Number(data.session_number),
-        is_approved: data.is_approved,
+        course_curriculum_id: values.course_curriculum_id,
+        academic_session_id: values.academic_session_id,
+        issuance_type: values.issuance_type,
+        year_level: Number(values.year_level),
+        session_number: values.issuance_type === "per_session" ? Number(values.session_number) : null,
+        split_ratios: values.issuance_type === "per_year" ? ratios.map(Number) : null,
+        is_approved: Boolean(values.is_approved),
       });
-      toast.success("Course linked to fee template.");
-      reset({ course_id: "", year_level: 1, session_number: 1, is_approved: false });
-      setAsCourseOption(null);
-      await loadAssignments();
-    } catch (err) {
-      const serverErrors = err?.response?.data?.errors;
-      if (serverErrors) {
-        Object.entries(serverErrors).forEach(([key, value]) => {
-          setFormError(key, { message: value?.[0] ?? "Invalid value" });
-        });
-      } else {
-        toast.error(getApiErrorMessage(err, "Failed to link course."));
-      }
+      toast.success(values.issuance_type === "per_year" ? "Yearly fee split created." : "Session fee assigned.");
+      reset({ course_curriculum_id: "", academic_session_id: "", issuance_type: "per_session", year_level: 1, session_number: 1, is_approved: false });
+      setCourseOption(null);
+      await load();
+    } catch (error) {
+      const serverErrors = error?.response?.data?.errors;
+      if (serverErrors) Object.entries(serverErrors).forEach(([key, messages]) => setError(key, { message: messages?.[0] }));
+      else toast.error(getApiErrorMessage(error, "Failed to create fee assignment."));
     } finally {
-      setAsSaving(false);
+      setSaving(false);
     }
   }
 
-  async function handleToggleApprove(item) {
+  async function toggleApproval(assignment) {
     try {
-      await assignmentsApi.update(templateId, item.id, {
-        is_approved: !item.is_approved,
-      });
-      toast.success(
-        item.is_approved
-          ? "Approval revoked."
-          : "Fee template approved for this course.",
-      );
-      await loadAssignments();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to update."));
+      await assignmentsApi.update(templateId, assignment.id, { is_approved: !assignment.is_approved });
+      await load();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to update approval."));
     }
   }
 
-  async function handleDeleteAssignment(item) {
-    setAsDeletingId(item.id);
+  async function editDormant(portion) {
+    const amount = window.prompt(`New amount for ${portion.academic_session_name}`, String(portion.split_amount));
+    if (amount === null) return;
+    const reason = window.prompt("Reason for changing this dormant portion");
+    if (!reason) return;
     try {
-      await assignmentsApi.remove(templateId, item.id);
-      toast.success("Course unlinked.");
-      await loadAssignments();
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "Failed to unlink."));
-    } finally {
-      setAsDeletingId(null);
+      await assignmentsApi.update(templateId, portion.id, { split_amount: Number(amount), reason });
+      toast.success("Dormant portions rebalanced and audited.");
+      await load();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to update dormant portion."));
     }
   }
 
-  async function fetchCourseOptions(query) {
-    const response = await lookupApi.search("courses", { query, limit: 10 });
+  async function fetchMappings(query) {
+    const response = await lookupApi.search("course-curricula", { query, limit: 20 });
     return response.data ?? [];
   }
 
   return (
     <section className="space-y-5">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">
-            Fee Template: {templateName}
-          </h1>
-          <p className="mt-2 text-[14px] text-slate-500">
-            Total Items: {templateTotalItems} | Total Amount: {formatCurrency(templateTotalAmount)}
-          </p>
+        <div>
+          <h1 className="text-xl font-semibold text-slate-950">Fee Template: {template.name}</h1>
+          <p className="mt-1 text-sm text-slate-500">{template.items} items · {money(template.amount)}</p>
         </div>
-
-        <Link
-          to="/finance/fee-templates"
-          className="inline-flex items-center gap-1.5 pt-2 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to fee templates
-        </Link>
+        <Link to="/finance/fee-templates" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><ArrowLeft className="size-4" />Back</Link>
       </div>
 
-      {errors.root ? (
-        <div className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{errors.root.message}</div>
-      ) : null}
-
-      <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-        <h2 className="mb-4 flex items-center gap-2 text-[1.0625rem] font-semibold text-slate-900">
-          <Coins className="h-5 w-5 text-emerald-600" />
-          Course Assignments by Year & Session
-        </h2>
-
-        {asLoading ? (
-          <div className={`text-slate-500 ${bodyTextClassName}`}>
-            Loading course assignments...
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 font-semibold text-slate-900"><Coins className="size-5 text-emerald-600" />Issue Course Fee</h2>
+        <form onSubmit={handleSubmit(submit)} className="space-y-4">
+          {errors.root ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errors.root.message}</p> : null}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Controller name="course_curriculum_id" control={control} render={({ field }) => (
+              <LookupSelect label="Course and Curriculum" value={field.value} selectedOption={courseOption} onChange={(value, option) => { field.onChange(value); setCourseOption(option); }} fetchOptions={fetchMappings} placeholder="Search course or curriculum" error={errors.course_curriculum_id?.message} />
+            )} />
+            <div><label className="mb-1 block text-[13px] font-medium text-slate-600">Academic Session</label><select className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" {...register("academic_session_id")}><option value="">Select session</option>{sessions.map((session) => <option key={session.id} value={session.id}>{session.academic_year_name} · {session.name}{session.is_active ? " (Active)" : ""}</option>)}</select>{errors.academic_session_id ? <p className="mt-1 text-xs text-red-600">{errors.academic_session_id.message}</p> : null}</div>
+            <div><label className="mb-1 block text-[13px] font-medium text-slate-600">Issuance Mode</label><select className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" {...register("issuance_type")}><option value="per_session">Per Session</option><option value="per_year">Per Academic Year</option></select></div>
+            <div className="grid grid-cols-2 gap-3"><div><label className="mb-1 block text-[13px] font-medium text-slate-600">Year Level</label><select className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" {...register("year_level")}>{[1,2,3,4,5,6].map((year) => <option key={year} value={year}>Year {year}</option>)}</select></div>{issuanceType === "per_session" ? <div><label className="mb-1 block text-[13px] font-medium text-slate-600">Session Number</label><select className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" {...register("session_number")}>{sessions.filter((session) => !selectedSession || session.academic_year_id === selectedSession.academic_year_id).map((_, index) => <option key={index + 1} value={index + 1}>Session {index + 1}</option>)}</select></div> : null}</div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <form onSubmit={handleSubmit(handleAddAssignment)} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_100px_100px_auto] sm:items-end">
-              <Controller
-                name="course_id"
-                control={control}
-                render={({ field }) => (
-                  <LookupSelect
-                    label="Course"
-                    value={field.value}
-                    selectedOption={asCourseOption}
-                    onChange={(nextValue, option) => {
-                      field.onChange(nextValue);
-                      setAsCourseOption(option);
-                    }}
-                    fetchOptions={fetchCourseOptions}
-                    placeholder="Search course"
-                    emptyMessage="No courses found"
-                    error={errors.course_id?.message}
-                  />
-                )}
-              />
-              <div>
-                <label htmlFor="year_level" className="mb-1 block text-[13px] font-medium text-slate-600">Year</label>
-                <select id="year_level" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("year_level")}>
-                  {[1, 2, 3, 4, 5, 6].map((y) => (
-                    <option key={y} value={y}>Year {y}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="session_number" className="mb-1 block text-[13px] font-medium text-slate-600">Session</label>
-                <select id="session_number" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" {...register("session_number")}>
-                  {[1, 2, 3].map((s) => (
-                    <option key={s} value={s}>Session {s}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-2 items-end">
-                <label className="flex items-center gap-1.5 pb-1.5 text-[13px] text-slate-600">
-                  <input
-                    type="checkbox"
-                    {...register("is_approved")}
-                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  Approve
-                </label>
-                <FormButton type="submit" disabled={!watchedCourseId || asSaving} className="h-9">
-                  {asSaving ? "Adding..." : "Add"}
-                </FormButton>
-              </div>
-            </form>
 
-            {assignments.length > 0 ? (
-              <div className="overflow-hidden rounded-lg border border-slate-200">
-                <table className="w-full text-left text-[13px]">
-                  <thead className="border-b border-slate-200 bg-slate-50">
-                    <tr>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Course</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Curriculum</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Level</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Year</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Session</th>
-                      <th className="px-4 py-2.5 font-medium text-slate-600">Status</th>
-                      <th className="px-4 py-2.5 text-right font-medium text-slate-600">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {assignments.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-2.5 text-slate-700">{item.course_name}</td>
-                        <td className="px-4 py-2.5 text-slate-700">{item.course_curriculum_name ?? "\u2014"}</td>
-                        <td className="px-4 py-2.5 text-slate-700">{item.course_level_name ?? "\u2014"}</td>
-                        <td className="px-4 py-2.5 text-slate-700">Year {item.year_level}</td>
-                        <td className="px-4 py-2.5 text-slate-700">Session {item.session_number}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.is_approved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                            {item.is_approved ? <BadgeCheck className="h-3 w-3" /> : null}
-                            {item.is_approved ? "Approved" : "Pending"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <div className="flex justify-end gap-1.5">
-                            <button type="button" onClick={() => handleToggleApprove(item)} className="inline-flex h-7 items-center gap-1 rounded-lg border border-emerald-200 px-2.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-50">
-                              {item.is_approved ? "Revoke" : "Approve"}
-                            </button>
-                            <button type="button" onClick={() => handleDeleteAssignment(item)} disabled={asDeletingId === item.id} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className={`text-slate-500 ${bodyTextClassName}`}>No courses assigned yet.</p>
-            )}
-          </div>
-        )}
+          {issuanceType === "per_year" && yearSessions.length ? <div className="rounded-xl border border-sky-200 bg-sky-50 p-4"><p className="text-sm font-medium text-sky-900">Yearly split ratios</p><p className="mt-1 text-xs text-sky-700">One portion is stored for every session. Future portions remain dormant.</p><div className="mt-3 grid gap-3 sm:grid-cols-3">{yearSessions.map((session, index) => <label key={session.id} className="text-xs text-slate-600">{session.name}<div className="mt-1 flex items-center"><input type="number" min="0.01" max="100" step="0.01" value={ratios[index] ?? ""} onChange={(event) => setRatios((current) => current.map((ratio, ratioIndex) => ratioIndex === index ? event.target.value : ratio))} className="h-9 w-full rounded-l-lg border border-slate-200 px-3 text-sm" /><span className="rounded-r-lg border border-l-0 border-slate-200 bg-white px-3 py-2">%</span></div></label>)}</div><p className="mt-2 text-xs font-medium text-sky-800">Total: {ratios.reduce((sum, ratio) => sum + Number(ratio || 0), 0).toFixed(2)}%</p></div> : null}
+
+          <div className="flex items-center justify-between"><label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" {...register("is_approved")} />Approve immediately</label><FormButton type="submit" disabled={saving}>{saving ? "Saving..." : "Create Assignment"}</FormButton></div>
+        </form>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-5 py-4"><h2 className="font-semibold text-slate-900">Existing Assignments</h2></div>
+        {loading ? <p className="p-5 text-sm text-slate-500">Loading...</p> : assignments.length === 0 ? <p className="p-5 text-sm text-slate-500">No assignments yet.</p> : <div className="divide-y divide-slate-100">{assignments.map((assignment) => <div key={assignment.id} className="p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium text-slate-900">{assignment.course_name} · Year {assignment.year_level}</p><p className="mt-1 text-xs text-slate-500">{assignment.issuance_type === "per_year" ? `Academic year · ${money(assignment.split_amount)}` : `${assignment.academic_session_name} · Session ${assignment.session_number}`}</p></div><button type="button" onClick={() => toggleApproval(assignment)} className={`rounded-full px-3 py-1 text-xs font-semibold ${assignment.is_approved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{assignment.is_approved ? <span className="inline-flex items-center gap-1"><BadgeCheck className="size-3" />Approved</span> : "Pending"}</button></div>{assignment.issuance_type === "per_year" ? <div className="mt-4 grid gap-3 md:grid-cols-3">{(assignment.child_assignments ?? []).map((portion) => <div key={portion.id} className="rounded-xl border border-slate-200 p-3"><div className="flex justify-between gap-2"><div><p className="text-sm font-medium text-slate-800">{portion.academic_session_name}</p><p className="text-xs text-slate-500">{portion.split_ratio}% · {money(portion.split_amount)}</p></div>{portion.dormant ? <button type="button" onClick={() => editDormant(portion)} className="rounded-lg p-2 text-sky-600 hover:bg-sky-50" title="Edit dormant portion"><Pencil className="size-4" /></button> : null}</div><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${portion.dormant ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-700"}`}>{portion.dormant ? "Dormant" : "Active"}</span></div>)}</div> : null}</div>)}</div>}
       </div>
     </section>
   );

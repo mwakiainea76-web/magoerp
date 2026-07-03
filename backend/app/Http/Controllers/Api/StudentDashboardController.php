@@ -10,11 +10,13 @@ use App\Models\CourseCurriculum;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\StudentLedgerEntry;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class StudentDashboardController extends Controller
 {
@@ -40,6 +42,7 @@ class StudentDashboardController extends Controller
 
         $currentSession = AcademicSession::query()
             ->where('is_active', true)
+                ->whereHas('year', fn ($query) => $query->where('is_active', true))
             ->latest('start_date')
             ->first();
 
@@ -94,17 +97,23 @@ class StudentDashboardController extends Controller
             }
         }
 
+        $balanceExpression = "amount_due
+            - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)
+            - COALESCE((SELECT SUM(CASE WHEN type IN ('discount', 'waiver', 'bursary', 'helb', 'reversal') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)";
         $invoiceBaseQuery = Invoice::query()
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
             ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw('COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0) as adjustment_amount')
-            ->selectRaw('GREATEST(0, amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) - COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)) as balance_due');
+            ->selectRaw("CASE WHEN ({$balanceExpression}) > 0 THEN ({$balanceExpression}) ELSE 0 END as balance_due");
 
         $invoices = $invoiceBaseQuery->get();
         $outstandingBalance = (float) $invoices->where('balance_due', '>', 0)->sum('balance_due');
-        $totalAdjustments = (float) $invoices->sum('adjustment_amount');
+        $totalAdjustments = (float) \App\Models\StudentFeeAdjustment::query()
+            ->whereHas('invoice', fn ($q) => $q->where('student_id', $student->id))
+            ->whereNull('deleted_at')
+            ->selectRaw('COALESCE(SUM(CASE WHEN type IN (\'discount\',\'waiver\',\'bursary\',\'helb\',\'reversal\') THEN amount ELSE -amount END), 0) as total')
+            ->value('total');
 
         $payments = Payment::query()
             ->where('student_id', $student->id)
@@ -115,6 +124,13 @@ class StudentDashboardController extends Controller
         $unallocatedCredit = (float) $payments->sum(
             fn (Payment $payment) => max(0, (float) $payment->amount - (float) ($payment->allocations_sum_amount ?? 0)),
         );
+        $totalRefunded = Schema::hasTable('refunds')
+            ? (float) Refund::query()
+                ->where('student_id', $student->id)
+                ->where('status', 'processed')
+                ->sum('amount')
+            : 0.0;
+        $netBalance = $outstandingBalance - $unallocatedCredit + $totalRefunded;
 
         $nextDueInvoice = $invoices
             ->where('balance_due', '>', 0)
@@ -166,6 +182,7 @@ class StudentDashboardController extends Controller
                 ],
                 'finance' => [
                     'outstanding_balance' => $outstandingBalance,
+                    'net_balance' => $netBalance,
                     'total_paid' => $totalPaid,
                     'total_adjustments' => $totalAdjustments,
                     'unallocated_credit' => $unallocatedCredit,

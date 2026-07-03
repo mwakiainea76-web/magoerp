@@ -1,122 +1,76 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, FileText, HandCoins, Wallet } from 'lucide-react';
-
+import { Download, FileText, HandCoins, Wallet } from 'lucide-react';
 import { Table, TableHeader, TableWrapper, Tbody, Td, Th, Thead } from '@/components/DataTable';
+import { useAcademicSessionsApi } from '@/hooks/useAcademicSessionsApi';
+import { useAcademicYearsApi } from '@/hooks/useAcademicYearsApi';
 import { useInvoicesApi } from '@/hooks/useInvoicesApi';
-import { useLedgerApi } from '@/hooks/useLedgerApi';
 import { getApiErrorMessage } from '@/lib/api/authClient';
 
 const money = (value) => `Ksh ${Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-function StatusBadge({ status }) {
-  const tones = {
-    issued: 'border-blue-200 bg-blue-50 text-blue-700',
-    partial: 'border-amber-200 bg-amber-50 text-amber-700',
-    paid: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    cancelled: 'border-red-200 bg-red-50 text-red-700',
-  };
-
-  return <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${tones[status] ?? 'border-slate-200 bg-slate-50 text-slate-600'}`}>{status}</span>;
-}
+const scopes = { session_to_date: 'Session 1 to date', per_session: 'Single session', per_year: 'Full academic year', custom: 'Custom session range' };
 
 export function StudentFeeStatementPage() {
   const invoicesApi = useInvoicesApi();
-  const ledgerApi = useLedgerApi();
-  const [invoices, setInvoices] = useState([]);
-  const [entries, setEntries] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [expandedInvoiceId, setExpandedInvoiceId] = useState(null);
+  const sessionsApi = useAcademicSessionsApi();
+  const yearsApi = useAcademicYearsApi();
+  const [statement, setStatement] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [years, setYears] = useState([]);
+  const [filters, setFilters] = useState({ scope: 'session_to_date', academic_year_id: '', academic_session_id: '', to_academic_session_id: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const params = useMemo(() => Object.fromEntries(Object.entries(filters).filter(([, value]) => value)), [filters]);
+  const visibleSessions = useMemo(() => filters.academic_year_id ? sessions.filter((session) => session.academic_year_id === filters.academic_year_id) : sessions, [filters.academic_year_id, sessions]);
+
 
   useEffect(() => {
-    let mounted = true;
+    Promise.all([sessionsApi.list({ per_page: 100, status: 'all', sort_by: 'start_date', sort_direction: 'asc' }), yearsApi.list({ per_page: 100 })])
+      .then(([sessionResponse, yearResponse]) => { setSessions(sessionResponse.data ?? []); setYears(yearResponse.data ?? []); })
+      .catch(() => {});
+  }, [sessionsApi, yearsApi]);
+  useEffect(() => {
+    let current = true;
+    invoicesApi.myStatement(params)
+      .then((response) => { if (current) setStatement(response.data); })
+      .catch((requestError) => { if (current) setError(getApiErrorMessage(requestError, 'Failed to load your fee statement.')); })
+      .finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
+  }, [invoicesApi, params]);
 
-    Promise.all([invoicesApi.myInvoices(), invoicesApi.myFinanceSummary(), ledgerApi.myLedger()])
-      .then(([invoiceResponse, summaryResponse, ledgerResponse]) => {
-        if (!mounted) return;
-        setInvoices(invoiceResponse.data ?? []);
-        setSummary(summaryResponse);
-        setEntries(ledgerResponse.data ?? []);
-      })
-      .catch((requestError) => {
-        if (mounted) setError(getApiErrorMessage(requestError, 'Failed to load your fee statement.'));
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => { mounted = false; };
-  }, [invoicesApi, ledgerApi]);
-
-  const totals = useMemo(() => ({
-    outstanding: summary?.outstanding_balance ?? 0,
-    paid: summary?.total_paid ?? 0,
-    adjustments: summary?.total_adjustments ?? 0,
-    credit: summary?.unallocated_credit ?? 0,
-  }), [summary]);
-
-  if (loading) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500">Loading fee statement...</div>;
+  function update(name, value) {
+    setFilters((current) => ({ ...current, [name]: value, ...(name === 'academic_year_id' ? { academic_session_id: '', to_academic_session_id: '' } : {}) }));
   }
+  async function download() {
+    setDownloading(true);
+    try {
+      const blob = await invoicesApi.downloadMyStatement(params);
+      const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = `fee-statement-${filters.scope}.pdf`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    } catch (requestError) { setError(getApiErrorMessage(requestError, 'Failed to download the statement.')); }
+    finally { setDownloading(false); }
+  }
+  const summary = statement?.summary ?? {};
 
-  return (
-    <section className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-950">Fee Statement</h1>
-        <p className="mt-1 text-sm text-slate-500">Invoices are generated when you register for an academic session.</p>
-      </div>
-
-      {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Outstanding', value: totals.outstanding, icon: Wallet, tone: 'bg-red-50 text-red-600' },
-          { label: 'Total Paid', value: totals.paid, icon: HandCoins, tone: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Available Credit', value: totals.credit, icon: Wallet, tone: 'bg-sky-50 text-sky-600' },
-          { label: 'Net Adjustments', value: totals.adjustments, icon: FileText, tone: 'bg-amber-50 text-amber-600' },
-        ].map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className={`inline-flex rounded-xl p-2.5 ${tone}`}><Icon className="size-5" /></div>
-            <p className="mt-4 text-sm text-slate-500">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-950">{money(value)}</p>
-          </div>
-        ))}
-      </div>
-
-      <Table>
-        <TableHeader><h2 className="font-semibold text-slate-900">Invoices</h2></TableHeader>
-        <TableWrapper>
-          <Thead><tr><Th>Invoice</Th><Th>Session</Th><Th>Issued</Th><Th>Amount</Th><Th>Adjustments</Th><Th>Paid</Th><Th>Balance</Th><Th>Status</Th><Th /></tr></Thead>
-          <Tbody>
-            {invoices.length === 0 ? (
-              <tr><Td colSpan={9} className="py-10 text-center text-slate-500">No invoices yet. Your first fee invoice will appear after session registration.</Td></tr>
-            ) : invoices.map((invoice) => {
-              const expanded = expandedInvoiceId === invoice.id;
-              return [
-                <tr key={invoice.id}>
-                  <Td className="font-medium text-slate-900">{invoice.invoice_number}</Td><Td>{invoice.session_name ?? '-'}</Td><Td>{invoice.issue_date ?? '-'}</Td><Td>{money(invoice.amount_due)}</Td><Td>{money(invoice.adjustment_amount)}</Td><Td>{money(invoice.paid_amount)}</Td><Td className="font-semibold">{money(invoice.balance_due)}</Td><Td><StatusBadge status={invoice.status} /></Td>
-                  <Td><button type="button" onClick={() => setExpandedInvoiceId(expanded ? null : invoice.id)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Toggle invoice details">{expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</button></Td>
-                </tr>,
-                expanded ? (
-                  <tr key={`${invoice.id}-details`}><Td colSpan={9} className="bg-slate-50 p-5"><div className="grid gap-5 lg:grid-cols-2">
-                    <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Line items</p><div className="mt-2 space-y-2">{(invoice.items ?? []).map((item) => <div key={item.id} className="flex justify-between rounded-lg bg-white px-3 py-2 text-sm"><span>{item.name}</span><strong>{money(item.total_amount)}</strong></div>)}</div></div>
-                    <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Adjustments</p><div className="mt-2 space-y-2">{(invoice.adjustments ?? []).length ? invoice.adjustments.map((adjustment) => <div key={adjustment.id} className="flex justify-between rounded-lg bg-white px-3 py-2 text-sm"><span className="capitalize">{adjustment.type}</span><strong>{money(adjustment.amount)}</strong></div>) : <p className="text-sm text-slate-500">No adjustments.</p>}</div></div>
-                  </div></Td></tr>
-                ) : null,
-              ];
-            })}
-          </Tbody>
-        </TableWrapper>
-      </Table>
-
-      <Table>
-        <TableHeader><h2 className="font-semibold text-slate-900">Ledger</h2></TableHeader>
-        <TableWrapper>
-          <Thead><tr><Th>Date</Th><Th>Session</Th><Th>Type</Th><Th>Reference</Th><Th>Description</Th><Th>Debit</Th><Th>Credit</Th></tr></Thead>
-          <Tbody>{entries.length === 0 ? <tr><Td colSpan={7} className="py-10 text-center text-slate-500">No ledger activity yet.</Td></tr> : entries.map((entry) => <tr key={entry.id}><Td>{entry.transaction_date ?? '-'}</Td><Td>{entry.session_name ?? '-'}</Td><Td className="capitalize">{entry.type}</Td><Td>{entry.reference ?? entry.payment_ref ?? entry.invoice_number ?? '-'}</Td><Td>{entry.description ?? '-'}</Td><Td>{entry.debit > 0 ? money(entry.debit) : '-'}</Td><Td>{entry.credit > 0 ? money(entry.credit) : '-'}</Td></tr>)}</Tbody>
-        </TableWrapper>
-      </Table>
-    </section>
-  );
+  return <section className="space-y-5">
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-xl font-semibold text-slate-950">Fee Statement</h1><p className="mt-1 text-sm text-slate-500">Choose exactly which sessions the statement should cover.</p></div><button type="button" onClick={download} disabled={downloading || !statement} className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"><Download className="size-4" />{downloading ? 'Downloading...' : 'Download PDF'}</button></div>
+    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
+      <label className="text-xs font-medium text-slate-600">Statement scope<select value={filters.scope} onChange={(e) => update('scope', e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{Object.entries(scopes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      {['per_year', 'custom'].includes(filters.scope) && <label className="text-xs font-medium text-slate-600">Academic year<select value={filters.academic_year_id} onChange={(e) => update('academic_year_id', e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Current active year</option>{years.map((year) => <option key={year.id} value={year.id}>{year.name ?? year.code}</option>)}</select></label>}
+      {['per_session', 'custom'].includes(filters.scope) && <label className="text-xs font-medium text-slate-600">{filters.scope === 'custom' ? 'From session' : 'Session'}<select value={filters.academic_session_id} onChange={(e) => update('academic_session_id', e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Select session</option>{visibleSessions.map((session) => <option key={session.id} value={session.id}>{session.academic_year_name} · {session.name}</option>)}</select></label>}
+      {filters.scope === 'custom' && <label className="text-xs font-medium text-slate-600">To session<select value={filters.to_academic_session_id} onChange={(e) => update('to_academic_session_id', e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Select session</option>{visibleSessions.map((session) => <option key={session.id} value={session.id}>{session.academic_year_name} · {session.name}</option>)}</select></label>}
+    </div>
+    {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+    {loading && <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Loading statement...</div>}
+    {!loading && statement && <>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[
+        ['Fees in scope', summary.total_invoiced, FileText, 'bg-blue-50 text-blue-600'], ['Total paid', summary.total_paid, HandCoins, 'bg-emerald-50 text-emerald-600'], ['Dormant future fees', summary.dormant_total, Wallet, 'bg-slate-100 text-slate-600'], ['Net balance', summary.outstanding_balance, Wallet, 'bg-amber-50 text-amber-700'],
+      ].map(([label, value, Icon, tone]) => <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className={`inline-flex rounded-xl p-2.5 ${tone}`}><Icon className="size-5" /></div><p className="mt-3 text-sm text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold text-slate-950">{money(value)}</p></div>)}</div>
+      <Table><TableHeader><h2 className="font-semibold text-slate-900">Session breakdown</h2></TableHeader><TableWrapper><Thead><tr><Th>Session</Th><Th>Status</Th><Th>Fees</Th><Th>Paid</Th><Th>Balance</Th></tr></Thead><Tbody>{(statement.session_breakdown ?? []).length ? statement.session_breakdown.map((session) => <tr key={session.session_id}><Td>{session.session_name}</Td><Td><span className="capitalize">{session.status}</span></Td><Td>{money(session.fees)}</Td><Td>{money(session.paid)}</Td><Td>{money(session.outstanding)}</Td></tr>) : <tr><Td colSpan={5} className="py-8 text-center text-slate-500">No sessions in this scope.</Td></tr>}</Tbody></TableWrapper></Table>
+      {(statement.dormant_fees ?? []).length > 0 && <Table><TableHeader><div><h2 className="font-semibold text-slate-900">Dormant future fees</h2><p className="text-xs text-slate-500">Shown only because this statement includes future sessions.</p></div></TableHeader><TableWrapper><Thead><tr><Th>Session</Th><Th>Fee</Th><Th>Amount</Th><Th>Status</Th></tr></Thead><Tbody>{statement.dormant_fees.map((fee) => <tr key={fee.assignment_id}><Td>{fee.session_name}</Td><Td>{fee.template_name}</Td><Td>{money(fee.amount)}</Td><Td className="capitalize">{fee.status}</Td></tr>)}</Tbody></TableWrapper></Table>}
+      <Table><TableHeader><h2 className="font-semibold text-slate-900">Transactions</h2></TableHeader><TableWrapper><Thead><tr><Th>Date</Th><Th>Session</Th><Th>Reference</Th><Th>Description</Th><Th>Debit</Th><Th>Credit</Th><Th>Balance</Th></tr></Thead><Tbody>{(statement.transactions ?? []).length ? statement.transactions.map((entry) => <tr key={entry.id}><Td>{entry.date ?? '-'}</Td><Td>{entry.session_name ?? '-'}</Td><Td>{entry.reference ?? '-'}</Td><Td>{entry.description}</Td><Td>{entry.debit > 0 ? money(entry.debit) : '-'}</Td><Td>{entry.credit > 0 ? money(entry.credit) : '-'}</Td><Td>{money(entry.balance)}</Td></tr>) : <tr><Td colSpan={7} className="py-8 text-center text-slate-500">No transactions in this scope.</Td></tr>}</Tbody></TableWrapper></Table>
+    </>}
+  </section>;
 }
+
+export default StudentFeeStatementPage;

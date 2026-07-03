@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CurriculumFeeAssignment extends Model
 {
@@ -20,6 +21,11 @@ class CurriculumFeeAssignment extends Model
         'course_curriculum_id',
         'fee_template_id',
         'academic_session_id',
+        'issuance_type',
+        'parent_assignment_id',
+        'dormant',
+        'split_amount',
+        'split_ratio',
         'year_level',
         'session_number',
         'is_approved',
@@ -33,7 +39,10 @@ class CurriculumFeeAssignment extends Model
     {
         return [
             'is_approved' => 'boolean',
+            'dormant' => 'boolean',
             'approved_at' => 'datetime',
+            'split_amount' => 'float',
+            'split_ratio' => 'float',
         ];
     }
 
@@ -52,6 +61,21 @@ class CurriculumFeeAssignment extends Model
         return $this->belongsTo(AcademicSession::class);
     }
 
+    public function parentAssignment(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_assignment_id');
+    }
+
+    public function childAssignments(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_assignment_id');
+    }
+
+    public function audits(): HasMany
+    {
+        return $this->hasMany(FeeAssignmentAudit::class, 'curriculum_fee_assignment_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -60,5 +84,20 @@ class CurriculumFeeAssignment extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('dormant', false);
+    }
+
+    public function scopePerSession($query)
+    {
+        return $query->where('issuance_type', 'per_session');
+    }
+
+    public function scopePerYear($query)
+    {
+        return $query->where('issuance_type', 'per_year');
     }
 }

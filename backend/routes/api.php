@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AcademicSessionsController;
 use App\Http\Controllers\Api\AcademicTimetablesController;
 use App\Http\Controllers\Api\AcademicYearsController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
 use App\Http\Controllers\Api\CourseChangeController;
 use App\Http\Controllers\Api\ComplaintsController;
@@ -22,15 +23,19 @@ use App\Http\Controllers\Api\LectureRoomsController;
 use App\Http\Controllers\Api\FeeTemplateItemsController;
 use App\Http\Controllers\Api\FeeTemplatesController;
 use App\Http\Controllers\Api\StudentFeeAdjustmentsController;
+use App\Http\Controllers\Api\InvoiceAdjustmentsController;
 use App\Http\Controllers\Api\InvoicesController;
 use App\Http\Controllers\Api\StudentLedgerController;
+use App\Http\Controllers\Api\FinanceDashboardController;
 use App\Http\Controllers\Api\PaymentsController;
+use App\Http\Controllers\Api\RefundsController;
 use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\StaffsController;
 use App\Http\Controllers\Api\StudentDashboardController;
 use App\Http\Controllers\Api\StudentMarksController;
 use App\Http\Controllers\Api\StudentsController;
 use App\Http\Controllers\Api\SystemConfigurationsController;
+use App\Http\Controllers\Api\Trainer\AttendanceController as TrainerAttendanceController;
 use App\Http\Controllers\Api\UnitsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -98,6 +103,8 @@ Route::middleware([
     Route::get('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'index']);
     Route::get('/academic-session-enrolments/{academic_session_enrolment}', [AcademicSessionEnrolmentsController::class, 'show']);
 
+    Route::get('/finance/dashboard', FinanceDashboardController::class);
+
     Route::apiResource('fee-templates', FeeTemplatesController::class)
         ->parameters(['fee-templates' => 'fee_template']);
 
@@ -112,12 +119,20 @@ Route::middleware([
     Route::get('/my/invoices', [InvoicesController::class, 'myInvoices']);
     Route::get('/my/finance-summary', [InvoicesController::class, 'financeSummary']);
     Route::get('/my/ledger', [StudentLedgerController::class, 'myLedger']);
+    Route::get('/my/financial-statement', [InvoicesController::class, 'myStatement']);
+    Route::get('/my/financial-statement/download', [InvoicesController::class, 'myStatementDownload']);
+    Route::get('/students/{student}/financial-statement/download', [InvoicesController::class, 'statementDownload']);
     Route::post('/invoices', [InvoicesController::class, 'store']);
     Route::get('/invoices', [InvoicesController::class, 'index']);
     Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
     Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
+    Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
+    Route::get('/students/{student}/financial-statement', [InvoicesController::class, 'studentStatement']);
     Route::post('/payments', [PaymentsController::class, 'store']);
     Route::get('/payments', [PaymentsController::class, 'index']);
+    Route::post('/refunds', [RefundsController::class, 'store']);
+    Route::post('/invoice-adjustments', [InvoiceAdjustmentsController::class, 'store']);
+    Route::post('/invoice-charges', [InvoiceAdjustmentsController::class, 'storeCharge']);
     Route::post('/invoices/{invoice}/adjustments', [StudentFeeAdjustmentsController::class, 'store']);
     Route::get('/ledger', [StudentLedgerController::class, 'index']);
 
@@ -149,6 +164,23 @@ Route::middleware([
     Route::delete('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'destroy']);
     Route::apiResource('lecture-rooms', LectureRoomsController::class)
         ->parameters(['lecture-rooms' => 'lecture_room']);
+
+    Route::prefix('attendance')->group(function () {
+        Route::get('/assigned-units', [TrainerAttendanceController::class, 'assignedUnits']);
+        Route::get('/roster', [TrainerAttendanceController::class, 'roster']);
+        Route::post('/mark', [TrainerAttendanceController::class, 'mark'])->middleware('throttle:10,1');
+    });
+
+    Route::prefix('academic-sessions/{academic_session}/calendar')->name('calendar.')->group(function () {
+        Route::get('/', [CalendarController::class, 'index'])->name('index');
+        Route::post('/generate', [CalendarController::class, 'generate'])->name('generate');
+        Route::post('/events', [CalendarController::class, 'store'])->name('events.store');
+        Route::put('/events/{calendar_event}', [CalendarController::class, 'update'])->name('events.update');
+        Route::delete('/events/{calendar_event}', [CalendarController::class, 'destroy'])->name('events.destroy');
+        Route::post('/sync-holidays', [CalendarController::class, 'syncHolidays'])->name('sync-holidays');
+    });
+    Route::get('/calendar/event-types', [CalendarController::class, 'eventTypes'])->name('calendar.event-types');
+    Route::get('/academic-years/{academic_year}/calendar', [CalendarController::class, 'yearCalendar'])->name('calendar.year');
 
     Route::get('/my/complaints', [ComplaintsController::class, 'myComplaints']);
     Route::post('/complaints', [ComplaintsController::class, 'store']);

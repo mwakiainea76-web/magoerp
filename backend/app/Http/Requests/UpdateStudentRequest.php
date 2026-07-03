@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\StudentStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -40,7 +41,7 @@ class UpdateStudentRequest extends FormRequest
             'next_of_kin_alt_phone' => ['required', 'string', 'max:50'],
             'next_of_kin_email' => ['required', 'email', 'max:255'],
             'next_of_kin_relationship' => ['required', 'string', Rule::in(['Partner', 'Sibling', 'Father', 'Mother', 'Relative', 'Guardian'])],
-            'status' => ['required', 'boolean'],
+            'status' => ['required', Rule::in(collect(StudentStatus::cases())->pluck('value')->toArray())],
         ];
     }
 }

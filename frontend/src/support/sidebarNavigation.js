@@ -81,6 +81,7 @@ export const sidebarNavigationByRole = {
         { label: "Add Academic Year", to: "/academic-calendar/years/create" },
         { label: "Academic Sessions", to: "/academic-calendar/sessions" },
         { label: "Add Session", to: "/academic-calendar/sessions/create" },
+        { label: "School Calendar", to: "/academic-calendar/calendar" },
       ],
     },
     {
@@ -91,6 +92,7 @@ export const sidebarNavigationByRole = {
         { label: "View Timetables", to: "/timetables" },
         { label: "Add Timetable", to: "/timetables/create" },
         { label: "Lecture Rooms", to: "/lecture-rooms" },
+        { label: "Class Attendance", to: "/attendance" },
       ],
     },
     {
@@ -121,7 +123,11 @@ export const sidebarNavigationByRole = {
       label: "Finance",
       icon: Landmark,
       children: [
+        { label: "Dashboard", to: "/finance/dashboard" },
         { label: "Billing", to: "/finance/billing" },
+        { label: "Invoices", to: "/finance/invoices" },
+        { label: "Payments", to: "/finance/payments" },
+        { label: "Statements", to: "/finance/statement" },
         { label: "Financial Ledger", to: "/finance/ledger" },
         { label: "Fee Templates", to: "/finance/fee-templates" },
         { label: "Add Template", to: "/finance/fee-templates/create" },
@@ -177,7 +183,10 @@ export const sidebarNavigationByRole = {
     {
       label: "Timetables",
       icon: CalendarClock,
-      children: [{ label: "View Timetables", to: "/timetables" }],
+      children: [
+        { label: "View Timetables", to: "/timetables" },
+        { label: "Class Attendance", to: "/attendance" },
+      ],
     },
     {
       label: "Assessments",

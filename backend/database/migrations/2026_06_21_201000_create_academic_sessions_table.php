@@ -17,7 +17,7 @@ return new class extends Migration
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
             $table->text('description')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->boolean('is_active')->default(false);
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
@@ -29,7 +29,7 @@ return new class extends Migration
 
         if (DB::connection()->getDriverName() === 'mysql') {
             DB::statement("ALTER TABLE academic_sessions ADD COLUMN active_unique CHAR(1) AS (CASE WHEN is_active = 1 THEN 'Y' ELSE NULL END) PERSISTENT");
-            DB::statement("CREATE UNIQUE INDEX academic_sessions_active_unique ON academic_sessions (active_unique)");
+            DB::statement("CREATE UNIQUE INDEX academic_sessions_active_unique ON academic_sessions (academic_year_id, active_unique)");
         }
     }
 

@@ -10,13 +10,13 @@ return new class extends Migration
     {
         Schema::create('attendances', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('academic_timetable_id')->constrained('academic_timetables')->cascadeOnDelete();
-            $table->foreignId('student_id')->constrained('students')->cascadeOnDelete();
-            $table->foreignId('academic_session_id')->constrained('academic_sessions')->cascadeOnDelete();
+            $table->foreignUuid('academic_timetable_id')->constrained('academic_timetables')->cascadeOnDelete();
+            $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
+            $table->foreignUuid('academic_session_id')->constrained('academic_sessions')->cascadeOnDelete();
             $table->date('attendance_date');
             $table->enum('status', ['present', 'absent', 'late', 'excused'])->default('present');
             $table->text('remarks')->nullable();
-            $table->foreignId('marked_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('marked_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
             $table->unique(['academic_timetable_id', 'student_id', 'attendance_date'], 'attendance_unique');

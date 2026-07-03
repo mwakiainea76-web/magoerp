@@ -21,7 +21,7 @@ class StudentLedgerController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 50), 200));
 
         $entries = StudentLedgerEntry::query()
-            ->with(['student', 'invoice', 'academicSession', 'payment'])
+            ->with(['student.user', 'invoice', 'academicSession', 'payment'])
             ->when($studentId !== '', fn ($q) => $q->where('student_id', $studentId))
             ->when($academicSessionId !== '', fn ($q) => $q->where('academic_session_id', $academicSessionId))
             ->latest('transaction_date')

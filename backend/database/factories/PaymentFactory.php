@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -14,7 +13,6 @@ class PaymentFactory extends Factory
     public function definition(): array
     {
         return [
-            'invoice_id' => Invoice::factory(),
             'student_id' => Student::factory(),
             'amount' => fake()->randomFloat(2, 1000, 50000),
             'payment_date' => now()->toDateString(),

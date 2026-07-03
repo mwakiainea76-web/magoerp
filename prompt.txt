@@ -1,0 +1,247 @@
+I want this system to  base on session and  default to 3  session that makes one academic year.I had the system fee base both  per year and session whenever possible but  it brings unnecessary complexity.So i want  the fee to base per session.And default to 3 sessions per academoc year else changed in the configuration file.So come with prompt to cleanup this changes
+
+What does the term invoice means in finace
+
+
+Recognized straightforward financial definition query
+Recognized straightforward financial definition query
+An invoice is a formal document a seller sends to a buyer, requesting payment for goods or services that have been provided. It's essentially a bill — but with specific details that make it a proper financial and legal record.
+
+What an invoice typically includes:
+
+Invoice number (unique identifier for tracking)
+Date issued and payment due date
+Seller's and buyer's details (names, addresses, contact info)
+Description of goods/services provided
+Quantity and unit price of each item
+Total amount owed (often broken into subtotal, taxes, discounts, and grand total)
+Payment terms (e.g. "Net 30" means payment is due 30 days after the invoice date)
+Accepted payment methods
+Why it matters:
+
+Legal record — proof that a transaction took place and what was agreed.
+Accounting — used to record revenue (for the seller) and expenses/liabilities (for the buyer).
+Cash flow tracking — helps businesses know what's owed to them (accounts receivable) and what they owe (accounts payable).
+Tax purposes — invoices support tax filings and audits.
+Invoice vs. related terms (often confused):
+
+Term	Meaning
+Quote/Estimate	Sent before work is done, not a request for payment yet
+Invoice	Sent after goods/services are delivered, requesting payment
+Receipt	Proof that payment has already been made
+Purchase Order (PO)	Sent by the buyer to the seller, ordering goods/services
+In the context of your school fee system — an invoice would typically be the document generated per student, per session, listing the fees owed for that session, when they're due, and how much (if any) has already been paid.
+
+In addition the existing fee per session, the fee can be issued yearly also which means it will span 3 sessions from the time it was issued. The admin once he    creates academic year he has to define 3 sessions all status inactive.The only session that is marked active is the one   that students will register on.Now once finance issues fee per course the each course fee per session  will get a third of the  fee or seuggest ratio persession  and still store the  fee for the sessions that are not active and it will be activated when that session is activated.Also.Tis should alow fince define fee at the strt of the academic year and spans 3 sessions.Now this can help student view  fee statement per session or per year.This is beacuse some students have sponsers who may require fee balances for the whole yearSo we need to preconfigure them and be able to retrieve When need arsrie.So under statement the statement should have fee statement from session one to date(Default),per session,or per year.Refine this prompt for an AI model to understand
+
+Show more
+
+Architected multi-session fee system with flexible issuance and statement retrieval
+Architected multi-session fee system with flexible issuance and statement retrieval
+Here's a refined, structured prompt capturing the full requirement clearly for an AI model or developer to implement:
+
+Prompt: Implement Dual-Mode Fee Issuance (Per-Session & Per-Year) with Session Lifecycle and Flexible Fee Statements
+
+Context
+The system is session-based, with 3 sessions per academic year by default (configurable — see prior refactor). We now need to support two fee issuance modes that coexist on top of the session-based structure, plus flexible statement views for students/sponsors.
+
+1. Academic Year & Session Setup
+
+When an admin creates a new academic year, the system must automatically generate its 3 sessions (or however many are configured via SESSIONS_PER_ACADEMIC_YEAR).
+All 3 sessions are created with status inactive by default.
+Only one session at a time can be marked active — this is the session students are currently allowed to register under.
+Activating a session should (by business rule) deactivate any other currently active session in that year — clarify/enforce single-active-session-per-year (or system-wide, if applicable).
+2. Fee Issuance Modes
+Finance can issue course fees in two modes:
+
+Per-Session Fee: A fee issued for a single, specific session only. Applies and is payable within that session.
+Per-Year Fee: A fee issued once, at the time the academic year starts, intended to cover all 3 sessions in that year. When issued:
+The system splits the total fee across the 3 sessions using a configurable ratio (default: equal split — 1/3 per session; but ratio should be adjustable per fee/course, e.g. 40/30/30, in config or at issuance time).
+A fee record is created and stored for each of the 3 sessions, including sessions that are still inactive.
+Fee records tied to inactive sessions remain dormant/pending — not payable or visible in active billing — until their session is activated.
+When a session transitions from inactive → active, its associated pre-stored fee portion becomes live/active (visible for payment, included in current balance, etc.).
+3. Data Model Implications
+
+A fee record must track:
+issuance_type: per_session or per_year
+parent_fee_id (or similar): links session-level fee portions back to the original per-year fee issuance, so they can be grouped/reported together.
+session_id: which session this specific portion applies to.
+amount: the amount allocated to that session (post-split if per-year).
+status: reflects whether this portion is dormant (session inactive) or active/live (session active).
+Ensure the split amounts sum exactly to the original total fee (watch for rounding errors — e.g. remainder should be added to the last session's portion).
+4. Fee Statements
+Students (and their sponsors) must be able to view a fee statement in three modes:
+
+Default — Session-to-Date: Shows fee/payment activity from session 1 up to the current date (i.e., cumulative across sessions to date, not just the currently active session).
+Per Session: Shows fee/payment breakdown for a single, selected session only.
+Per Year: Shows the full academic year's fee breakdown — aggregating all 3 sessions' worth of fees (whether originally issued per-session or as a split per-year fee) into one statement. This is critical for sponsors who require the full year's balance rather than session-by-session detail.
+Each statement view should clearly show, at minimum:
+
+Total fees charged (for the selected scope)
+Total paid
+Outstanding balance
+Breakdown by session (for the per-year and session-to-date views)
+Indication of which portions are still dormant/pending (session not yet active), if relevant to the sponsor/student view
+5. Acceptance Criteria
+
+Creating an academic year auto-generates 3 inactive sessions.
+Only one session can be active at a time.
+Finance can issue a fee as either per-session or per-year at course-fee creation.
+Per-year fees are split and stored against all 3 sessions immediately, with inactive-session portions dormant until activation.
+Activating a session automatically activates its associated dormant fee portions.
+Fee statements support all three view modes (session-to-date default, per session, per year) with accurate aggregation.
+Split ratios are configurable, not hardcoded to equal thirds.
+No double-counting or missing amounts when aggregating per-year statements from session-level records.
+6. Open Questions to Clarify Before Building
+
+Is "active session" scoped per academic year, or is there only ever one active session system-wide across all years?
+Can a per-year fee be issued mid-year (after session 1 has already started), or only at the very start of the academic year? If mid-year, how should the split/backdating work?
+Should dormant fee portions be visible to students/sponsors at all (e.g., "upcoming" fees), or completely hidden until activated?
+What happens to a per-year fee split if the ratio or total is edited after issuance but before all sessions are activated?
+This version separates setup rules, issuance logic, data model, and reporting into distinct sections so nothing gets conflated, and flags the ambiguous business rules that need a decision before implementation rather than letting the AI/developer guess.
+
+No one academic year can be active and one session per academic year can be active.The fee is issued  per start of academic year only.The dormant fee can be visible only if a person request for  fee statement that include sessions the student is yet to ernrol in fure ie for year Session astudent a ponser may request fee for full year or 2 sessions
+
+
+Synthesized clarifications to refine academic fee policy requirements
+Synthesized clarifications to refine academic fee policy requirements
+Here's the updated prompt with your clarifications incorporated, and the open questions resolved:
+
+Prompt: Implement Dual-Mode Fee Issuance (Per-Session & Per-Year) with Session Lifecycle and Flexible Fee Statements
+
+Context
+The system is session-based, with 3 sessions per academic year by default (configurable via SESSIONS_PER_ACADEMIC_YEAR). We now need to support two fee issuance modes on top of this structure, plus flexible statement views for students/sponsors.
+
+1. Academic Year & Session Setup
+
+Only one academic year can be active system-wide at any time.
+When an admin creates a new academic year, the system auto-generates its 3 sessions (or however many SESSIONS_PER_ACADEMIC_YEAR specifies), all with status inactive.
+Only one session per academic year can be active at a time. Activating a session must automatically deactivate any other active session within that same year.
+Students register only under the currently active session of the currently active academic year.
+2. Fee Issuance Modes
+Finance can issue course fees in two modes:
+
+Per-Session Fee: Issued for a single, specific session. Applies and is payable within that session only.
+Per-Year Fee: Issued only once, at the start of the academic year (not mid-year). When issued:
+The system splits the total fee across all 3 sessions using a configurable ratio (default: equal thirds; adjustable per fee/course).
+A fee record is created and stored for each of the 3 sessions, including those still inactive.
+Fee portions tied to inactive sessions are dormant — not included in active/current billing — until their session is activated.
+When a session transitions inactive → active, its associated dormant fee portion becomes live and enters active billing.
+3. Dormant Fee Visibility
+
+By default, dormant (future-session) fee portions are not shown in a student's current/standard fee view.
+They become visible only on request — specifically when someone (student or sponsor) explicitly requests a fee statement that spans sessions the student has not yet enrolled in (e.g. a sponsor requesting the full academic year's fees, or a 2-session view, while the student is still only in session 1).
+This means the statement request itself is the trigger that surfaces dormant/future fee data — it stays hidden in normal balance views otherwise.
+4. Data Model Implications
+
+A fee record must track:
+issuance_type: per_session or per_year
+parent_fee_id: links session-level fee portions back to the original per-year fee issuance, for grouping/reporting.
+session_id: which session this portion applies to.
+amount: allocated amount for that session (post-split if per-year).
+status: dormant (session inactive) or active (session active/live).
+Split amounts must sum exactly to the original total (handle rounding — e.g. add any remainder to the last session's portion).
+5. Fee Statements
+Students and sponsors can request a fee statement in three modes:
+
+Default — Session-to-Date: Cumulative fee/payment activity from session 1 up to the current date/active session. Shows only active (not dormant) fee portions.
+Per Session: Fee/payment breakdown for one selected session. Shows dormant status clearly if that session hasn't been activated yet.
+Per Year: Full academic year breakdown — all 3 sessions' fees aggregated into one statement, including dormant portions, since this is the primary use case for sponsors needing the full year's balance upfront.
+A statement request should also support custom range (e.g. "session 1 to session 2 only") for cases like a sponsor covering 2 of 3 sessions — surfacing dormant data for exactly the requested range, without exposing the full year if not asked for.
+
+Each statement should show, at minimum:
+
+Total fees charged (for the requested scope)
+Total paid
+Outstanding balance
+Per-session breakdown
+Clear labeling of which portions are dormant/pending vs. active
+6. Acceptance Criteria
+
+Only one academic year active at a time; only one session per year active at a time.
+Activating a session deactivates the previously active session in that year.
+Per-year fees can only be issued at the start of an academic year, split across all 3 sessions immediately.
+Dormant fee portions are invisible in standard/default views and only surfaced when a statement request explicitly spans into unenrolled future sessions.
+Fee statements support: default (session-to-date), per-session, per-year, and custom session-range views.
+Split ratios are configurable, not hardcoded.
+No double-counting or missing amounts in aggregated statements.
+Activating a session auto-activates its associated dormant fee portion(s).
+7. Remaining Open Question
+
+When a per-year fee is issued at the start of the year but the ratio needs correction later (e.g. before session 2 activates), should Finance be allowed to edit the un-activated portions directly, or must they void and reissue the whole per-year fee?
+This should be implementation-ready except for that last edge case, which is worth a quick decision before coding starts.
+
+Yes  the last point is true
+
+
+Finalized policy allowing direct editing of unactivated portions
+Finalized policy allowing direct editing of unactivated portions
+Good — that resolves the last open question. Here's the final, complete version with that decision incorporated:
+
+Prompt: Implement Dual-Mode Fee Issuance (Per-Session & Per-Year) with Session Lifecycle and Flexible Fee Statements
+
+Context
+The system is session-based, with 3 sessions per academic year by default (configurable via SESSIONS_PER_ACADEMIC_YEAR). We now need to support two fee issuance modes on top of this structure, plus flexible statement views for students/sponsors.
+
+1. Academic Year & Session Setup
+
+Only one academic year can be active system-wide at any time.
+When an admin creates a new academic year, the system auto-generates its 3 sessions (or however many SESSIONS_PER_ACADEMIC_YEAR specifies), all with status inactive.
+Only one session per academic year can be active at a time. Activating a session must automatically deactivate any other active session within that same year.
+Students register only under the currently active session of the currently active academic year.
+2. Fee Issuance Modes
+Finance can issue course fees in two modes:
+
+Per-Session Fee: Issued for a single, specific session. Applies and is payable within that session only.
+Per-Year Fee: Issued only once, at the start of the academic year (not mid-year). When issued:
+The system splits the total fee across all 3 sessions using a configurable ratio (default: equal thirds; adjustable per fee/course).
+A fee record is created and stored for each of the 3 sessions, including those still inactive.
+Fee portions tied to inactive sessions are dormant — not included in active/current billing — until their session is activated.
+When a session transitions inactive → active, its associated dormant fee portion becomes live and enters active billing.
+3. Editing Dormant Fee Portions
+
+Finance can directly edit any un-activated (dormant) fee portion of a per-year fee — e.g. correcting the split ratio or amount for session 2/3 — without voiding or reissuing the entire per-year fee.
+Editing a dormant portion must not affect already-active portions (e.g. session 1's fee, already billed/paid) unless explicitly intended.
+Once a session portion has been activated, it should follow normal fee-amendment rules (whatever the system already uses for editing active/live fees) rather than the dormant-edit path.
+All edits to dormant portions should be logged/audited (who changed what, when, previous vs. new amount) for accountability, since this affects future billing before it's even visible to the student/sponsor.
+4. Dormant Fee Visibility
+
+By default, dormant (future-session) fee portions are not shown in a student's current/standard fee view.
+They become visible only on request — specifically when someone (student or sponsor) explicitly requests a fee statement that spans sessions the student has not yet enrolled in (e.g. a sponsor requesting the full academic year's fees, or a 2-session view, while the student is still only in session 1).
+This means the statement request itself is the trigger that surfaces dormant/future fee data — it stays hidden in normal balance views otherwise.
+5. Data Model Implications
+
+A fee record must track:
+issuance_type: per_session or per_year
+parent_fee_id: links session-level fee portions back to the original per-year fee issuance, for grouping/reporting.
+session_id: which session this portion applies to.
+amount: allocated amount for that session (post-split if per-year).
+status: dormant (session inactive) or active (session active/live).
+Split amounts must sum exactly to the original total (handle rounding — e.g. add any remainder to the last session's portion).
+An audit log table/mechanism for dormant-portion edits (per point 3).
+6. Fee Statements
+Students and sponsors can request a fee statement in three modes:
+
+Default — Session-to-Date: Cumulative fee/payment activity from session 1 up to the current date/active session. Shows only active (not dormant) fee portions.
+Per Session: Fee/payment breakdown for one selected session. Shows dormant status clearly if that session hasn't been activated yet.
+Per Year: Full academic year breakdown — all 3 sessions' fees aggregated into one statement, including dormant portions, since this is the primary use case for sponsors needing the full year's balance upfront.
+A statement request should also support custom range (e.g. "session 1 to session 2 only") for cases like a sponsor covering 2 of 3 sessions — surfacing dormant data for exactly the requested range, without exposing the full year if not asked for.
+
+Each statement should show, at minimum:
+
+Total fees charged (for the requested scope)
+Total paid
+Outstanding balance
+Per-session breakdown
+Clear labeling of which portions are dormant/pending vs. active
+7. Acceptance Criteria
+
+Only one academic year active at a time; only one session per year active at a time.
+Activating a session deactivates the previously active session in that year.
+Per-year fees can only be issued at the start of an academic year, split across all 3 sessions immediately.
+Finance can edit dormant fee portions directly, with changes logged; active portions are unaffected unless explicitly edited under normal amendment rules.
+Dormant fee portions are invisible in standard/default views and only surfaced when a statement request explicitly spans into unenrolled future sessions.
+Fee statements support: default (session-to-date), per-session, per-year, and custom session-range views.
+Split ratios are configurable, not hardcoded.
+No double-counting or missing amounts in aggregated statements.
+Activating a session auto-activates its associated dormant fee portion(s).

@@ -28,6 +28,32 @@ export function useInvoicesApi() {
         const response = await authClient.get('/my/finance-summary');
         return response.data;
       },
+      creditBalance: async (studentId) => {
+        const response = await authClient.get(`/students/${studentId}/credit-balance`);
+        return response.data;
+      },
+      studentStatement: async (studentId, params = {}) => {
+        const response = await authClient.get(`/students/${studentId}/financial-statement`, { params });
+        return response.data;
+      },
+      myStatement: async (params = {}) => {
+        const response = await authClient.get('/my/financial-statement', { params });
+        return response.data;
+      },
+      downloadStudentStatement: async (studentId, params = {}) => {
+        const response = await authClient.get(`/students/${studentId}/financial-statement/download`, {
+          params,
+          responseType: 'blob',
+        });
+        return response.data;
+      },
+      downloadMyStatement: async (params = {}) => {
+        const response = await authClient.get('/my/financial-statement/download', {
+          params,
+          responseType: 'blob',
+        });
+        return response.data;
+      },
     }),
     [],
   );

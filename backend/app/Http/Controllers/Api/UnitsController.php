@@ -21,6 +21,7 @@ class UnitsController extends Controller
         $search = trim((string) $request->string('q', ''));
         $status = (string) $request->string('status', 'all');
         $courseCurriculumId = (string) $request->string('course_curriculum_id', '');
+        $courseId = (string) $request->string('course_id', '');
         $sortBy = (string) $request->string('sort_by', 'created_at');
         $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
@@ -35,6 +36,7 @@ class UnitsController extends Controller
         $units = Unit::query()
             ->with('courseCurriculum.course.authority', 'courseCurriculum.course.level', 'courseCurriculum.curriculum')
             ->when($courseCurriculumId !== '', fn ($q) => $q->where('course_curriculum_id', $courseCurriculumId))
+            ->when($courseId !== '', fn ($q) => $q->whereHas('courseCurriculum', fn ($cq) => $cq->where('course_id', $courseId)))
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner
@@ -60,6 +62,7 @@ class UnitsController extends Controller
                 'q' => $search,
                 'status' => $status,
                 'course_curriculum_id' => $courseCurriculumId,
+                'course_id' => $courseId,
                 'sort_by' => $sortBy,
                 'sort_direction' => $sortDirection,
             ]),

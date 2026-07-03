@@ -59,6 +59,21 @@ export function AcademicSessionsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isFormLoading, setIsFormLoading] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editData, setEditData] = useState(null);
+
+  const formModalValues = useMemo(() => {
+    if (editData) {
+      return {
+        code: editData.code ?? "",
+        name: editData.name ?? "",
+        description: editData.description ?? "",
+        start_date: editData.start_date ?? "",
+        end_date: editData.end_date ?? "",
+        status: editData.is_active ? "active" : "disabled",
+      };
+    }
+    return defaultAcademicSessionValues;
+  }, [editData]);
 
   const {
     register,
@@ -69,7 +84,7 @@ export function AcademicSessionsPage() {
     formState: { errors },
   } = useForm({
     resolver: yupResolver(academicSessionSchema),
-    defaultValues: defaultAcademicSessionValues,
+    values: formModalValues,
   });
 
   useEffect(() => {
@@ -127,9 +142,9 @@ export function AcademicSessionsPage() {
   }
 
   function openCreateModal() {
+    setEditData(null);
     setEditingSessionId(null);
     setFormError("");
-    reset(defaultAcademicSessionValues);
     setIsFormModalOpen(true);
   }
 
@@ -141,22 +156,7 @@ export function AcademicSessionsPage() {
 
     try {
       const response = await sessionsApi.show(id);
-      const session = response.data;
-      const hasStartDate = Boolean(session.start_date);
-      const hasEndDate = Boolean(session.end_date);
-      let status = "disabled";
-      if (session.is_active && hasStartDate) {
-        status = "active";
-      } else if (!session.is_active && hasEndDate) {
-        status = "ended";
-      }
-
-      reset({
-        code: session?.code ?? "",
-        name: session?.name ?? "",
-        description: session?.description ?? "",
-        status,
-      });
+      setEditData(response.data);
     } catch (loadError) {
       setFormError(getApiErrorMessage(loadError, "Server error."));
     } finally {
@@ -169,9 +169,9 @@ export function AcademicSessionsPage() {
 
     setIsFormModalOpen(false);
     setEditingSessionId(null);
+    setEditData(null);
     setFormError("");
     setIsFormLoading(false);
-    reset(defaultAcademicSessionValues);
   }
 
   async function onSubmitForm(data) {
@@ -196,8 +196,8 @@ export function AcademicSessionsPage() {
 
       setIsFormModalOpen(false);
       setEditingSessionId(null);
+      setEditData(null);
       setIsFormLoading(false);
-      reset(defaultAcademicSessionValues);
       setPage(1);
       setReloadKey((current) => current + 1);
     } catch (saveError) {

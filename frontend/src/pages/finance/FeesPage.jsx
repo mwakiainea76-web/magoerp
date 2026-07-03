@@ -80,6 +80,7 @@ export function FeesPage() {
         onClose={closeModal}
         lookupApi={lookupApi}
         paymentsApi={paymentsApi}
+        invoicesApi={invoicesApi}
       />
 
       <IssueInvoiceModal
@@ -116,7 +117,7 @@ function ActionCard({ icon: Icon, title, description, onClick }) {
   );
 }
 
-function RecordPaymentModal({ open, onClose, lookupApi, paymentsApi }) {
+function RecordPaymentModal({ open, onClose, lookupApi, paymentsApi, invoicesApi }) {
   const [studentValue, setStudentValue] = useState("");
   const [studentOption, setStudentOption] = useState(null);
   const [invoices, setInvoices] = useState([]);

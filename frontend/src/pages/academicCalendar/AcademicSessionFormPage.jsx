@@ -1,5 +1,5 @@
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -25,6 +25,24 @@ const sessionPageSchema = academicSessionSchema.concat(
   }),
 );
 
+function buildInitialValues(session, yearIdFromQuery) {
+  if (session) {
+    return {
+      academic_year_id: session.academic_year_id ?? "",
+      code: session.code ?? "",
+      name: session.name ?? "",
+      description: session.description ?? "",
+      start_date: session.start_date ?? "",
+      end_date: session.end_date ?? "",
+      status: session.is_active ? "active" : "disabled",
+    };
+  }
+  return {
+    academic_year_id: yearIdFromQuery ?? "",
+    ...defaultAcademicSessionValues,
+  };
+}
+
 export function AcademicSessionFormPage() {
   const { sessionId } = useParams();
   const [searchParams] = useSearchParams();
@@ -39,12 +57,18 @@ export function AcademicSessionFormPage() {
 
   const [selectedYear, setSelectedYear] = useState(null);
   const [pageError, setPageError] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!isEdit);
   const [isSaving, setIsSaving] = useState(false);
+  const [sessionData, setSessionData] = useState(null);
 
   const title = useMemo(
     () => (isEdit ? "Edit Academic Session" : "Add Academic Session"),
     [isEdit],
+  );
+
+  const formValues = useMemo(
+    () => buildInitialValues(sessionData, yearIdFromQuery),
+    [sessionData, yearIdFromQuery],
   );
 
   const {
@@ -52,93 +76,42 @@ export function AcademicSessionFormPage() {
     control,
     watch,
     handleSubmit,
-    reset,
     setError,
     clearErrors,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(sessionPageSchema),
-    defaultValues: {
-      academic_year_id: yearIdFromQuery,
-      ...defaultAcademicSessionValues,
-    },
+    values: formValues,
   });
 
-  useEffect(() => {
-    let isMounted = true;
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setPageError("");
 
-    async function loadPage() {
-      setIsLoading(true);
-      setPageError("");
-
-      try {
-        if (!isEdit) {
-          if (yearIdFromQuery && isMounted) {
-            reset({
-              academic_year_id: yearIdFromQuery,
-              ...defaultAcademicSessionValues,
-            });
-            setSelectedYear({
-              id: yearIdFromQuery,
-              label: [yearCodeFromQuery, yearNameFromQuery]
-                .filter(Boolean)
-                .join(" ")
-                .trim(),
-            });
-          }
-
-          return;
-        }
-
+    try {
+      if (isEdit) {
         const response = await sessionsApi.show(sessionId);
-        if (!isMounted) return;
-
-        const session = response.data;
-        const hasStartDate = Boolean(session.start_date);
-        const hasEndDate = Boolean(session.end_date);
-        let status = "disabled";
-        if (session.is_active && hasStartDate) {
-          status = "active";
-        } else if (!session.is_active && hasEndDate) {
-          status = "ended";
-        }
-
-        reset({
-          academic_year_id: session.academic_year_id ?? "",
-          code: session.code ?? "",
-          name: session.name ?? "",
-          description: session.description ?? "",
-          status,
-        });
+        setSessionData(response.data);
         setSelectedYear({
-          id: session.academic_year_id,
-          label: `${session.academic_year_code} ${session.academic_year_name}`,
+          id: response.data.academic_year_id,
+          label: `${response.data.academic_year_code} ${response.data.academic_year_name}`,
         });
-      } catch (loadError) {
-        if (isMounted) {
-          setPageError(getApiErrorMessage(loadError, "Server error."));
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+      } else if (yearIdFromQuery) {
+        setSelectedYear({
+          id: yearIdFromQuery,
+          label: [yearCodeFromQuery, yearNameFromQuery].filter(Boolean).join(" ").trim(),
+        });
       }
+    } catch (loadError) {
+      setPageError(getApiErrorMessage(loadError, "Server error."));
+    } finally {
+      setIsLoading(false);
     }
+  }, [isEdit, sessionId, yearIdFromQuery, yearCodeFromQuery, yearNameFromQuery, sessionsApi]);
 
-    loadPage();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [
-    yearCodeFromQuery,
-    yearIdFromQuery,
-    yearNameFromQuery,
-    isEdit,
-    sessionId,
-    sessionsApi,
-    reset,
-  ]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function fetchYearOptions(query) {
     const response = await lookupApi.search("academic-years", {

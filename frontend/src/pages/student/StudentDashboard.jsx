@@ -14,12 +14,16 @@ import toast from "react-hot-toast";
 import { useStudentDashboardApi } from "@/hooks/useStudentDashboardApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
-const currency = (amount) =>
-  `Ksh ${new Intl.NumberFormat("en-KE", {
+const currency = (amount) => {
+  const value = Number(amount || 0);
+  const formatted = new Intl.NumberFormat("en-KE", {
     style: "decimal",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Number(amount || 0))}`;
+  }).format(Math.abs(value));
+
+  return `${value < 0 ? "-" : ""}Ksh ${formatted}`;
+};
 
 export function StudentDashboard() {
   const { dashboard, registerSession, registerUnits } = useStudentDashboardApi();
@@ -155,20 +159,27 @@ export function StudentDashboard() {
     ? last_session_enrolment.session_name
     : enrolment?.academic_session?.name;
 
+  const accountBalance = Number(
+    finance?.net_balance
+      ?? (Number(finance?.outstanding_balance ?? 0) - Number(finance?.unallocated_credit ?? 0)),
+  );
+
   const statsCards = [
     {
-      label: "Outstanding Balance",
-      value: currency(finance?.outstanding_balance ?? 0),
-      helper: finance?.next_due_date ? `Next due ${finance.next_due_date}` : "No invoice due date available",
+      label: "Account Balance",
+      value: currency(accountBalance),
+      helper: accountBalance > 0
+        ? (finance?.next_due_date ? `Amount owed · next due ${finance.next_due_date}` : "Amount owed to the institution")
+        : accountBalance < 0
+          ? `${currency(Math.abs(accountBalance))} credit available`
+          : "Account settled",
       icon: Wallet,
-      tone: "from-emerald-500 to-emerald-600",
+      tone: accountBalance > 0 ? "from-rose-500 to-red-600" : "from-emerald-500 to-emerald-600",
     },
     {
       label: "Total Paid",
       value: currency(finance?.total_paid ?? 0),
-      helper: finance?.unallocated_credit > 0
-        ? `${currency(finance.unallocated_credit)} available account credit`
-        : "Payments recorded on your account",
+      helper: "Payments recorded on your account",
       icon: CreditCard,
       tone: "from-slate-700 to-slate-800",
     },
@@ -247,6 +258,7 @@ export function StudentDashboard() {
           );
         })}
       </div>
+
 
       <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="rounded-[1.75rem] border border-zinc-100 bg-white p-7 shadow-sm">

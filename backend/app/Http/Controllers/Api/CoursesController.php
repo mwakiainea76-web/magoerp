@@ -105,7 +105,7 @@ class CoursesController extends Controller
     {
         abort_unless($request->user()?->can('institution.view'), 403);
 
-        $course->load(['authority', 'level', 'department', 'curricula']);
+        $course->load(['authority', 'level', 'department', 'curricula', 'courseCurricula.units']);
 
         return response()->json([
             'data' => $this->transformCourse($course),
@@ -281,6 +281,33 @@ class CoursesController extends Controller
 
     private function transformCourse(Course $course): array
     {
+        $modules = [];
+        if ($course->relationLoaded('courseCurricula')) {
+            foreach ($course->courseCurricula as $cc) {
+                foreach ($cc->units as $unit) {
+                    $moduleKey = $unit->modules_taught ?? 0;
+                    if (!isset($modules[$moduleKey])) {
+                        $modules[$moduleKey] = [
+                            'module'         => $unit->modules_taught,
+                            'year_of_study'  => $unit->year_of_study,
+                            'session_number' => $unit->session_number,
+                            'units'          => [],
+                        ];
+                    }
+                    $modules[$moduleKey]['units'][] = [
+                        'id'                => $unit->id,
+                        'course_curriculum_id' => $unit->course_curriculum_id,
+                        'code'              => $unit->code,
+                        'name'              => $unit->name,
+                        'taught_hours'      => $unit->taught_hours,
+                        'credit_factor'     => $unit->credit_factor,
+                        'is_active'         => $unit->is_active,
+                    ];
+                }
+            }
+            ksort($modules);
+        }
+
         return [
             'id'                           => $course->id,
             'code'                         => $course->code,
@@ -306,6 +333,7 @@ class CoursesController extends Controller
                 'is_active' => $curriculum->pivot->is_active,
                 'linked_at' => $curriculum->pivot->created_at,
             ])->values(),
+            'units_by_module'              => array_values($modules),
             'created_at'                   => $course->created_at,
             'updated_at'                   => $course->updated_at,
         ];

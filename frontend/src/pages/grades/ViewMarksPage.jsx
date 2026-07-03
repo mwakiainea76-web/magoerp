@@ -440,6 +440,7 @@ export function ViewMarksPage() {
                   <Th key={col.key} className={`text-center ${col.isAvg ? "!text-red-600 " : ""}`}>{col.label}</Th>
                 ))}
               </tr>
+              
             </Thead>
             <Tbody>
               {marksheetData.marksheet.slice((page - 1) * perPage, page * perPage).map((student, index) => (

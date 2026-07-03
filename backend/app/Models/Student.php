@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StudentStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +24,7 @@ class Student extends Model
     ];
 
     protected $casts = [
-        'status' => 'boolean',
+        'status' => StudentStatus::class,
     ];
 
     protected $keyType = 'string';

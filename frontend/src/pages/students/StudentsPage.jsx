@@ -125,6 +125,8 @@ export function StudentsPage() {
       options: [
         { value: "active", label: "Active" },
         { value: "inactive", label: "Inactive" },
+        { value: "cleared", label: "Cleared" },
+        { value: "graduated", label: "Graduated" },
       ],
       className: "xl:col-span-2",
     },
@@ -401,11 +403,15 @@ export function StudentsPage() {
                   <Td>{student.curriculum_name || "-"}</Td>
                   <Td>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      student.status
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-red-50 text-red-700"
+                      student.status === "inactive"
+                        ? "bg-red-50 text-red-700"
+                        : student.status === "graduated"
+                          ? "bg-violet-50 text-violet-700"
+                          : student.status === "cleared"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-emerald-50 text-emerald-700"
                     }`}>
-                      {student.status ? "Active" : "Inactive"}
+                      {student.status ? student.status.charAt(0).toUpperCase() + student.status.slice(1) : "-"}
                     </span>
                   </Td>
                   <Td className="capitalize">{student.gender || "-"}</Td>

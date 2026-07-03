@@ -25,33 +25,33 @@ const yearSchema = yup.object({
     .string()
     .nullable()
     .max(2000, "Description must be at most 2000 characters"),
+  start_date: yup
+    .string()
+    .nullable()
+    .when("status", {
+      is: (s) => s === "active" || s === "ended",
+      then: (s) => s.required("Start date is required when year is active or ended"),
+      otherwise: (s) => s.nullable(),
+    }),
+  end_date: yup
+    .string()
+    .nullable()
+    .when("status", {
+      is: "ended",
+      then: (s) => s.required("End date is required when ending a year"),
+      otherwise: (s) => s.nullable(),
+    }),
   status: yup.string().oneOf(["active", "ended", "disabled"]).required(),
 });
 
-function getTodayString() {
-  return new Date().toISOString().split("T")[0];
-}
-
 function normalizePayload(values) {
-  const today = getTodayString();
-  let is_active = false;
-  let start_date = null;
-  let end_date = null;
-
-  if (values.status === "active") {
-    is_active = true;
-    start_date = today;
-  } else if (values.status === "ended") {
-    end_date = today;
-  }
-
   return {
     code: values.code.trim(),
     name: values.name.trim(),
-    start_date,
-    end_date,
+    start_date: values.start_date || null,
+    end_date: values.end_date || null,
     description: values.description?.trim() || null,
-    is_active,
+    is_active: values.status === "active",
   };
 }
 
@@ -83,6 +83,8 @@ export function AcademicYearFormPage() {
       code: "",
       name: "",
       description: "",
+      start_date: "",
+      end_date: "",
       status: "disabled",
     },
   });
@@ -108,19 +110,17 @@ export function AcademicYearFormPage() {
         }
 
         const year = response.data;
-        const hasStartDate = Boolean(year.start_date);
-        const hasEndDate = Boolean(year.end_date);
         let status = "disabled";
-        if (year.is_active && hasStartDate) {
+        if (year.is_active) {
           status = "active";
-        } else if (!year.is_active && hasEndDate) {
-          status = "ended";
         }
 
         reset({
           code: year.code ?? "",
           name: year.name ?? "",
           description: year.description ?? "",
+          start_date: year.start_date ?? "",
+          end_date: year.end_date ?? "",
           status,
         });
       } catch (loadError) {
@@ -223,6 +223,22 @@ export function AcademicYearFormPage() {
                 {...register("name")}
               />
 
+              <FormInput
+                id="start_date"
+                label="Start Date"
+                type="date"
+                error={errors.start_date?.message}
+                {...register("start_date")}
+              />
+
+              <FormInput
+                id="end_date"
+                label="End Date"
+                type="date"
+                error={errors.end_date?.message}
+                {...register("end_date")}
+              />
+
               <div>
                 <label htmlFor="status" className={labelClassName}>Status</label>
                 <select
@@ -230,19 +246,16 @@ export function AcademicYearFormPage() {
                   className={`${selectClassName} w-full`}
                   {...register("status")}
                 >
-                  <option value="disabled">Disabled</option>
+                  <option value="disabled">Inactive</option>
                   <option value="active">Activate</option>
                   <option value="ended">End</option>
                 </select>
-                <div className={`mt-1.5 space-x-3 text-[13px] text-slate-500`}>
+                <div className={`mt-1.5 text-[13px] text-slate-500`}>
                   {currentStatus === "active" ? (
-                    <span>Start date will be set to today.</span>
-                  ) : null}
-                  {currentStatus === "ended" ? (
-                    <span>End date will be set to today.</span>
+                    <span>Year will be activated. Only one year can be active at a time.</span>
                   ) : null}
                   {currentStatus === "disabled" ? (
-                    <span>Year will be inactive with no dates set.</span>
+                    <span>Year will be saved as inactive.</span>
                   ) : null}
                 </div>
               </div>

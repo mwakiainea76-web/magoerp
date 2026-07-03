@@ -22,6 +22,7 @@ export function LookupSelect({
   emptyMessage = "No results found.",
   className = "",
   disabled = false,
+  minSearchLength = 2,
 }) {
   const inputId = useId();
   const containerRef = useRef(null);
@@ -49,34 +50,33 @@ export function LookupSelect({
 
   useEffect(() => {
     if (!isOpen) {
+      setOptions([]);
+      setIsLoading(false);
+      return undefined;
+    }
+
+    if (query.trim().length < minSearchLength) {
+      setOptions([]);
       setIsLoading(false);
       return undefined;
     }
 
     let isMounted = true;
-    const timerId = window.setTimeout(
-      async () => {
-        setIsLoading(true);
-
-        try {
-          const result = await fetchOptions(query);
-          if (isMounted) {
-            setOptions(result ?? []);
-          }
-        } finally {
-          if (isMounted) {
-            setIsLoading(false);
-          }
-        }
-      },
-      query ? 250 : 0,
-    );
+    const timerId = window.setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const result = await fetchOptions(query);
+        if (isMounted) setOptions(result ?? []);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }, 250);
 
     return () => {
       isMounted = false;
       window.clearTimeout(timerId);
     };
-  }, [fetchOptions, isOpen, query]);
+  }, [fetchOptions, isOpen, query, minSearchLength]);
 
   const selectedId = useMemo(() => value ?? "", [value]);
   const hasValue = selectedId !== "" || query.trim() !== "";

@@ -18,8 +18,9 @@ class InvoiceLineItemFactory extends Factory
         return [
             'invoice_id' => Invoice::factory(),
             'fee_template_item_id' => null,
-            'description' => fake()->words(3, true),
-            'unit_amount' => $unitAmount,
+            'name' => fake()->words(3, true),
+            'description' => fake()->optional()->sentence(),
+            'amount' => $unitAmount,
             'quantity' => $quantity,
             'total_amount' => $unitAmount * $quantity,
         ];
