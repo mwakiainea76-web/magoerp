@@ -179,7 +179,7 @@ class FinanceReportsController extends Controller
             'admission_number' => 'Admission No.',
             'total_invoiced' => 'Total Invoiced',
             'balance' => 'Outstanding',
-        ], ['outstanding' => (float) $rows->sum('balance')]);
+        ], ['outstanding' => $totalOutstanding]);
     }
 
     private function creditReport(array $filters): array
@@ -220,7 +220,7 @@ class FinanceReportsController extends Controller
             'admission_number' => 'Admission No.',
             'credit' => 'Available Credit',
             'signed_balance' => 'Signed Balance',
-        ], ['available_credit' => (float) $rows->sum('credit')]);
+        ], ['available_credit' => $totalCredit]);
     }
 
     private function agingReport(array $filters): array
@@ -334,7 +334,7 @@ class FinanceReportsController extends Controller
             'session_name' => 'Session',
             'amount' => 'Amount',
             'description' => 'Reason',
-        ], ['total' => (float) $rows->sum('amount')]);
+        ], ['total' => $totalAdjustments]);
     }
 
     private function penaltyReport(array $filters): array
@@ -408,7 +408,7 @@ class FinanceReportsController extends Controller
             'amount' => 'Refund',
             'status' => 'Status',
             'reason' => 'Reason',
-        ], ['total_refunded' => (float) $rows->sum('amount')]);
+        ], ['total_refunded' => $totalRefunded]);
     }
 
     private function assignmentAuditReport(array $filters): array
