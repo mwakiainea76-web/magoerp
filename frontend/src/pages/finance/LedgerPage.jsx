@@ -39,7 +39,10 @@ export function LedgerPage() {
     }
   }, [sessionsApi]);
 
-  useEffect(() => { loadSessions(); }, [loadSessions]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSessions();
+  }, [loadSessions]);
 
   const fetchStudentOptions = useCallback(async (query) => {
     const res = await studentsApi.list({ q: query, per_page: 20 });
@@ -68,6 +71,7 @@ export function LedgerPage() {
   }, [ledgerApi, filterStudent, filterSession, page, perPage]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 

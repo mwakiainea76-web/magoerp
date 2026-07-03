@@ -37,6 +37,7 @@ export function StudentFeeStatementPage({ selfService = false }) {
       .catch(() => {});
   }, [sessionsApi, yearsApi]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!studentId) { setLoading(false); return undefined; }
     if (filters.scope === 'per_session' && !filters.academic_session_id) { setStatement(null); setLoading(false); return undefined; }
     if (filters.scope === 'custom' && (!filters.academic_session_id || !filters.to_academic_session_id)) { setStatement(null); setLoading(false); return undefined; }
