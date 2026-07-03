@@ -22,6 +22,7 @@ return new class extends Migration
 
                 $table->index(['student_id', 'status', 'processed_at'], 'refunds_student_status_date_idx');
                 $table->index(['invoice_id', 'status'], 'refunds_invoice_status_idx');
+                $table->index(['status', 'processed_at'], 'refunds_status_date_idx');
             });
         }
     }

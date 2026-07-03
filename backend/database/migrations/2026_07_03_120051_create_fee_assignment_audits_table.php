@@ -29,7 +29,8 @@ return new class extends Migration
             $table->index(
                 ['curriculum_fee_assignment_id', 'created_at'],
                 'fee_assignment_audits_assignment_date_idx',
-            );
+            );            $table->index(['created_at', 'field'], 'fee_assignment_audits_date_field_idx');
+
         });
     }
 

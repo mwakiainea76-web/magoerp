@@ -174,6 +174,7 @@ return new class extends Migration
 
             $table->index('type');
             $table->index(['invoice_id', 'deleted_at', 'type'], 'fee_adjustments_invoice_active_type_idx');
+            $table->index(['type', 'applied_at', 'deleted_at'], 'fee_adjustments_type_date_idx');
         });
 
         Schema::create('student_ledger_entries', function (Blueprint $table) {
