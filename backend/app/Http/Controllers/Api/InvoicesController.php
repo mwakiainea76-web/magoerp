@@ -659,6 +659,11 @@ class InvoicesController extends Controller
                 : $fromSession;
 
             if ($fromSession && $toSession) {
+                if ($fromSession->academic_year_id !== $toSession->academic_year_id || $toSession->start_date->lt($fromSession->start_date)) {
+                    throw ValidationException::withMessages([
+                        'to_academic_session_id' => 'The session range must be chronological and remain within one academic year.',
+                    ]);
+                }
                 $yearId = $fromSession->academic_year_id;
                 $sessions = AcademicSession::query()
                     ->where('academic_year_id', $yearId)
