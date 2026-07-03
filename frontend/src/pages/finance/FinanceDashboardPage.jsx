@@ -18,6 +18,7 @@ import {
   Users,
   Filter,
   X,
+  Download,
 } from "lucide-react";
 
 import {
@@ -64,7 +65,7 @@ export function FinanceDashboardPage() {
   const api = useFinanceDashboardApi();
   const reportsApi = useFinanceReportsApi();
 
-  // Filter state (local — only submitted on Apply)
+  // Filter state (local â€” only submitted on Apply)
   const [pendingDept, setPendingDept] = useState(null);
   const [pendingCourse, setPendingCourse] = useState(null);
   const [pendingYear, setPendingYear] = useState(null);
@@ -115,6 +116,7 @@ export function FinanceDashboardPage() {
 
   // Initial load
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData({});
   }, [fetchData]);
 

@@ -74,6 +74,7 @@ export function FinanceReportsPage() {
 
   useEffect(() => {
     let active = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     reportsApi.list(params)
       .then((response) => {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
+use App\Models\AcademicSession;
 use App\Models\AcademicYear;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\FeeTemplate;
@@ -124,10 +125,6 @@ class CurriculumFeeAssignmentsController extends Controller
         }
 
         $amount = (float) $template->items()->where('is_active', true)->sum('amount');
-        if ($amount <= 0) {
-            return response()->json(['message' => 'The fee template must contain positive active fee items.'], 422);
-        }
-
         $approved = $request->boolean('is_approved');
         $session = !empty($validated['academic_session_id'])
             ? AcademicSession::find($validated['academic_session_id'])
@@ -140,7 +137,7 @@ class CurriculumFeeAssignmentsController extends Controller
             'issuance_type' => 'per_session',
             'parent_assignment_id' => null,
             'dormant' => $session ? !$session->is_active : false,
-            'split_amount' => $amount,
+            'split_amount' => $amount > 0 ? $amount : null,
             'split_ratio' => 100,
             'year_level' => $validated['year_level'],
             'session_number' => $validated['session_number'],
@@ -239,7 +236,7 @@ class CurriculumFeeAssignmentsController extends Controller
                     'issuance_type' => 'per_year',
                     'parent_assignment_id' => $parent->id,
                     'dormant' => !$session->is_active,
-                    'split_amount' => $amount,
+                    'split_amount' => $amount > 0 ? $amount : null,
                     'split_ratio' => $ratio,
                     'year_level' => $validated['year_level'],
                     'session_number' => $index + 1,
