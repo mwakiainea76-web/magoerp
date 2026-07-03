@@ -161,6 +161,8 @@ class FinanceReportsController extends Controller
             ->havingRaw("SUM(CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END) > 0")
             ->orderByDesc('balance');
 
+        $totalOutstanding = (float) DB::query()->fromSub((clone $query)->reorder(), 'report_totals')->sum('balance');
+
         $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
         $students = Student::query()->with('user')->whereIn('id', $paginator->getCollection()->pluck('student_id'))->get()->keyBy('id');
         $rows = $paginator->getCollection()->map(function ($row) use ($students) {
@@ -201,6 +203,8 @@ class FinanceReportsController extends Controller
             ->groupBy('student_id')
             ->havingRaw('SUM(debit - credit) < 0')
             ->orderBy('balance');
+
+        $totalCredit = abs((float) DB::query()->fromSub((clone $query)->reorder(), 'report_totals')->sum('balance'));
 
         $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
         $students = Student::query()->with('user')->whereIn('id', $paginator->getCollection()->pluck('student_id'))->get()->keyBy('id');
@@ -278,6 +282,9 @@ class FinanceReportsController extends Controller
             ->selectRaw("SUM(CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END) AS outstanding")
             ->groupBy('fee_template_id', 'invoice_type')
             ->orderByDesc('invoiced');
+        $collectionTotals = DB::query()->fromSub((clone $query)->reorder(), 'report_totals')
+            ->selectRaw('COALESCE(SUM(invoiced), 0) AS invoiced, COALESCE(SUM(collected), 0) AS collected, COALESCE(SUM(outstanding), 0) AS outstanding')
+            ->first();
         $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
         $templates = FeeTemplate::query()->whereIn('id', $paginator->getCollection()->pluck('fee_template_id')->filter())->pluck('name', 'id');
         $rows = $paginator->getCollection()->map(fn ($row) => [
@@ -297,9 +304,9 @@ class FinanceReportsController extends Controller
             'outstanding' => 'Outstanding',
             'collection_rate' => 'Collection Rate %',
         ], [
-            'invoiced' => (float) $rows->sum('invoiced'),
-            'collected' => (float) $rows->sum('collected'),
-            'outstanding' => (float) $rows->sum('outstanding'),
+            'invoiced' => (float) $collectionTotals->invoiced,
+            'collected' => (float) $collectionTotals->collected,
+            'outstanding' => (float) $collectionTotals->outstanding,
         ]);
     }
 
@@ -313,6 +320,7 @@ class FinanceReportsController extends Controller
             ->when($filters['date_to'], fn (Builder $q, $date) => $q->whereDate('applied_at', '<=', $date))
             ->whereHas('invoice', fn (Builder $invoice) => $this->invoiceScope($invoice, $filters, null))
             ->latest('applied_at');
+        $totalAdjustments = (float) (clone $query)->reorder()->sum('amount');
         $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
         $rows = $paginator->getCollection()->map(fn (StudentFeeAdjustment $adjustment) => [
             'date' => $adjustment->applied_at?->format('Y-m-d'),
@@ -387,6 +395,7 @@ class FinanceReportsController extends Controller
                 fn (Builder $q) => $q->whereHas('invoice', fn (Builder $invoice) => $this->invoiceScope($invoice, $filters, null))
             )
             ->latest('processed_at');
+        $totalRefunded = (float) (clone $query)->reorder()->sum('amount');
         $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
         $rows = $paginator->getCollection()->map(fn (Refund $refund) => [
             'date' => $refund->processed_at?->format('Y-m-d H:i'),
