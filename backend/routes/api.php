@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\FinanceAuditController;
 use App\Http\Controllers\Api\AccessRolePermissionsController;
 use App\Http\Controllers\Api\AccessRolesController;
 use App\Http\Controllers\Api\AcademicSessionEnrolmentsController;
@@ -10,7 +11,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
 use App\Http\Controllers\Api\CourseChangeController;
-use App\Http\Controllers\Api\ComplaintsController;
+use App\Http\Controllers\Api\SupportRequestsController;
 use App\Http\Controllers\Api\CertificationLevelsController;
 use App\Http\Controllers\Api\CourseEnrolmentsController;
 use App\Http\Controllers\Api\CourseCurriculaController;
@@ -88,6 +89,7 @@ Route::middleware([
 
     Route::get('/student/dashboard', StudentDashboardController::class);
 
+    Route::get('/my/units', [UnitsController::class, 'myUnits']);
     Route::apiResource('units', UnitsController::class)
         ->parameters(['units' => 'unit']);
 
@@ -108,6 +110,8 @@ Route::middleware([
     Route::get('/finance/dashboard', FinanceReportsDashboardController::class);
     Route::get('/finance/reports', [FinanceReportsController::class, 'index']);
     Route::get('/finance/reports/export', [FinanceReportsController::class, 'export'])->middleware('throttle:6,1');
+    Route::get('/finance/audit-logs', [FinanceAuditController::class, 'index'])->middleware('permission:finance.view');
+    Route::get('/finance/audit-logs/{financeAuditLog}', [FinanceAuditController::class, 'show'])->middleware('permission:finance.view');
     Route::get('/finance/dashboard/export', [FinanceDataExportsController::class, 'dashboard'])->middleware('throttle:6,1');
     Route::get('/invoices/export', [FinanceDataExportsController::class, 'invoices'])->middleware('throttle:6,1');
     Route::get('/payments/export', [FinanceDataExportsController::class, 'payments'])->middleware('throttle:6,1');
@@ -134,6 +138,7 @@ Route::middleware([
     Route::get('/students/{student}/financial-statement/download', [InvoicesController::class, 'statementDownload']);
     Route::post('/invoices', [InvoicesController::class, 'store']);
     Route::get('/invoices', [InvoicesController::class, 'index']);
+    Route::post('/finance/reconcile', [InvoicesController::class, 'reconcile']);
     Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
     Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
     Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
@@ -192,14 +197,14 @@ Route::middleware([
     Route::get('/calendar/event-types', [CalendarController::class, 'eventTypes'])->name('calendar.event-types');
     Route::get('/academic-years/{academic_year}/calendar', [CalendarController::class, 'yearCalendar'])->name('calendar.year');
 
-    Route::get('/my/complaints', [ComplaintsController::class, 'myComplaints']);
-    Route::post('/complaints', [ComplaintsController::class, 'store']);
-    Route::get('/complaints', [ComplaintsController::class, 'adminIndex']);
-    Route::get('/complaints/{complaint}', [ComplaintsController::class, 'show']);
-    Route::post('/complaints/{complaint}/escalate', [ComplaintsController::class, 'escalate']);
-    Route::post('/complaints/{complaint}/resolve', [ComplaintsController::class, 'resolve']);
-    Route::post('/complaints/{complaint}/review', [ComplaintsController::class, 'review']);
-    Route::get('/complaints/staff-list', [ComplaintsController::class, 'staffList']);
+    Route::get('/my/support-requests', [SupportRequestsController::class, 'myRequests']);
+    Route::post('/support-requests', [SupportRequestsController::class, 'store']);
+    Route::get('/support-requests', [SupportRequestsController::class, 'adminIndex']);
+    Route::get('/support-requests/{support_request}', [SupportRequestsController::class, 'show']);
+    Route::post('/support-requests/{support_request}/escalate', [SupportRequestsController::class, 'escalate']);
+    Route::post('/support-requests/{support_request}/resolve', [SupportRequestsController::class, 'resolve']);
+    Route::post('/support-requests/{support_request}/review', [SupportRequestsController::class, 'review']);
+    Route::get('/support-requests/staff-list', [SupportRequestsController::class, 'staffList']);
 
     Route::get('/my/hostel-allocation', [HostelsController::class, 'myAllocation']);
     Route::get('/my/available-hostels', [HostelsController::class, 'availableHostels']);

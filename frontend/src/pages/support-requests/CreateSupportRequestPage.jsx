@@ -7,16 +7,16 @@ import * as yup from "yup";
 import { bodyTextClassName, labelClassName, textAreaClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
-import { useComplaintsApi } from "@/hooks/useComplaintsApi";
+import { useSupportRequestsApi } from "@/hooks/useSupportRequestsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
-const complaintSchema = yup.object({
+const requestSchema = yup.object({
   subject: yup.string().required("Subject is required").max(200),
   description: yup.string().required("Description is required").max(5000),
 });
 
-export function CreateComplaintPage() {
-  const api = useComplaintsApi();
+export function CreateSupportRequestPage() {
+  const api = useSupportRequestsApi();
   const navigate = useNavigate();
 
   const {
@@ -25,14 +25,14 @@ export function CreateComplaintPage() {
     setError,
     formState: { errors, isSubmitting },
   } = useForm({
-    resolver: yupResolver(complaintSchema),
+    resolver: yupResolver(requestSchema),
   });
 
   async function onSubmit(data) {
     try {
       await api.create(data);
-      toast.success("Complaint submitted.");
-      navigate("/complaints");
+      toast.success("Request submitted.");
+      navigate("/support-requests");
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {
@@ -40,7 +40,7 @@ export function CreateComplaintPage() {
           setError(key, { message: value?.[0] ?? "Invalid value" });
         });
       } else {
-        setError("root", { message: getApiErrorMessage(e, "Failed to submit complaint.") });
+        setError("root", { message: getApiErrorMessage(e, "Failed to submit request.") });
       }
     }
   }
@@ -48,8 +48,8 @@ export function CreateComplaintPage() {
   return (
     <section className="space-y-5">
       <div>
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Submit Complaint</h1>
-        <p className="text-[13px] text-slate-500">Submit a grievance or complaint for review</p>
+        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Submit Request</h1>
+        <p className="text-[13px] text-slate-500">Submit a request or inquiry for review</p>
       </div>
 
       {errors.root ? (
@@ -62,7 +62,7 @@ export function CreateComplaintPage() {
             <FormInput
               id="subject"
               label="Subject"
-              placeholder="Brief title of your complaint"
+              placeholder="Brief title of your request"
               required
               maxLength={200}
               error={errors.subject?.message}
@@ -73,7 +73,7 @@ export function CreateComplaintPage() {
               <textarea
                 id="description"
                 className={textAreaClassName}
-                placeholder="Provide a detailed description of your complaint..."
+                placeholder="Provide a detailed description of your request..."
                 {...register("description")}
               />
               {errors.description ? <p className="mt-1 text-sm text-red-600">{errors.description.message}</p> : null}
@@ -82,9 +82,9 @@ export function CreateComplaintPage() {
         </div>
 
         <div className="flex justify-end gap-3">
-          <FormButton type="button" variant="secondary" onClick={() => navigate("/complaints")}>Cancel</FormButton>
+          <FormButton type="button" variant="secondary" onClick={() => navigate("/support-requests")}>Cancel</FormButton>
           <FormButton type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit Complaint"}
+            {isSubmitting ? "Submitting..." : "Submit Request"}
           </FormButton>
         </div>
       </form>

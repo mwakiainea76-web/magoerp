@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('complaints', function (Blueprint $table) {
+        Schema::create('support_requests', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')
                 ->constrained('students')
@@ -27,14 +27,14 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['status', 'deleted_at', 'created_at'], 'complaints_status_created_idx');
-            $table->index(['student_id', 'deleted_at', 'created_at'], 'complaints_student_created_idx');
-            $table->index(['escalated_to', 'status'], 'complaints_assignee_status_idx');
+            $table->index(['status', 'deleted_at', 'created_at'], 'support_requests_status_created_idx');
+            $table->index(['student_id', 'deleted_at', 'created_at'], 'support_requests_student_created_idx');
+            $table->index(['escalated_to', 'status'], 'support_requests_assignee_status_idx');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('complaints');
+        Schema::dropIfExists('support_requests');
     }
 };

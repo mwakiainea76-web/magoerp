@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Eye } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
-import { useComplaintsApi } from "@/hooks/useComplaintsApi";
+import { useSupportRequestsApi } from "@/hooks/useSupportRequestsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const statusStyles = {
@@ -16,9 +16,9 @@ const statusStyles = {
   resolved: "bg-emerald-50 text-emerald-700",
 };
 
-export function MyComplaintsPage() {
-  const api = useComplaintsApi();
-  const [complaints, setComplaints] = useState([]);
+export function MySupportRequestsPage() {
+  const api = useSupportRequestsApi();
+  const [requests, setRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
@@ -30,10 +30,10 @@ export function MyComplaintsPage() {
       setIsLoading(true);
       setError("");
       try {
-        const res = await api.myComplaints();
-        if (mounted) setComplaints(res.data ?? []);
+        const res = await api.myRequests();
+        if (mounted) setRequests(res.data ?? []);
       } catch (e) {
-        if (mounted) setError(getApiErrorMessage(e, "Failed to load complaints."));
+        if (mounted) setError(getApiErrorMessage(e, "Failed to load requests."));
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -42,21 +42,21 @@ export function MyComplaintsPage() {
     return () => { mounted = false; };
   }, []);
 
-  const total = complaints.length;
+  const total = requests.length;
   const lastPage = Math.ceil(total / perPage);
-  const paginatedComplaints = complaints.slice((page - 1) * perPage, page * perPage);
+  const paginatedRequests = requests.slice((page - 1) * perPage, page * perPage);
 
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">My Complaints</h1>
-          <p className="text-[13px] text-slate-500">Track your submitted complaints and grievances</p>
+          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">My Requests</h1>
+          <p className="text-[13px] text-slate-500">Track your submitted requests and inquiries</p>
         </div>
-        <Link to="/complaints/create">
+        <Link to="/support-requests/create">
           <FormButton>
             <Plus className="mr-2 h-4 w-4" />
-            New Complaint
+            New Request
           </FormButton>
         </Link>
       </div>
@@ -67,14 +67,14 @@ export function MyComplaintsPage() {
 
       <Table>
         <TableHeader>
-          <h2 className="text-[1.0625rem] font-semibold text-slate-900">Submitted Complaints</h2>
+          <h2 className="text-[1.0625rem] font-semibold text-slate-900">Submitted Requests</h2>
         </TableHeader>
 
         {isLoading ? (
-          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>Loading complaints...</div>
-        ) : complaints.length === 0 ? (
+          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>Loading requests...</div>
+        ) : requests.length === 0 ? (
           <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>
-            No complaints submitted yet.
+            No requests submitted yet.
           </div>
         ) : (
           <TableWrapper>
@@ -88,22 +88,22 @@ export function MyComplaintsPage() {
               </tr>
             </Thead>
             <Tbody>
-              {paginatedComplaints.map((c, index) => (
-                <tr key={c.id}>
+              {paginatedRequests.map((r, index) => (
+                <tr key={r.id}>
                   <Td className="w-10 text-center text-slate-400">{(page - 1) * perPage + index + 1}</Td>
-                  <Td className="font-medium text-slate-800">{c.subject}</Td>
+                  <Td className="font-medium text-slate-800">{r.subject}</Td>
                   <Td>
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${
-                        statusStyles[c.status] ?? "bg-slate-50 text-slate-600"
+                        statusStyles[r.status] ?? "bg-slate-50 text-slate-600"
                       }`}
                     >
-                      {c.status.replace("_", " ")}
+                      {r.status.replace("_", " ")}
                     </span>
                   </Td>
-                  <Td>{c.escalated_to_name ?? "—"}</Td>
+                  <Td>{r.escalated_to_name ?? "—"}</Td>
                   <Td className="text-slate-500">
-                    {c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}
                   </Td>
                 </tr>
               ))}

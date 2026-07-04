@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('name');
             $table->uuid('head_of_department')->nullable();
             $table->text('description')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->index('name');

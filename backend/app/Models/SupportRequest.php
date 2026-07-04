@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Complaint extends Model
+class SupportRequest extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
+
+    protected $table = 'support_requests';
 
     protected $fillable = [
         'student_id',
@@ -39,6 +41,6 @@ class Complaint extends Model
 
     public function escalatedTo(): BelongsTo
     {
-        return $this->belongsTo(staffs::class, 'escalated_to');
+        return $this->belongsTo(Staffs::class, 'escalated_to');
     }
 }

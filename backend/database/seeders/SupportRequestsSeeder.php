@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Models\Complaint;
+use App\Models\SupportRequest;
 use App\Models\Student;
-use App\Models\staffs;
+use App\Models\Staffs;
 use Illuminate\Database\Seeder;
 
-class ComplaintsSeeder extends Seeder
+class SupportRequestsSeeder extends Seeder
 {
     public function run(): void
     {
@@ -16,9 +16,9 @@ class ComplaintsSeeder extends Seeder
             return;
         }
 
-        $staff = staffs::first();
+        $staff = Staffs::first();
 
-        Complaint::updateOrCreate(
+        SupportRequest::updateOrCreate(
             ['student_id' => $student->id, 'subject' => 'Missing examination results'],
             [
                 'description' => 'My CAT 1 results for ICT101 are not yet posted. It has been two weeks since the assessment.',
@@ -26,7 +26,7 @@ class ComplaintsSeeder extends Seeder
             ]
         );
 
-        Complaint::updateOrCreate(
+        SupportRequest::updateOrCreate(
             ['student_id' => $student->id, 'subject' => 'Library fine discrepancy'],
             [
                 'description' => 'I was charged a library fine of KES 500 but I returned all books on time.',
@@ -36,7 +36,7 @@ class ComplaintsSeeder extends Seeder
             ]
         );
 
-        Complaint::updateOrCreate(
+        SupportRequest::updateOrCreate(
             ['student_id' => $student->id, 'subject' => 'Hostel bed issue'],
             [
                 'description' => 'The bed in Room 1 is broken and needs repair.',

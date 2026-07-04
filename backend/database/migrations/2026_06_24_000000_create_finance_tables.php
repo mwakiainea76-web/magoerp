@@ -17,8 +17,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->boolean('is_issued')->default(false);
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['is_active', 'created_at'], 'fee_templates_active_created_idx');
@@ -31,8 +31,8 @@ return new class extends Migration
             $table->decimal('amount', 12, 2);
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['fee_template_id', 'is_active']);
@@ -54,8 +54,8 @@ return new class extends Migration
             $table->boolean('is_approved')->default(false);
             $table->foreignUuid('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['course_curriculum_id', 'academic_session_id', 'year_level', 'session_number'], 'curriculum_fee_assignment_unique');
@@ -91,8 +91,8 @@ return new class extends Migration
                 ->comment('Sum of invoice_line_items.total_amount; must match amount_due');
             $table->string('idempotency_key')->nullable()->unique();
             $table->text('notes')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -131,7 +131,7 @@ return new class extends Migration
             $table->string('reference', 100)->nullable();
             $table->string('status', 50)->default('completed');
             $table->string('idempotency_key')->nullable()->unique();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
 
@@ -168,7 +168,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->date('applied_at')->nullable();
             $table->boolean('ledger_posted')->default(false);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -190,7 +190,7 @@ return new class extends Migration
             $table->string('reference', 100)->nullable();
             $table->text('description')->nullable();
             $table->date('transaction_date');
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
             $table->timestamps();
 
             $table->index(['student_id', 'transaction_date']);

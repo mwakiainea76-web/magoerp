@@ -15,8 +15,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->foreignUuid('certification_authority_id')->nullable()->constrained('certification_authorities')->nullOnDelete();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['certification_authority_id', 'is_active', 'name'], 'curricula_authority_active_name_idx');

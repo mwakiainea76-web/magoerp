@@ -41,18 +41,38 @@ export function useInvoicesApi() {
         return response.data;
       },
       downloadStudentStatement: async (studentId, params = {}) => {
-        const response = await authClient.get(`/students/${studentId}/financial-statement/download`, {
-          params,
-          responseType: 'blob',
-        });
-        return response.data;
+        try {
+          return await authClient.get(`/students/${studentId}/financial-statement/download`, {
+            params,
+            responseType: 'blob',
+            timeout: 0,
+          });
+        } catch (error) {
+          if (error.response?.data instanceof Blob) {
+            const ct = error.response.data.type ?? '';
+            if (ct.includes('application/json')) {
+              error.response.data = JSON.parse(await error.response.data.text());
+            }
+          }
+          throw error;
+        }
       },
       downloadMyStatement: async (params = {}) => {
-        const response = await authClient.get('/my/financial-statement/download', {
-          params,
-          responseType: 'blob',
-        });
-        return response.data;
+        try {
+          return await authClient.get('/my/financial-statement/download', {
+            params,
+            responseType: 'blob',
+            timeout: 0,
+          });
+        } catch (error) {
+          if (error.response?.data instanceof Blob) {
+            const ct = error.response.data.type ?? '';
+            if (ct.includes('application/json')) {
+              error.response.data = JSON.parse(await error.response.data.text());
+            }
+          }
+          throw error;
+        }
       },
     }),
     [],

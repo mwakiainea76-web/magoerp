@@ -159,10 +159,10 @@ export const sidebarNavigationByRole = {
       ],
     },
     {
-      label: "Complaints",
+      label: "Support",
       icon: ArrowRightLeft,
       children: [
-        { label: "View Complaints", to: "/complaints" },
+        { label: "Support Requests", to: "/support-requests" },
       ],
     },
     {
@@ -215,7 +215,10 @@ export const sidebarNavigationByRole = {
     {
       label: "Courses & Units",
       icon: BookOpen,
-      children: [{ label: "My Courses", to: "/my-courses" }],
+      children: [
+        { label: "My Courses", to: "/my-courses" },
+        { label: "My Units", to: "/my-units" },
+      ],
     },
     {
       label: "Timetables",
@@ -238,11 +241,11 @@ export const sidebarNavigationByRole = {
       children: [{ label: "Fee Statements", to: "/finance/statements" }],
     },
     {
-      label: "Complaints",
+      label: "Support",
       icon: ArrowRightLeft,
       children: [
-        { label: "My Complaints", to: "/complaints" },
-        { label: "Submit Complaint", to: "/complaints/create" },
+        { label: "My Requests", to: "/support-requests" },
+        { label: "Submit Request", to: "/support-requests/create" },
       ],
     },
     {

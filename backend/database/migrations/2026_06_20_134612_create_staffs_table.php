@@ -43,8 +43,8 @@ $table->date('termination_date')->nullable();
 $table->text('termination_reason')->nullable();
 
 // Audit
-$table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-$table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+$table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
 $table->timestamps();
 $table->softDeletes();
 

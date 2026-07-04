@@ -126,6 +126,81 @@ class UnitsController extends Controller
         ]);
     }
 
+    public function myUnits(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $student = $user->student;
+
+        if (!$student) {
+            return response()->json(['data' => null], 404);
+        }
+
+        $enrolment = $student->activeEnrolment()->with('courseCurriculum.course')->first();
+
+        if (!$enrolment) {
+            return response()->json(['data' => null], 404);
+        }
+
+        $courseCurriculumId = $enrolment->course_curriculum_id;
+
+        $units = Unit::where('course_curriculum_id', $courseCurriculumId)
+            ->where('is_active', true)
+            ->orderBy('year_of_study')
+            ->orderBy('session_number')
+            ->orderBy('modules_taught')
+            ->get(['id', 'code', 'name', 'description', 'modules_taught', 'year_of_study', 'session_number', 'taught_hours', 'credit_factor']);
+
+        $grouped = [];
+        foreach ($units as $unit) {
+            $year = $unit->year_of_study ?? 0;
+            $session = $unit->session_number ?? 0;
+            $module = $unit->modules_taught ?? 0;
+
+            $grouped[$year][$session][$module][] = [
+                'id' => $unit->id,
+                'code' => $unit->code,
+                'name' => $unit->name,
+                'description' => $unit->description,
+                'taught_hours' => $unit->taught_hours,
+                'credit_factor' => $unit->credit_factor,
+            ];
+        }
+
+        $years = [];
+        ksort($grouped);
+        foreach ($grouped as $year => $sessions) {
+            ksort($sessions);
+            $sessionList = [];
+            foreach ($sessions as $session => $modules) {
+                ksort($modules);
+                $moduleList = [];
+                foreach ($modules as $module => $unitList) {
+                    $moduleList[] = [
+                        'module' => $module,
+                        'units' => $unitList,
+                    ];
+                }
+                $sessionList[] = [
+                    'session' => $session,
+                    'modules' => $moduleList,
+                ];
+            }
+            $years[] = [
+                'year_of_study' => $year,
+                'sessions' => $sessionList,
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'course_name' => $enrolment->courseCurriculum?->course?->name,
+                'course_code' => $enrolment->courseCurriculum?->course?->code,
+                'course_initials' => $enrolment->courseCurriculum?->course?->initials,
+                'years' => $years,
+            ],
+        ]);
+    }
+
     private function resolveModuleProgress(array $data): array
     {
         if (!empty($data['modules_taught'])) {

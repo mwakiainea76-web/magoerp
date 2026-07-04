@@ -2,14 +2,14 @@
 
 namespace Database\Factories;
 
-use App\Models\Complaint;
+use App\Models\SupportRequest;
 use App\Models\Staffs;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class ComplaintFactory extends Factory
+class SupportRequestFactory extends Factory
 {
-    protected $model = Complaint::class;
+    protected $model = SupportRequest::class;
 
     public function definition(): array
     {
@@ -29,7 +29,7 @@ class ComplaintFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'status' => 'escalated',
-            'escalated_to' => staffs::factory(),
+            'escalated_to' => Staffs::factory(),
             'escalated_at' => now(),
         ]);
     }

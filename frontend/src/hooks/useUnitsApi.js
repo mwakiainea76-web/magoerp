@@ -25,6 +25,10 @@ export function useUnitsApi() {
         const response = await authClient.delete(`/units/${id}`);
         return response.data;
       },
+      myUnits: async () => {
+        const response = await authClient.get("/my/units");
+        return response.data;
+      },
     }),
     [],
   );

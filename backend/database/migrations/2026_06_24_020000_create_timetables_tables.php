@@ -45,14 +45,8 @@ return new class extends Migration
             $table->string('recurrence')->default('weekly'); // weekly, once
             $table->date('date')->nullable(); // specific date for one-off sessions
             $table->text('notes')->nullable();
-            $table->foreignUuid('created_by')
-                ->nullable()
-                ->constrained('users')
-                ->nullOnDelete();
-            $table->foreignUuid('updated_by')
-                ->nullable()
-                ->constrained('users')
-                ->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
 

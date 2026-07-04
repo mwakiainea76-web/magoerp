@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
+  AlertTriangle,
   BookMarked,
+  Bell,
+  Clock,
   CreditCard,
   GraduationCap,
   LogIn,
@@ -259,6 +262,56 @@ export function StudentDashboard() {
         })}
       </div>
 
+
+      {finance ? (() => {
+        const alerts = [];
+        if (finance.overdue_count > 0) {
+          alerts.push({
+            icon: AlertTriangle,
+            color: "rose",
+            title: `${finance.overdue_count} overdue invoice${finance.overdue_count > 1 ? "s" : ""}`,
+            desc: `${currency(finance.overdue_total)} past due — pay soon to avoid penalties.`,
+          });
+        }
+        if (finance.next_due_date && finance.outstanding_balance > 0) {
+          const dueIn = Math.ceil((new Date(finance.next_due_date) - new Date()) / (1000 * 60 * 60 * 24));
+          if (dueIn > 0 && dueIn <= 14) {
+            alerts.push({
+              icon: Clock,
+              color: "amber",
+              title: `${currency(finance.outstanding_balance)} due in ${dueIn} day${dueIn > 1 ? "s" : ""}`,
+              desc: `Next payment due ${finance.next_due_date}.`,
+            });
+          }
+        }
+        if (finance.dormant_fees_count > 0) {
+          alerts.push({
+            icon: Bell,
+            color: "blue",
+            title: `${finance.dormant_fees_count} future session fee${finance.dormant_fees_count > 1 ? "s" : ""} pending`,
+            desc: "Fees for upcoming sessions will activate when those sessions start.",
+          });
+        }
+        return alerts.length > 0 ? (
+          <div className="mt-8 space-y-3">
+            {alerts.map((a, i) => {
+              const Icon = a.icon;
+              const borderMap = { rose: "border-rose-200 bg-rose-50", amber: "border-amber-200 bg-amber-50", blue: "border-blue-200 bg-blue-50" };
+              const textMap = { rose: "text-rose-800", amber: "text-amber-800", blue: "text-blue-800" };
+              const iconMap = { rose: "text-rose-500", amber: "text-amber-500", blue: "text-blue-500" };
+              return (
+                <div key={i} className={`flex items-start gap-4 rounded-2xl border ${borderMap[a.color]} px-5 py-4`}>
+                  <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${iconMap[a.color]}`} />
+                  <div>
+                    <p className={`text-sm font-semibold ${textMap[a.color]}`}>{a.title}</p>
+                    <p className={`mt-0.5 text-sm ${textMap[a.color]} opacity-80`}>{a.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null;
+      })() : null}
 
       <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="rounded-[1.75rem] border border-zinc-100 bg-white p-7 shadow-sm">

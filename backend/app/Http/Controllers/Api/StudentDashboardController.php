@@ -147,6 +147,29 @@ class StudentDashboardController extends Controller
             ->sortBy('due_date')
             ->first();
 
+        $overdueCount = $invoices
+            ->where('balance_due', '>', 0)
+            ->where('due_date', '<', now()->toDateString())
+            ->count();
+        $overdueTotal = (float) $invoices
+            ->where('balance_due', '>', 0)
+            ->where('due_date', '<', now()->toDateString())
+            ->sum('balance_due');
+
+        $dormantFeesCount = $courseCurriculumId && $currentSession?->academic_year_id
+            ? CurriculumFeeAssignment::query()
+                ->where(function ($query) use ($courseCurriculumId, $course) {
+                    $query->where('course_curriculum_id', $courseCurriculumId);
+                    if ($course?->department_id) {
+                        $query->orWhere(fn ($q) => $q->where('department_id', $course->department_id)->whereNull('course_curriculum_id'));
+                    }
+                })
+                ->where('is_approved', true)
+                ->where('dormant', true)
+                ->whereHas('academicSession', fn ($q) => $q->where('academic_year_id', $currentSession->academic_year_id))
+                ->count()
+            : 0;
+
         $availableUnits = collect();
         $registeredUnitIds = collect();
 
@@ -197,6 +220,9 @@ class StudentDashboardController extends Controller
                     'total_adjustments' => $totalAdjustments,
                     'unallocated_credit' => $unallocatedCredit,
                     'next_due_date' => $nextDueInvoice?->due_date?->format('Y-m-d'),
+                    'overdue_count' => $overdueCount,
+                    'overdue_total' => $overdueTotal,
+                    'dormant_fees_count' => $dormantFeesCount,
                 ],
                 'course' => $course ? [
                     'id' => $course->id,

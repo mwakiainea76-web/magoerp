@@ -17,7 +17,7 @@ return new class extends Migration
             $table->time('start_time');
             $table->string('status');
             $table->text('remarks')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
             $table->timestamps();
 
             $table->unique(['unit_enrolment_id', 'session_date', 'start_time'], 'class_attendance_unique');

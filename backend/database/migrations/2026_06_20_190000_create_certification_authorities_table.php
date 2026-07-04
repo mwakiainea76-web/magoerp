@@ -14,8 +14,8 @@ return new class extends Migration
             $table->string('name', 191)->unique();
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['is_active', 'name'], 'cert_authorities_active_name_idx');

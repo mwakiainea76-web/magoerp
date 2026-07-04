@@ -26,8 +26,8 @@ return new class extends Migration
             $table->date('end_date');
             $table->string('source', 50)->default('manual');
             $table->boolean('is_locked')->default(false);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->index(['academic_session_id', 'start_date']);

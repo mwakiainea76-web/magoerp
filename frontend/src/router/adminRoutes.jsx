@@ -38,8 +38,8 @@ import { FeeTemplateAssignmentsPage } from "@/pages/feeTemplates/FeeTemplateAssi
 import { FeeTemplateFormPage } from "@/pages/feeTemplates/FeeTemplateFormPage";
 import { FeeTemplateItemsPage } from "@/pages/feeTemplates/FeeTemplateItemsPage";
 import { FeeTemplatesPage } from "@/pages/feeTemplates/FeeTemplatesPage";
-import { AdminComplaintDetailPage } from "@/pages/complaints/AdminComplaintDetailPage";
-import { AdminComplaintsPage } from "@/pages/complaints/AdminComplaintsPage";
+import { AdminSupportRequestDetailPage } from "@/pages/support-requests/AdminSupportRequestDetailPage";
+import { AdminSupportRequestsPage } from "@/pages/support-requests/AdminSupportRequestsPage";
 import { HostelAllocationsPage } from "@/pages/hostels/HostelAllocationsPage";
 import { HostelFormPage } from "@/pages/hostels/HostelFormPage";
 import { HostelsPage } from "@/pages/hostels/HostelsPage";
@@ -133,8 +133,8 @@ export function AdminRoutes() {
       <Route path="/academic-calendar/calendar" element={<CalendarPage />} />
       <Route path="/attendance" element={<AttendanceIndexPage />} />
       <Route path="/attendance/mark" element={<AttendanceMarkPage />} />
-      <Route path="/complaints" element={<AdminComplaintsPage />} />
-      <Route path="/complaints/:complaintId" element={<AdminComplaintDetailPage />} />
+      <Route path="/support-requests" element={<AdminSupportRequestsPage />} />
+      <Route path="/support-requests/:supportRequestId" element={<AdminSupportRequestDetailPage />} />
       <Route path="/hostels" element={<HostelsPage />} />
       <Route path="/hostels/create" element={<HostelFormPage />} />
       <Route path="/hostels/:hostelId/edit" element={<HostelFormPage />} />

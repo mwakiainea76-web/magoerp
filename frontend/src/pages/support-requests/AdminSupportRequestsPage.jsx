@@ -5,7 +5,7 @@ import { Eye } from "lucide-react";
 import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
-import { useComplaintsApi } from "@/hooks/useComplaintsApi";
+import { useSupportRequestsApi } from "@/hooks/useSupportRequestsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const statusStyles = {
@@ -15,10 +15,10 @@ const statusStyles = {
   resolved: "bg-emerald-50 text-emerald-700",
 };
 
-export function AdminComplaintsPage() {
-  const api = useComplaintsApi();
+export function AdminSupportRequestsPage() {
+  const api = useSupportRequestsApi();
 
-  const [complaints, setComplaints] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [meta, setMeta] = useState(initialMeta);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,11 +38,11 @@ export function AdminComplaintsPage() {
         const res = await api.adminIndex(params);
 
         if (mounted) {
-          setComplaints(res.data ?? []);
+          setRequests(res.data ?? []);
           setMeta(res.meta ?? initialMeta);
         }
       } catch (e) {
-        if (mounted) setError(getApiErrorMessage(e, "Failed to load complaints."));
+        if (mounted) setError(getApiErrorMessage(e, "Failed to load requests."));
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -54,8 +54,8 @@ export function AdminComplaintsPage() {
   return (
     <section className="space-y-5">
       <div>
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Complaints</h1>
-        <p className="text-[13px] text-slate-500">Manage student complaints and grievances</p>
+        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Support Requests</h1>
+        <p className="text-[13px] text-slate-500">Manage student requests and inquiries</p>
       </div>
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
@@ -83,13 +83,13 @@ export function AdminComplaintsPage() {
 
       <Table>
         <TableHeader>
-          <h2 className="text-[1.0625rem] font-semibold text-slate-900">All Complaints</h2>
+          <h2 className="text-[1.0625rem] font-semibold text-slate-900">All Requests</h2>
         </TableHeader>
 
         {isLoading ? (
-          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>Loading complaints...</div>
-        ) : complaints.length === 0 ? (
-          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>No complaints found.</div>
+          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>Loading requests...</div>
+        ) : requests.length === 0 ? (
+          <div className={`px-5 py-10 text-slate-500 ${bodyTextClassName}`}>No requests found.</div>
         ) : (
           <TableWrapper>
             <Thead>
@@ -104,32 +104,32 @@ export function AdminComplaintsPage() {
               </tr>
             </Thead>
             <Tbody>
-              {complaints.map((c, index) => (
-                <tr key={c.id}>
+              {requests.map((r, index) => (
+                <tr key={r.id}>
                   <Td className="w-10 text-center text-slate-400">
                     {(meta.current_page - 1) * meta.per_page + index + 1}
                   </Td>
                   <Td>
-                    <div className="font-medium text-slate-800">{c.student_name}</div>
-                    <div className="text-[12px] text-slate-400">{c.admission_number}</div>
+                    <div className="font-medium text-slate-800">{r.student_name}</div>
+                    <div className="text-[12px] text-slate-400">{r.admission_number}</div>
                   </Td>
-                  <Td className="font-medium text-slate-800">{c.subject}</Td>
+                  <Td className="font-medium text-slate-800">{r.subject}</Td>
                   <Td>
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${
-                        statusStyles[c.status] ?? "bg-slate-50 text-slate-600"
+                        statusStyles[r.status] ?? "bg-slate-50 text-slate-600"
                       }`}
                     >
-                      {c.status.replace("_", " ")}
+                      {r.status.replace("_", " ")}
                     </span>
                   </Td>
-                  <Td>{c.escalated_to_name ?? "—"}</Td>
+                  <Td>{r.escalated_to_name ?? "—"}</Td>
                   <Td className="text-slate-500">
-                    {c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}
                   </Td>
                   <Td className="text-right">
                     <Link
-                      to={`/complaints/${c.id}`}
+                      to={`/support-requests/${r.id}`}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                     >
                       <Eye className="h-3.5 w-3.5" />

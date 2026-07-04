@@ -94,7 +94,7 @@ class DatabaseSeeder extends Seeder
             StudentAccountSeeder::class,
             HostelAllocationSeeder::class,
             MarksSeeder::class,
-            ComplaintsSeeder::class,
+            SupportRequestsSeeder::class,
             CurriculumTransferSeeder::class,
         ]);
     }

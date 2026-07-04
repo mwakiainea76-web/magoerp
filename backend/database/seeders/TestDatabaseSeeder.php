@@ -62,7 +62,7 @@ class TestDatabaseSeeder extends Seeder
         $this->call(TimetableFeatureSeeder::class);
         $this->call(HostelAllocationSeeder::class);
         $this->call(MarksSeeder::class);
-        $this->call(ComplaintsSeeder::class);
+        $this->call(SupportRequestsSeeder::class);
         $this->call(CurriculumTransferSeeder::class);
     }
 }

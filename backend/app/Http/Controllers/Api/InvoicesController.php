@@ -16,13 +16,14 @@ use App\Models\InvoicePaymentAllocation;
 use App\Models\Student;
 use App\Models\StudentAccountBalance;
 use App\Models\StudentLedgerEntry;
+use App\Exports\FeeStatementPdf;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InvoicesController extends Controller
 {
@@ -278,7 +279,7 @@ class InvoicesController extends Controller
         return response()->json(['data' => $data], 200);
     }
 
-    public function statementDownload(Request $request, Student $student)
+    public function statementDownload(Request $request, Student $student): StreamedResponse
     {
         $request->validate($this->statementRules());
         $user = $request->user();
@@ -294,9 +295,15 @@ class InvoicesController extends Controller
         $data['generated_at'] = now()->format('d/m/Y H:i');
 
         $safeAdmissionNumber = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $student->admission_number);
+        $filename = 'fee-statement-' . trim($safeAdmissionNumber, '-') . '.pdf';
 
-        return Pdf::loadView('pdf.statement', $data)
-            ->download('fee-statement-' . trim($safeAdmissionNumber, '-') . '.pdf');
+        return response()->streamDownload(function () use ($data) {
+            $pdf = new FeeStatementPdf($data);
+            $pdf->output();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
     }
 
     public function myStatementDownload(Request $request)
@@ -309,6 +316,48 @@ class InvoicesController extends Controller
 
         return $this->statementDownload($request, $student);
     }
+
+    public function reconcile(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
+        $validated = $request->validate([
+            'student_id' => ['nullable', 'uuid', 'exists:students,id'],
+            'academic_session_id' => ['nullable', 'uuid', 'exists:academic_sessions,id'],
+        ]);
+
+        $studentId = $validated['student_id'] ?? null;
+        $sessionId = $validated['academic_session_id'] ?? null;
+
+        $students = $studentId
+            ? Student::query()->whereKey($studentId)->get()
+            : Student::query()->get();
+
+        $session = $sessionId ? AcademicSession::query()->find($sessionId) : null;
+
+        $reconciledSessions = 0;
+        foreach ($students as $student) {
+            $targetSessions = $session
+                ? collect([$session])
+                : AcademicSession::query()->get();
+
+            foreach ($targetSessions as $targetSession) {
+                $this->billingService->reconcileStudentFinance($student, $targetSession);
+                $reconciledSessions++;
+            }
+        }
+
+        return response()->json([
+            'status_code' => 200,
+            'message' => 'Finance reconciliation completed.',
+            'data' => [
+                'student_id' => $studentId,
+                'academic_session_id' => $sessionId,
+                'reconciled_sessions' => $reconciledSessions,
+            ],
+        ], 200);
+    }
+
     private function statementRules(): array
     {
         return [
@@ -353,14 +402,6 @@ class InvoicesController extends Controller
                 ->whereHas('year', fn ($query) => $query->where('is_active', true))
             ->latest('start_date')
             ->first(['id', 'name', 'code', 'academic_year_id']);
-
-        $sessionRanges = AcademicSession::query()
-            ->orderBy('start_date')
-            ->get(['id', 'name', 'code', 'academic_year_id', 'start_date', 'end_date']);
-        $sessionForDate = static function ($date) use ($sessionRanges) {
-            if (! $date) return null;
-            return $sessionRanges->first(fn (AcademicSession $session) => $session->start_date?->lte($date) && $session->end_date?->gte($date));
-        };
 
         // Build ledger transactions strictly within the requested scope.
         $runningBalance = 0.0;
@@ -410,94 +451,10 @@ class InvoicesController extends Controller
                 ];
             });
 
-        // Invoices filtered by scope
-        $invoices = Invoice::query()
-            ->where('student_id', $student->id)
-            ->where('status', '!=', 'cancelled')
-            ->with([
-                'academicSession',
-                'items',
-                'adjustments' => fn ($q) => $q->whereNull('deleted_at'),
-                'paymentAllocations.payment',
-            ])
-            ->orderBy('issue_date')
-            ->get()
-            ->filter(fn (Invoice $inv) => empty($sessionIds) || in_array($inv->academic_session_id, $sessionIds))
-            ->map(fn ($inv) => $this->transformFull($inv))
-            ->values();
-
-        // Payments filtered by scope (payments linked to scoped invoices)
-        $paymentModels = Payment::query()
-            ->where('student_id', $student->id)
-            ->where('status', 'completed')
-            ->with('allocations')
-            ->orderByDesc('payment_date')
-            ->get();
-
-        if (!empty($sessionIds)) {
-            $scopeSessionIds = $sessionIds;
-            $scopedInvoiceIds = $invoices->pluck('id')->toArray();
-            $paymentModels = $paymentModels->filter(function (Payment $payment) use ($scopedInvoiceIds, $scopeSessionIds, $sessionForDate) {
-                if ($payment->allocations->isNotEmpty()) {
-                    return $payment->allocations->pluck('invoice_id')->intersect($scopedInvoiceIds)->isNotEmpty();
-                }
-
-                $paymentSession = $sessionForDate($payment->payment_date);
-                return $paymentSession && in_array($paymentSession->id, $scopeSessionIds, true);
-            });
-        }
-
-        $payments = $paymentModels->map(fn ($p) => [
-                'id' => $p->id,
-                'amount' => (float) $p->amount,
-                'method' => $p->method,
-                'reference' => $p->reference,
-                'payment_date' => $p->payment_date?->format('Y-m-d'),
-                'allocated_total' => (float) $p->allocations->sum('amount'),
-                'unallocated' => (float) $p->amount - (float) $p->allocations->sum('amount'),
-            ]);
-
-        // Add only the unposted part of legacy payments in the requested scope.
-        $missingPaymentTransactions = $paymentModels->map(function (Payment $payment) use ($transactions, $sessionForDate) {
-            $postedCredit = (float) $transactions
-                ->where('payment_id', $payment->id)
-                ->sum('credit');
-            $unpostedCredit = max(0, (float) $payment->amount - $postedCredit);
-
-            if ($unpostedCredit <= 0) {
-                return null;
-            }
-
-            $paymentSession = $sessionForDate($payment->payment_date);
-
-            return [
-                'id' => 'payment:' . $payment->id,
-                'payment_id' => $payment->id,
-                'type' => 'payment',
-                'date' => $payment->payment_date?->format('d/m/Y'),
-                'reference' => $payment->reference,
-                'description' => $payment->notes ?: 'Payment received via ' . ($payment->method ?: 'unspecified method') . '.',
-                'debit' => 0.0,
-                'credit' => $unpostedCredit,
-                'academic_session_id' => $paymentSession?->id,
-                'session_name' => $paymentSession?->name,
-                'academic_year' => null,
-                'session_label' => $paymentSession?->name ?? 'UNALLOCATED PAYMENTS',
-                'sort_date' => $payment->payment_date?->format('Y-m-d'),
-                'sort_order' => $payment->created_at?->format('Y-m-d H:i:s.u'),
-            ];
-        })->filter();
-
-        // Merge, re-sort, re-number
-        $transactions = $transactions->concat($missingPaymentTransactions);
+        // Recompute running balance from ledger
         $runningBalance = 0.0;
         $sessionCounters = [];
         $transactions = $transactions
-            ->sort(function (array $left, array $right) {
-                return [$left['sort_date'], $left['sort_order']]
-                    <=> [$right['sort_date'], $right['sort_order']];
-            })
-            ->values()
             ->map(function (array $transaction) use (&$runningBalance, &$sessionCounters) {
                 $sessionKey = $transaction['academic_session_id'] ?: 'other';
                 $sessionCounters[$sessionKey] = ($sessionCounters[$sessionKey] ?? 0) + 1;
@@ -546,42 +503,6 @@ class InvoicesController extends Controller
                 ->values();
         }
 
-        $dormantTotal = (float) $dormantFees->sum('amount');
-        $totalInvoiced = (float) $invoices->sum('amount_due') + $dormantTotal;
-        $totalPaid = (float) $transactions
-            ->where('type', 'payment')
-            ->sum('credit');
-        $totalAdjustments = (float) $transactions
-            ->where('type', 'adjustment')
-            ->sum(fn (array $transaction) => (float) $transaction['credit'] - (float) $transaction['debit']);
-        // Keep the balance signed: positive means owed, negative means available credit.
-        $outstanding = $runningBalance + $dormantTotal;
-
-        $scopeSessions = AcademicSession::query()
-            ->whereIn('id', $sessionIds)
-            ->orderBy('start_date')
-            ->orderBy('code')
-            ->get(['id', 'name', 'code', 'is_active']);
-        $sessionBreakdown = $scopeSessions->map(function (AcademicSession $session) use ($invoices, $dormantFees, $transactions) {
-            $sessionInvoices = $invoices->where('academic_session_id', $session->id);
-            $dormant = $dormantFees->where('session_id', $session->id);
-            $sessionTransactions = $transactions->where('academic_session_id', $session->id);
-            $sessionPaid = (float) $sessionTransactions->where('type', 'payment')->sum('credit');
-            $sessionBalance = (float) $sessionTransactions->sum(
-                fn (array $transaction) => (float) $transaction['debit'] - (float) $transaction['credit']
-            );
-
-            return [
-                'session_id' => $session->id,
-                'session_name' => $session->name,
-                'session_code' => $session->code,
-                'status' => $session->is_active ? 'active' : ($dormant->isNotEmpty() ? 'dormant' : 'inactive'),
-                'fees' => (float) $sessionInvoices->sum('amount_due') + (float) $dormant->sum('amount'),
-                'paid' => $sessionPaid,
-                'outstanding' => $sessionBalance + (float) $dormant->sum('amount'),
-            ];
-        })->values();
-
         return [
             'institution_name' => config('institution.name'),
             'institution' => config('institution'),
@@ -593,7 +514,6 @@ class InvoicesController extends Controller
                 'active_session_name' => $activeSession?->name,
             ],
             'dormant_fees' => $dormantFees,
-            'session_breakdown' => $sessionBreakdown,
             'student' => [
                 'name' => $this->studentName($student),
                 'admission_number' => $student->admission_number,
@@ -611,19 +531,8 @@ class InvoicesController extends Controller
                 'school' => $course->authority?->name,
                 'level' => $course->level?->name,
             ] : null,
-            'invoices' => $invoices,
-            'payments' => $payments,
             'transactions' => $transactions,
-            'summary' => [
-                'total_invoiced' => $totalInvoiced,
-                'dormant_total' => $dormantTotal,
-                'total_paid' => $totalPaid,
-                'total_adjustments' => $totalAdjustments,
-                'outstanding_balance' => $outstanding,
-                'total_debit' => (float) $transactions->sum('debit'),
-                'total_credit' => (float) $transactions->sum('credit'),
-                'ledger_balance' => $runningBalance,
-            ],
+
         ];
     }
 

@@ -58,8 +58,8 @@ return new class extends Migration
             $table->date('allocated_on');
             $table->enum('status', ['active', 'vacated'])->default('active');
             $table->text('notes')->nullable();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['academic_session_enrolment_id', 'hostel_bed_id'], 'ha_ase_id_hb_id_unique');

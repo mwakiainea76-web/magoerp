@@ -133,6 +133,99 @@ class FinanceIntegrityTest extends TestCase
         $this->assertSame(300.0, (float) InvoicePaymentAllocation::where('invoice_id', $invoice->id)->sum('amount'));
         $this->assertSame('paid', $invoice->fresh()->status);
     }
+
+    public function test_reconcile_student_finance_recomputes_invoice_totals_from_line_items(): void
+    {
+        $session = AcademicSession::factory()->active()->create();
+        $student = Student::factory()->create();
+        $invoice = Invoice::factory()->create([
+            'student_id' => $student->id,
+            'academic_session_id' => $session->id,
+            'amount_due' => 999,
+            'computed_amount' => 999,
+        ]);
+
+        InvoiceLineItem::factory()->create([
+            'invoice_id' => $invoice->id,
+            'name' => 'Tuition',
+            'amount' => 500,
+            'quantity' => 1,
+            'total_amount' => 500,
+        ]);
+        InvoiceLineItem::factory()->create([
+            'invoice_id' => $invoice->id,
+            'name' => 'Library',
+            'amount' => 300,
+            'quantity' => 1,
+            'total_amount' => 300,
+        ]);
+
+        $invoice->forceFill([
+            'amount_due' => 999,
+            'computed_amount' => 999,
+            'status' => 'issued',
+        ])->save();
+
+        app(BillingService::class)->reconcileStudentFinance($student, $session);
+
+        $invoice->refresh();
+
+        $this->assertSame(800.0, (float) $invoice->amount_due);
+        $this->assertSame(800.0, (float) $invoice->computed_amount);
+    }
+
+    public function test_finance_reconciliation_endpoint_recomputes_balances_for_a_student(): void
+    {
+        $session = AcademicSession::factory()->active()->create();
+        $student = Student::factory()->create();
+        $invoice = Invoice::factory()->create([
+            'student_id' => $student->id,
+            'academic_session_id' => $session->id,
+            'amount_due' => 999,
+            'computed_amount' => 999,
+        ]);
+
+        InvoiceLineItem::factory()->create([
+            'invoice_id' => $invoice->id,
+            'name' => 'Tuition',
+            'amount' => 500,
+            'quantity' => 1,
+            'total_amount' => 500,
+        ]);
+        InvoiceLineItem::factory()->create([
+            'invoice_id' => $invoice->id,
+            'name' => 'Library',
+            'amount' => 300,
+            'quantity' => 1,
+            'total_amount' => 300,
+        ]);
+
+        $this->postJson('/api/finance/reconcile', [
+            'student_id' => $student->id,
+            'academic_session_id' => $session->id,
+        ])->assertOk()
+            ->assertJsonPath('data.student_id', $student->id)
+            ->assertJsonPath('data.reconciled_sessions', 1);
+
+        $invoice->refresh();
+
+        $this->assertSame(800.0, (float) $invoice->amount_due);
+    }
+
+    public function test_reconcile_finance_command_executes_without_error(): void
+    {
+        $session = AcademicSession::factory()->active()->create();
+        $student = Student::factory()->create();
+        Invoice::factory()->create([
+            'student_id' => $student->id,
+            'academic_session_id' => $session->id,
+            'amount_due' => 500,
+        ]);
+
+        $this->artisan('finance:reconcile')
+            ->assertSuccessful();
+    }
+
     public function test_dashboard_empty_course_filter_returns_no_finance_totals(): void
     {
         Invoice::factory()->create(['amount_due' => 1000, 'computed_amount' => 1000]);

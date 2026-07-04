@@ -17,8 +17,8 @@ return new class extends Migration
             $table->unsignedTinyInteger('module')->nullable();
             $table->string('status', 50)->default('ongoing');
             $table->timestamp('enrolled_at')->useCurrent();
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['student_id', 'academic_session_id'], 'student_session_unique');

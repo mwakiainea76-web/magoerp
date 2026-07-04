@@ -18,8 +18,8 @@ return new class extends Migration
             $table->string('entry_grade', 100)->nullable();
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignUuid('updated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             $table->unique(['certification_authority_id', 'code'], 'cert_levels_authority_code_unique');

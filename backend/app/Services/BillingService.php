@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\FinanceAuditAction;
 use App\Enums\StudentStatus;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\CourseCurriculum;
 use App\Models\CurriculumFeeAssignment;
 use App\Models\FeeTemplate;
+use App\Models\FinanceAuditLog;
 use App\Models\Hostel;
 use App\Models\Invoice;
 use App\Models\InvoiceLineItem;
@@ -18,6 +20,8 @@ use App\Models\Student;
 use App\Models\StudentAccountBalance;
 use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -231,6 +235,20 @@ class BillingService
             // 12. Sync the account balance snapshot (AFTER ledger entry is written)
             $this->syncAccountBalance($student->id, $targetSession->id);
 
+            // 13. Audit log
+            $this->auditLog(
+                $student,
+                FinanceAuditAction::INVOICE_CREATED,
+                'invoice',
+                $invoice->id,
+                [
+                    'invoice_number' => $invoice->invoice_number,
+                    'amount' => (float) $invoice->amount_due,
+                    'session_id' => $targetSession->id,
+                ]
+            );
+
+            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh();
         });
     }
@@ -328,6 +346,7 @@ class BillingService
             $this->applyAvailableCredits($invoice, $createdBy);
             $this->syncAccountBalance($student->id, $targetSession->id);
 
+            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh();
         });
     }
@@ -436,6 +455,21 @@ class BillingService
                 $this->syncAccountBalance($invoice->student_id, $invoice->academic_session_id);
             }
 
+            // 7. Audit log
+            $this->auditLog(
+                $student,
+                FinanceAuditAction::PAYMENT_RECORDED,
+                'payment',
+                $payment->id,
+                [
+                    'amount' => $amount,
+                    'method' => $method,
+                    'reference' => $reference,
+                    'invoice_id' => $invoice->id,
+                ]
+            );
+
+            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $payment;
         });
     }
@@ -599,6 +633,24 @@ class BillingService
                 }
             }
 
+            $reconciler = app(FinanceReconciliationService::class);
+            foreach ($invoices as $inv) {
+                $reconciler->reconcileInvoice($inv->fresh());
+            }
+
+            // 4. Audit log
+            $this->auditLog(
+                $student,
+                FinanceAuditAction::PAYMENT_RECORDED,
+                'payment',
+                $payment->id,
+                [
+                    'amount' => $amount,
+                    'method' => $method,
+                    'reference' => $reference,
+                ]
+            );
+
             return $payment;
         });
     }
@@ -712,6 +764,7 @@ class BillingService
             // 5. Sync balance snapshot
             $this->syncAccountBalance($invoice->student_id, $invoice->academic_session_id);
 
+            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $adjustment->fresh();
         });
     }
@@ -818,6 +871,7 @@ class BillingService
 
             $this->syncAccountBalance($student->id, $targetSession->id);
 
+            app(FinanceReconciliationService::class)->reconcileSessionBalance($student, $targetSession->id);
             return $refund;
         });
     }
@@ -839,6 +893,23 @@ class BillingService
             ->value('balance');
 
         return max(0, (float) ($balance !== null ? -$balance : 0));
+    }
+
+    public function reconcileStudentFinance(Student $student, AcademicSession $session): void
+    {
+        DB::transaction(function () use ($student, $session) {
+            $invoices = Invoice::query()
+                ->where('student_id', $student->id)
+                ->where('academic_session_id', $session->id)
+                ->where('status', '!=', 'cancelled')
+                ->get();
+
+            foreach ($invoices as $invoice) {
+                $invoice->recalculateTotals();
+            }
+
+            $this->syncAccountBalance($student->id, $session->id);
+        });
     }
 
     // =========================================================================
@@ -1085,6 +1156,7 @@ class BillingService
             $this->applyAvailableCredits($invoice, $createdBy);
             $this->syncAccountBalance($student->id, $targetSession->id);
 
+            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh(['items']);
         });
     }
@@ -1168,6 +1240,7 @@ class BillingService
             $this->applyAvailableCredits($invoice, $createdBy);
             $this->syncAccountBalance($student->id, $targetSession->id);
 
+            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh();
         });
     }
@@ -1234,5 +1307,29 @@ class BillingService
                 'last_transaction_at' => now(),
             ]
         );
+    }
+
+    /**
+     * Log a finance audit entry for compliance and debugging.
+     */
+    public function auditLog(
+        Student $student,
+        FinanceAuditAction $action,
+        string $entityType,
+        int|string $entityId,
+        array $changes = []
+    ): void {
+        $request = app(Request::class);
+
+        FinanceAuditLog::create([
+            'student_id'  => $student->id,
+            'user_id'     => Auth::id(),
+            'action'      => $action,
+            'entity_type' => $entityType,
+            'entity_id'   => $entityId,
+            'changes'     => $changes,
+            'ip_address'  => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ]);
     }
 }
