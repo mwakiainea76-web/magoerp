@@ -31,7 +31,7 @@ export function MySupportRequestsPage() {
       setError("");
       try {
         const res = await api.myRequests();
-        if (mounted) setRequests(res.data ?? []);
+        if (mounted) setRequests(res.data?.data ?? []);
       } catch (e) {
         if (mounted) setError(getApiErrorMessage(e, "Failed to load requests."));
       } finally {
