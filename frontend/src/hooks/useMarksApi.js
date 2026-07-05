@@ -63,12 +63,39 @@ export function useMarksApi() {
           throw error;
         }
       },
+      myMarksheet: async (params = {}) => {
+        const response = await authClient.get("/my/marksheet", { params });
+        return response.data;
+      },
+      myTranscript: async (params = {}) => {
+        const response = await authClient.get("/my/transcript", { params });
+        return response.data;
+      },
+      myTranscriptDownload: async (params = {}) => {
+        try {
+          return await authClient.get("/my/transcript/download", {
+            params,
+            responseType: "blob",
+            timeout: 0,
+          });
+        } catch (error) {
+          if (error.response?.data instanceof Blob && error.response.data.type?.includes("application/json")) {
+            error.response.data = JSON.parse(await error.response.data.text());
+          }
+
+          throw error;
+        }
+      },
       myResults: async (params = {}) => {
         const response = await authClient.get("/my/results", { params });
         return response.data;
       },
       myResultsSessions: async (params = {}) => {
         const response = await authClient.get("/my/results-sessions", { params });
+        return response.data;
+      },
+      mySessionEnrolments: async (params = {}) => {
+        const response = await authClient.get("/my/session-enrolments", { params });
         return response.data;
       },
     }),

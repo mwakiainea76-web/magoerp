@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\DataExportService;
 use App\Exports\StreamingPdfWriter;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
+use App\Models\CertificationAuthorityGrade;
 use App\Models\Student;
 use App\Models\StudentMark;
 use App\Models\StudentUnitRegistration;
@@ -15,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StudentMarksController extends Controller
@@ -664,6 +667,380 @@ class StudentMarksController extends Controller
         );
     }
 
+    public function myMarksheet(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'session_enrolment_id' => 'nullable|string|exists:academic_session_enrolments,id',
+            'year_of_study' => 'nullable|integer|min:1',
+            'module' => 'nullable|integer|min:1',
+        ]);
+
+        $sessionEnrolmentId = $validated['session_enrolment_id'] ?? null;
+        $selectedModule = $validated['module'] ?? null;
+
+        if ($sessionEnrolmentId) {
+            $enrolmentIds = [$sessionEnrolmentId];
+            $targetEnrolment = AcademicSessionEnrolment::find($sessionEnrolmentId);
+        } else {
+            $selectedYear = $validated['year_of_study'] ?? null;
+            if (!$selectedYear) {
+                return response()->json([
+                    'data' => [
+                        'student' => ['id' => $student->id, 'admission_number' => $student->admission_number, 'name' => $student->full_name],
+                        'marksheet' => [],
+                    ],
+                ]);
+            }
+            $enrolmentIds = AcademicSessionEnrolment::query()
+                ->where('student_id', $student->id)
+                ->where('year_of_study', $selectedYear)
+                ->pluck('id')
+                ->toArray();
+        }
+
+        if (!$enrolmentIds) {
+            return response()->json([
+                'data' => [
+                    'student' => ['id' => $student->id, 'admission_number' => $student->admission_number, 'name' => $student->full_name],
+                    'marksheet' => [],
+                ],
+            ]);
+        }
+
+        $registrations = StudentUnitRegistration::query()
+            ->with('unit:id,code,name,year_of_study,modules_taught,session_number')
+            ->with('academicSessionEnrolment')
+            ->whereIn('academic_session_enrolment_id', $enrolmentIds)
+            ->whereHas('unit', fn ($q) => $q->whereNotNull('year_of_study'))
+            ->when($selectedModule, function ($query) use ($selectedModule) {
+                $query->whereHas('unit', function ($inner) use ($selectedModule) {
+                    $inner->where(function ($sub) use ($selectedModule) {
+                        $sub->where('modules_taught', $selectedModule)->orWhereNull('modules_taught');
+                    });
+                });
+            })
+            ->orderBy('unit_id')
+            ->get()
+            ->unique('unit_id')
+            ->values();
+
+        $marks = StudentMark::query()
+            ->whereIn('academic_session_enrolment_id', $enrolmentIds)
+            ->whereIn('unit_id', $registrations->pluck('unit_id'))
+            ->where('is_published', true)
+            ->whereNotNull('score')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('unit_id');
+
+        $registrations = $registrations
+            ->filter(fn (StudentUnitRegistration $registration) => $marks->has($registration->unit_id))
+            ->values();
+
+        $marksheet = $registrations->map(function (StudentUnitRegistration $registration) use ($marks) {
+            $unit = $registration->unit;
+            $unitMarks = $marks->get($registration->unit_id, collect());
+
+            $scores = [];
+            foreach (self::ASSESSMENT_TYPES as $label) {
+                [$type, $number] = $this->parseAssessmentType($label);
+                $match = $unitMarks->first(fn (StudentMark $mark) => $mark->assessment_type === $type && (int) $mark->assessment_number === $number);
+                $scores[$label] = $match?->score;
+            }
+
+            $catScores = collect(['CAT 1', 'CAT 2', 'CAT 3'])
+                ->map(fn ($label) => $scores[$label])
+                ->filter(fn ($score) => $score !== null)
+                ->values();
+
+            $pracScores = collect(['PRAC 1', 'PRAC 2', 'PRAC 3'])
+                ->map(fn ($label) => $scores[$label])
+                ->filter(fn ($score) => $score !== null)
+                ->values();
+
+            return [
+                'unit' => [
+                    'id' => $unit?->id,
+                    'code' => $unit?->code,
+                    'name' => $unit?->name,
+                    'year_of_study' => $unit?->year_of_study,
+                    'module' => $unit?->modules_taught,
+                    'session_number' => $unit?->session_number,
+                ],
+                'scores' => $scores,
+                'averages' => [
+                    'CAT' => $catScores->isEmpty() ? null : round($catScores->avg(), 1),
+                    'PRAC' => $pracScores->isEmpty() ? null : round($pracScores->avg(), 1),
+                ],
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => [
+                'student' => [
+                    'id' => $student->id,
+                    'admission_number' => $student->admission_number,
+                    'name' => $student->full_name,
+                ],
+                'session_enrolment_id' => $sessionEnrolmentId,
+                'marksheet' => $marksheet,
+            ],
+        ]);
+    }
+
+    public function myTranscript(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'session_enrolment_id' => 'nullable|string|exists:academic_session_enrolments,id',
+            'transcript_type' => 'nullable|in:progress,cumulative',
+            'year_of_study' => 'nullable|integer|min:1',
+            'module' => 'nullable|integer|min:1',
+        ]);
+
+        return response()->json([
+            'data' => $this->buildMyTranscriptData($student, $validated),
+        ]);
+    }
+
+    public function myTranscriptDownload(Request $request): Response
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'session_enrolment_id' => 'required|string|exists:academic_session_enrolments,id',
+            'transcript_type' => 'nullable|in:progress,cumulative',
+        ]);
+
+        $data = $this->buildMyTranscriptData($student, $validated);
+        $data['generated_at'] = now()->format('d/m/Y H:i');
+        $data['transcript_reference'] = implode('-', array_filter([
+            'TR',
+            preg_replace('/[^A-Za-z0-9]+/', '', (string) $student->admission_number) ?: 'NA',
+            'E' . substr($validated['session_enrolment_id'], 0, 8),
+        ]));
+
+        $safeAdmissionNumber = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $student->admission_number);
+        $filename = 'transcript-' . trim($safeAdmissionNumber, '-') . '.pdf';
+
+        $pdf = Pdf::loadView('pdf.transcript', $data)
+            ->setPaper('a4', 'portrait')
+            ->setWarnings(false);
+
+        return $pdf->download($filename, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
+    }
+
+    private function buildMyTranscriptData(Student $student, array $validated): array
+    {
+        $sessionEnrolmentId = $validated['session_enrolment_id'] ?? null;
+        $transcriptType = $validated['transcript_type'] ?? 'progress';
+        $selectedModule = $validated['module'] ?? null;
+        $selectedYear = $validated['year_of_study'] ?? null;
+
+        $sessionEnrolments = AcademicSessionEnrolment::query()
+            ->with('academicSession:id,name,code')
+            ->where('student_id', $student->id)
+            ->orderBy('year_of_study')
+            ->orderBy('session_number')
+            ->orderBy('module')
+            ->get();
+
+        $firstSessionEnrolment = $sessionEnrolments->first();
+
+        $targetEnrolment = null;
+
+        if ($sessionEnrolmentId) {
+            $targetEnrolment = $sessionEnrolments->firstWhere('id', $sessionEnrolmentId)
+                ?? AcademicSessionEnrolment::with('academicSession:id,name,code')->find($sessionEnrolmentId);
+        } elseif ($selectedYear) {
+            $targetEnrolment = $sessionEnrolments->firstWhere('year_of_study', (int) $selectedYear)
+                ?? $sessionEnrolments->last();
+        }
+
+        if (!$targetEnrolment) {
+            $targetEnrolment = $sessionEnrolments->last();
+        }
+
+        $targetYear = $targetEnrolment?->year_of_study;
+
+        $profileRegistration = StudentUnitRegistration::query()
+            ->with(['unit.courseCurriculum.course.authority', 'unit.courseCurriculum.course.level', 'unit.courseCurriculum.course.department'])
+            ->join('academic_session_enrolments', 'academic_session_enrolments.id', '=', 'student_unit_registrations.academic_session_enrolment_id')
+            ->where('academic_session_enrolments.student_id', $student->id)
+            ->select('student_unit_registrations.*')
+            ->first();
+
+        $course = $profileRegistration?->unit?->courseCurriculum?->course;
+        $authority = $course?->authority;
+
+        if (!$targetEnrolment) {
+            return [
+                'student' => ['id' => $student->id, 'admission_number' => $student->admission_number, 'name' => $student->full_name],
+                'course' => [
+                    'name' => $course?->name, 'code' => $course?->code,
+                    'department' => $course?->department?->name, 'school' => $course?->department?->name ?: $authority?->name,
+                    'certification_authority' => $authority?->name, 'certification_level' => $course?->level?->name,
+                ],
+                'institution_name' => config('institution.name'),
+                'institution' => config('institution'),
+                'student_meta' => [
+                    'admission_year' => $firstSessionEnrolment?->enrolled_at?->format('Y'),
+                    'class_name' => null, 'session_number' => null, 'year_of_study_label' => null,
+                ],
+                'grade_legend' => [], 'transcript' => [],
+            ];
+        }
+
+        $enrolmentIds = $transcriptType === 'cumulative'
+            ? $sessionEnrolments
+                ->takeWhile(fn ($e) => $e->id !== $targetEnrolment->id)
+                ->push($targetEnrolment)
+                ->pluck('id')
+                ->toArray()
+            : [$targetEnrolment->id];
+
+        $gradeBands = $authority
+            ? CertificationAuthorityGrade::query()
+                ->where('certification_authority_id', $authority->id)
+                ->where('is_active', true)
+                ->orderByDesc('grade_end')
+                ->get()
+            : collect();
+
+        $registrations = StudentUnitRegistration::query()
+            ->with([
+                'unit:id,course_curriculum_id,code,name,year_of_study,modules_taught,session_number,taught_hours',
+                'unit.courseCurriculum.course.authority',
+                'unit.courseCurriculum.course.level',
+                'unit.courseCurriculum.course.department',
+                'academicSessionEnrolment.academicSession:id,name,code',
+            ])
+            ->whereIn('academic_session_enrolment_id', $enrolmentIds)
+            ->whereHas('unit', fn ($q) => $q->when($targetYear, fn ($q) => $q->where('year_of_study', '<=', $targetYear)))
+            ->when($selectedModule, function ($query) use ($selectedModule) {
+                $query->whereHas('unit', function ($inner) use ($selectedModule) {
+                    $inner->where(function ($sub) use ($selectedModule) {
+                        $sub->where('modules_taught', $selectedModule)->orWhereNull('modules_taught');
+                    });
+                });
+            })
+            ->orderBy('unit_id')
+            ->get()
+            ->unique('unit_id')
+            ->values();
+
+        $marks = StudentMark::query()
+            ->whereIn('academic_session_enrolment_id', $enrolmentIds)
+            ->whereIn('unit_id', $registrations->pluck('unit_id'))
+            ->where('is_published', true)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('unit_id');
+
+        $registrations = $registrations
+            ->filter(fn (StudentUnitRegistration $registration) => $marks->has($registration->unit_id))
+            ->values();
+
+        $transcript = $registrations->map(function (StudentUnitRegistration $registration) use ($marks, $gradeBands) {
+            $unit = $registration->unit;
+            $unitMarks = $marks->get($registration->unit_id, collect());
+
+            $scores = [];
+            foreach (self::ASSESSMENT_TYPES as $label) {
+                [$type, $number] = $this->parseAssessmentType($label);
+                $match = $unitMarks->first(fn (StudentMark $mark) => $mark->assessment_type === $type && (int) $mark->assessment_number === $number);
+                $scores[$label] = $match?->score;
+            }
+
+            $allScores = collect($scores)
+                ->filter(fn ($score) => $score !== null)
+                ->values();
+
+            $marksValue = $allScores->isEmpty() ? null : round($allScores->avg(), 1);
+            $gradeBand = $marksValue === null
+                ? null
+                : $gradeBands->first(fn (CertificationAuthorityGrade $grade) => $marksValue >= (float) $grade->grade_start && $marksValue <= (float) $grade->grade_end);
+
+            return [
+                'unit' => [
+                    'id' => $unit?->id,
+                    'code' => $unit?->code,
+                    'name' => $unit?->name,
+                    'year_of_study' => $unit?->year_of_study,
+                    'module' => $unit?->modules_taught,
+                    'session_number' => $unit?->session_number,
+                    'taught_hours' => $unit?->taught_hours,
+                ],
+                'academic_session' => [
+                    'id' => $registration->academicSessionEnrolment?->academicSession?->id,
+                    'name' => $registration->academicSessionEnrolment?->academicSession?->name,
+                    'code' => $registration->academicSessionEnrolment?->academicSession?->code,
+                ],
+                'scores' => $scores,
+                'marks' => $marksValue,
+                'grade' => $gradeBand?->grade,
+                'remark' => $gradeBand?->remark,
+            ];
+        })->values();
+
+        return [
+            'student' => [
+                'id' => $student->id,
+                'admission_number' => $student->admission_number,
+                'name' => $student->full_name,
+            ],
+            'course' => [
+                'name' => $course?->name,
+                'code' => $course?->code,
+                'department' => $course?->department?->name,
+                'school' => $course?->department?->name ?: $authority?->name,
+                'certification_authority' => $authority?->name,
+                'certification_level' => $course?->level?->name,
+            ],
+            'institution_name' => config('institution.name'),
+            'institution' => config('institution'),
+            'student_meta' => [
+                'admission_year' => $firstSessionEnrolment?->enrolled_at?->format('Y'),
+                'class_name' => $targetEnrolment->academicSession?->name,
+                'session_number' => $targetEnrolment->session_number,
+                'year_of_study_label' => 'YEAR ' . $targetYear,
+                'transcript_type' => $transcriptType,
+                'session_enrolment_id' => $targetEnrolment->id,
+            ],
+            'grade_legend' => $gradeBands->map(fn (CertificationAuthorityGrade $grade) => [
+                'grade' => $grade->grade,
+                'points' => rtrim(rtrim(number_format((float) $grade->grade_start, 3, '.', ''), '0'), '.') . '-' . rtrim(rtrim(number_format((float) $grade->grade_end, 3, '.', ''), '0'), '.'),
+                'remark' => $grade->remark,
+            ])->values(),
+            'transcript' => $transcript,
+        ];
+    }
+
     public function myResults(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('assessments.view'), 403);
@@ -811,5 +1188,43 @@ class StudentMarksController extends Controller
             ->get(['id', 'name', 'code']);
 
         return response()->json(['data' => $sessions]);
+    }
+
+    public function sessionEnrolments(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
+        $student = $request->user()?->student;
+
+        if (! $student) {
+            return response()->json(['message' => 'Student profile not found.'], 404);
+        }
+
+        $enrolments = AcademicSessionEnrolment::query()
+            ->with('academicSession:id,name,code')
+            ->where('student_id', $student->id)
+            ->orderBy('year_of_study')
+            ->orderBy('session_number')
+            ->orderBy('module')
+            ->get()
+            ->map(fn (AcademicSessionEnrolment $enrolment) => [
+                'id' => $enrolment->id,
+                'year_of_study' => $enrolment->year_of_study,
+                'session_number' => $enrolment->session_number,
+                'module' => $enrolment->module,
+                'academic_session_id' => $enrolment->academic_session_id,
+                'academic_session_name' => $enrolment->academicSession?->name,
+                'academic_session_code' => $enrolment->academicSession?->code,
+                'label' => 'Year ' . $enrolment->year_of_study
+                    . ' Session ' . $enrolment->session_number
+                    . ($enrolment->module ? ' Module ' . $enrolment->module : '')
+                    . ' - ' . ($enrolment->academicSession?->name ?? ''),
+                'has_published_marks' => StudentMark::query()
+                    ->where('academic_session_enrolment_id', $enrolment->id)
+                    ->where('is_published', true)
+                    ->exists(),
+            ]);
+
+        return response()->json(['data' => $enrolments]);
     }
 }

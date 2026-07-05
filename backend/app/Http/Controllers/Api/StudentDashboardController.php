@@ -18,8 +18,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
+use App\Http\Controllers\Api\Traits\BalanceExpression;
+
 class StudentDashboardController extends Controller
 {
+    use BalanceExpression;
     public function __invoke(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -107,22 +110,19 @@ class StudentDashboardController extends Controller
             }
         }
 
-        $balanceExpression = "amount_due
-            - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)
-            - COALESCE((SELECT SUM(CASE WHEN type IN ('discount', 'waiver', 'bursary', 'helb', 'reversal') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)";
         $invoiceBaseQuery = Invoice::query()
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
             ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw("CASE WHEN ({$balanceExpression}) > 0 THEN ({$balanceExpression}) ELSE 0 END as balance_due");
+            ->selectRaw("CASE WHEN ({$this->balanceExpression()}) > 0 THEN ({$this->balanceExpression()}) ELSE 0 END as balance_due");
 
         $invoices = $invoiceBaseQuery->get();
         $outstandingBalance = (float) $invoices->where('balance_due', '>', 0)->sum('balance_due');
         $totalAdjustments = (float) \App\Models\StudentFeeAdjustment::query()
             ->whereHas('invoice', fn ($q) => $q->where('student_id', $student->id))
             ->whereNull('deleted_at')
-            ->selectRaw('COALESCE(SUM(CASE WHEN type IN (\'discount\',\'waiver\',\'bursary\',\'helb\',\'reversal\') THEN amount ELSE -amount END), 0) as total')
+            ->selectRaw("{$this->adjustmentExpression()} as total")
             ->value('total');
 
         $payments = Payment::query()

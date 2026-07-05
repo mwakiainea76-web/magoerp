@@ -24,6 +24,7 @@ class Refund extends Model
         'status',
         'processed_by',
         'processed_at',
+        'idempotency_key',
     ];
 
     protected function casts(): array

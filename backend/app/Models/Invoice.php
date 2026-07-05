@@ -139,7 +139,7 @@ class Invoice extends Model
         $this->forceFill([
             'amount_due' => $amountDue,
             'computed_amount' => $itemsTotal,
-            'status' => $balanceDue <= 0 ? 'paid' : ($paidAmount > 0 ? 'partial' : 'issued'),
+            'status' => $this->status === 'cancelled' ? 'cancelled' : ($balanceDue <= 0 ? 'paid' : ($paidAmount > 0 ? 'partial' : 'issued')),
         ]);
 
         $this->save();

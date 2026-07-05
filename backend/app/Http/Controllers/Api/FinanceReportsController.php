@@ -19,8 +19,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+use App\Http\Controllers\Api\Traits\BalanceExpression;
+
 class FinanceReportsController extends Controller
 {
+    use BalanceExpression;
     private const TYPES = [
         'debtors',
         'credits',
@@ -140,14 +143,6 @@ class FinanceReportsController extends Controller
                                 ->orWhere('last_name', 'like', "%{$search}%")));
                 });
             });
-    }
-
-    private function balanceExpression(): string
-    {
-        return "amount_due
-            - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)
-            - COALESCE((SELECT SUM(CASE WHEN type IN ('discount','waiver','bursary','helb','reversal') THEN amount ELSE -amount END)
-                FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)";
     }
 
     private function debtorReport(array $filters): array

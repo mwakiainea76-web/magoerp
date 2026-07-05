@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\AcademicYearsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
+use App\Http\Controllers\Api\CertificationAuthorityGradesController;
 use App\Http\Controllers\Api\CourseChangeController;
 use App\Http\Controllers\Api\SupportRequestsController;
 use App\Http\Controllers\Api\CertificationLevelsController;
@@ -71,6 +72,9 @@ Route::middleware([
 
     Route::apiResource('certification-authorities', CertificationAuthoritiesController::class)
         ->parameters(['certification-authorities' => 'certification_authority']);
+
+    Route::apiResource('certification-authorities.grades', CertificationAuthorityGradesController::class)
+        ->parameters(['certification-authorities' => 'certification_authority', 'grades' => 'grade']);
 
     Route::apiResource('certification-levels', CertificationLevelsController::class)
         ->parameters(['certification-levels' => 'certification_level']);
@@ -166,7 +170,11 @@ Route::middleware([
     Route::put('/marks/{student_mark}', [StudentMarksController::class, 'update']);
     Route::post('/marks/{student_mark}/toggle-publish', [StudentMarksController::class, 'togglePublish']);
     Route::get('/my/results', [StudentMarksController::class, 'myResults']);
+    Route::get('/my/marksheet', [StudentMarksController::class, 'myMarksheet']);
+    Route::get('/my/transcript', [StudentMarksController::class, 'myTranscript']);
+    Route::get('/my/transcript/download', [StudentMarksController::class, 'myTranscriptDownload']);
     Route::get('/my/results-sessions', [StudentMarksController::class, 'listSessionsWithMarks']);
+    Route::get('/my/session-enrolments', [StudentMarksController::class, 'sessionEnrolments']);
 
     Route::get('/my/timetable', [AcademicTimetablesController::class, 'myTimetable']);
     Route::get('/timetables', [AcademicTimetablesController::class, 'index']);

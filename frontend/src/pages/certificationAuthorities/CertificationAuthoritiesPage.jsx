@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { Award, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
@@ -144,6 +144,10 @@ export function CertificationAuthoritiesPage() {
 
   function getViewLevelsUrl(authority) {
     return `/certification-levels?${getAuthorityParams(authority)}`;
+  }
+
+  function getViewGradesUrl(authority) {
+    return `/certification-authorities/grades?${getAuthorityParams(authority)}`;
   }
 
   function openCreateAuthorityModal() {
@@ -306,13 +310,20 @@ export function CertificationAuthoritiesPage() {
                     <Td className="max-w-md">{authority.description || "No description"}</Td>
                     <Td>
                       <div className="flex justify-end gap-2">
-                        <Link
-                          to={getViewLevelsUrl(authority)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-700"
-                          title="View linked levels"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Link>
+                          <Link
+                            to={getViewLevelsUrl(authority)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-700"
+                            title="View linked levels"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Link>
+                          <Link
+                            to={getViewGradesUrl(authority)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-amber-200 text-amber-600 transition hover:bg-amber-50 hover:text-amber-700"
+                            title="Manage grade definitions"
+                          >
+                            <Award className="h-3.5 w-3.5" />
+                          </Link>
                         <button
                           type="button"
                           onClick={() => openEditAuthorityModal(authority.id)}

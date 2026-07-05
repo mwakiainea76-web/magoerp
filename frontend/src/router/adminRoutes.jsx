@@ -16,6 +16,7 @@ import { AttendanceIndexPage } from "@/pages/attendance/AttendanceIndexPage";
 import { AttendanceMarkPage } from "@/pages/attendance/AttendanceMarkPage";
 import { CertificationAuthoritiesPage } from "@/pages/certificationAuthorities/CertificationAuthoritiesPage";
 import { CertificationAuthorityFormPage } from "@/pages/certificationAuthorities/CertificationAuthorityFormPage";
+import { CertificationAuthorityGradesPage } from "@/pages/certificationAuthorities/CertificationAuthorityGradesPage";
 import { CertificationLevelFormPage } from "@/pages/certificationAuthorities/CertificationLevelFormPage";
 import { CertificationLevelsPage } from "@/pages/certificationAuthorities/CertificationLevelsPage";
 import { CourseFormPage } from "@/pages/courses/CourseFormPage";
@@ -71,6 +72,7 @@ export function AdminRoutes() {
       <Route path="/certification-authorities" element={<CertificationAuthoritiesPage />} />
       <Route path="/certification-authorities/create" element={<CertificationAuthorityFormPage />} />
       <Route path="/certification-authorities/:authorityId/edit" element={<CertificationAuthorityFormPage />} />
+      <Route path="/certification-authorities/grades" element={<CertificationAuthorityGradesPage />} />
       <Route path="/certification-levels" element={<CertificationLevelsPage />} />
       <Route path="/certification-levels/create" element={<CertificationLevelFormPage />} />
       <Route path="/certification-levels/:levelId/edit" element={<CertificationLevelFormPage />} />

@@ -216,7 +216,7 @@ class BillingService
             $invoice->recalculateTotals();
 
             // 10. Post debit ledger entry (student now owes this amount)
-            StudentLedgerEntry::create([
+            $this->postLedgerEntry([
                 'student_id'          => $student->id,
                 'invoice_id'          => $invoice->id,
                 'academic_session_id' => $targetSession->id,
@@ -227,7 +227,7 @@ class BillingService
                 'description'         => 'Invoice issued on session registration.',
                 'transaction_date'    => now()->toDateString(),
                 'created_by'          => $createdBy,
-            ]);
+            ], "ledger:invoice:{$invoice->id}");
 
             // 11. Apply any existing unallocated credits to the new invoice
             $this->applyAvailableCredits($invoice, $createdBy);
@@ -248,7 +248,6 @@ class BillingService
                 ]
             );
 
-            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh();
         });
     }
@@ -329,7 +328,7 @@ class BillingService
             $invoice->recalculateTotals();
 
             // 4. Post debit ledger entry
-            StudentLedgerEntry::create([
+            $this->postLedgerEntry([
                 'student_id'          => $student->id,
                 'invoice_id'          => $invoice->id,
                 'academic_session_id' => $targetSession->id,
@@ -340,13 +339,12 @@ class BillingService
                 'description'         => "Hostel accommodation invoice — {$hostel->name}.",
                 'transaction_date'    => now()->toDateString(),
                 'created_by'          => $createdBy,
-            ]);
+            ], "ledger:invoice:{$invoice->id}");
 
             // 5. Sync account balance AFTER the ledger entry is written
             $this->applyAvailableCredits($invoice, $createdBy);
             $this->syncAccountBalance($student->id, $targetSession->id);
 
-            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh();
         });
     }
@@ -469,7 +467,6 @@ class BillingService
                 ]
             );
 
-            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $payment;
         });
     }
@@ -633,11 +630,6 @@ class BillingService
                 }
             }
 
-            $reconciler = app(FinanceReconciliationService::class);
-            foreach ($invoices as $inv) {
-                $reconciler->reconcileInvoice($inv->fresh());
-            }
-
             // 4. Audit log
             $this->auditLog(
                 $student,
@@ -734,7 +726,7 @@ class BillingService
                 'discount_type'       => $storeDiscountType,
                 'discount_percentage' => $storeDiscountPct,
                 'amount'              => $effectiveAmount,
-                'idempotency_key'     => "adj:{$invoice->id}:{$type}:" . now()->format('YmdHisv'),
+                'idempotency_key'     => "adj:{$invoice->id}:{$type}",
                 'description'        => $description,
                 'applied_at'         => now()->toDateString(),
                 'ledger_posted'      => false,
@@ -764,7 +756,6 @@ class BillingService
             // 5. Sync balance snapshot
             $this->syncAccountBalance($invoice->student_id, $invoice->academic_session_id);
 
-            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $adjustment->fresh();
         });
     }
@@ -846,6 +837,13 @@ class BillingService
                 ]);
             }
 
+            $idempotencyKey = "refund:{$student->id}:{$amount}:{$invoice?->id}";
+
+            $existingRefund = Refund::where('idempotency_key', $idempotencyKey)->first();
+            if ($existingRefund) {
+                return $existingRefund;
+            }
+
             $refund = Refund::create([
                 'student_id'    => $student->id,
                 'invoice_id'    => $invoice?->id,
@@ -854,6 +852,7 @@ class BillingService
                 'status'        => 'processed',
                 'processed_by'  => $processedBy,
                 'processed_at'  => now(),
+                'idempotency_key' => $idempotencyKey,
             ]);
 
             StudentLedgerEntry::create([
@@ -870,8 +869,6 @@ class BillingService
             ]);
 
             $this->syncAccountBalance($student->id, $targetSession->id);
-
-            app(FinanceReconciliationService::class)->reconcileSessionBalance($student, $targetSession->id);
             return $refund;
         });
     }
@@ -926,6 +923,18 @@ class BillingService
             ->where('academic_session_id', $session->id)
             ->latest()
             ->first();
+    }
+
+    private function postLedgerEntry(array $data, ?string $idempotencyKey = null): StudentLedgerEntry
+    {
+        if ($idempotencyKey) {
+            $existing = StudentLedgerEntry::where('idempotency_key', $idempotencyKey)->first();
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        return StudentLedgerEntry::create($data);
     }
 
     /**
@@ -1156,7 +1165,6 @@ class BillingService
             $this->applyAvailableCredits($invoice, $createdBy);
             $this->syncAccountBalance($student->id, $targetSession->id);
 
-            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh(['items']);
         });
     }
@@ -1240,7 +1248,6 @@ class BillingService
             $this->applyAvailableCredits($invoice, $createdBy);
             $this->syncAccountBalance($student->id, $targetSession->id);
 
-            app(FinanceReconciliationService::class)->reconcileInvoice($invoice->fresh());
             return $invoice->fresh();
         });
     }
@@ -1263,35 +1270,23 @@ class BillingService
             return;
         }
 
-        $ledger = StudentLedgerEntry::query()
+        $totals = StudentLedgerEntry::query()
             ->where('student_id', $studentId)
-            ->where('academic_session_id', $academicSessionId);
+            ->where('academic_session_id', $academicSessionId)
+            ->selectRaw('
+                COALESCE(SUM(CASE WHEN type = \'invoice\' THEN debit ELSE 0 END), 0) as total_invoiced,
+                COALESCE(SUM(CASE WHEN type = \'payment\' THEN credit ELSE 0 END), 0) as total_paid,
+                COALESCE(SUM(CASE WHEN type = \'refund\' THEN debit ELSE 0 END), 0) as total_refunded,
+                COALESCE(SUM(CASE WHEN type = \'adjustment\' AND adjustment_id IS NOT NULL THEN credit ELSE 0 END), 0) as adjustment_credits,
+                COALESCE(SUM(CASE WHEN type = \'adjustment\' AND adjustment_id IS NOT NULL THEN debit ELSE 0 END), 0) as adjustment_debits
+            ')
+            ->first();
 
-        $totalInvoiced = (float) (clone $ledger)
-            ->where('type', 'invoice')
-            ->sum('debit');
-
-        $totalPaid = (float) (clone $ledger)
-            ->where('type', 'payment')
-            ->sum('credit');
-
-        $totalRefunded = (float) (clone $ledger)
-            ->where('type', 'refund')
-            ->sum('debit');
-
-        // Adjustments: credit types reduce the balance, debit types increase it.
-        // total_adjustments is stored as a net credit figure.
-        // A positive value means more was forgiven than penalised.
-        $adjustmentCredits = (float) (clone $ledger)
-            ->where('type', 'adjustment')
-            ->whereNotNull('adjustment_id')
-            ->sum('credit');
-
-        $adjustmentDebits = (float) (clone $ledger)
-            ->where('type', 'adjustment')
-            ->whereNotNull('adjustment_id')
-            ->sum('debit');
-
+        $totalInvoiced = (float) ($totals->total_invoiced ?? 0);
+        $totalPaid = (float) ($totals->total_paid ?? 0);
+        $totalRefunded = (float) ($totals->total_refunded ?? 0);
+        $adjustmentCredits = (float) ($totals->adjustment_credits ?? 0);
+        $adjustmentDebits = (float) ($totals->adjustment_debits ?? 0);
         $totalAdjustments = $adjustmentCredits - $adjustmentDebits;
 
         StudentAccountBalance::updateOrCreate(

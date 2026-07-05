@@ -17,8 +17,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+use App\Http\Controllers\Api\Traits\BalanceExpression;
+
 class FinanceDashboardController extends Controller
 {
+    use BalanceExpression;
     public function __invoke(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
@@ -77,7 +80,7 @@ class FinanceDashboardController extends Controller
         }
         $outstandingBalance = (float) (clone $invoiceBase)
             ->whereIn('status', ['issued', 'partial'])
-            ->selectRaw('COALESCE(SUM(amount_due - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) - COALESCE((SELECT SUM(CASE WHEN type IN (\'discount\', \'waiver\', \'bursary\', \'helb\', \'reversal\') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)), 0) as balance')
+            ->selectRaw("COALESCE(SUM({$this->balanceExpression()}), 0) as balance")
             ->value('balance');
 
         $totalAdjustments = (float) StudentFeeAdjustment::query()

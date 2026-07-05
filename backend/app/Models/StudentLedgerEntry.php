@@ -25,6 +25,7 @@ class StudentLedgerEntry extends Model
         'reference',
         'description',
         'transaction_date',
+        'idempotency_key',
         'created_by',
     ];
 

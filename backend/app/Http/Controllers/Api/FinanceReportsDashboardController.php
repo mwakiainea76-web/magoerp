@@ -18,8 +18,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+use App\Http\Controllers\Api\Traits\BalanceExpression;
+
 class FinanceReportsDashboardController extends Controller
 {
+    use BalanceExpression;
     public function __invoke(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
@@ -52,12 +55,8 @@ class FinanceReportsDashboardController extends Controller
                 ->sum('amount')
             : (float) Payment::query()->where('status', 'completed')->sum('amount');
 
-        $balanceExpression = "amount_due
-            - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)
-            - COALESCE((SELECT SUM(CASE WHEN type IN ('discount','waiver','bursary','helb','reversal') THEN amount ELSE -amount END)
-                FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)";
         $invoiceOutstanding = (float) (clone $invoiceBase)
-            ->selectRaw("COALESCE(SUM(CASE WHEN ({$balanceExpression}) > 0 THEN ({$balanceExpression}) ELSE 0 END), 0) AS balance")
+            ->selectRaw("COALESCE(SUM(CASE WHEN ({$this->balanceExpression()}) > 0 THEN ({$this->balanceExpression()}) ELSE 0 END), 0) AS balance")
             ->value('balance');
 
         $unallocatedCredits = 0.0;
@@ -145,7 +144,7 @@ class FinanceReportsDashboardController extends Controller
         $defaulters = (clone $invoiceBase)
             ->select('student_id')
             ->selectRaw('SUM(amount_due) AS total_invoiced')
-            ->selectRaw("SUM(CASE WHEN ({$balanceExpression}) > 0 THEN ({$balanceExpression}) ELSE 0 END) AS outstanding")
+            ->selectRaw("SUM(CASE WHEN ({$this->balanceExpression()}) > 0 THEN ({$this->balanceExpression()}) ELSE 0 END) AS outstanding")
             ->groupBy('student_id')
             ->orderByDesc('outstanding')
             ->limit(25)

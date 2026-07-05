@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Traits\BalanceExpression;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
@@ -16,17 +17,18 @@ use App\Models\InvoicePaymentAllocation;
 use App\Models\Student;
 use App\Models\StudentAccountBalance;
 use App\Models\StudentLedgerEntry;
-use App\Exports\FeeStatementPdf;
 use App\Services\BillingService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class InvoicesController extends Controller
 {
+    use BalanceExpression;
     use PaginationMeta;
 
     public function __construct(
@@ -279,7 +281,7 @@ class InvoicesController extends Controller
         return response()->json(['data' => $data], 200);
     }
 
-    public function statementDownload(Request $request, Student $student): StreamedResponse
+    public function statementDownload(Request $request, Student $student): Response
     {
         $request->validate($this->statementRules());
         $user = $request->user();
@@ -297,11 +299,11 @@ class InvoicesController extends Controller
         $safeAdmissionNumber = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $student->admission_number);
         $filename = 'fee-statement-' . trim($safeAdmissionNumber, '-') . '.pdf';
 
-        return response()->streamDownload(function () use ($data) {
-            $pdf = new FeeStatementPdf($data);
-            $pdf->output();
-        }, $filename, [
-            'Content-Type' => 'application/pdf',
+        $pdf = Pdf::loadView('pdf.statement', $data)
+            ->setPaper('a4', 'portrait')
+            ->setWarnings(false);
+
+        return $pdf->download($filename, [
             'Cache-Control' => 'private, no-store, max-age=0',
         ]);
     }
@@ -503,6 +505,32 @@ class InvoicesController extends Controller
                 ->values();
         }
 
+        $sessionBreakdown = $transactions
+            ->groupBy(fn (array $transaction) => $transaction['academic_session_id'] ?: 'other')
+            ->map(function ($items) {
+                $first = $items->first();
+                $fees = (float) $items->sum(fn (array $transaction) => (float) $transaction['debit']);
+                $paid = (float) $items->sum(fn (array $transaction) => (float) $transaction['credit']);
+
+                return [
+                    'session_name' => $first['session_label'] ?? 'Other Transactions',
+                    'status' => 'posted',
+                    'fees' => $fees,
+                    'paid' => $paid,
+                    'outstanding' => $fees - $paid,
+                ];
+            })
+            ->values();
+
+        $summary = [
+            'total_invoiced' => (float) $sessionBreakdown->sum('fees'),
+            'total_paid' => (float) $sessionBreakdown->sum('paid'),
+            'outstanding_balance' => (float) $sessionBreakdown->sum('outstanding'),
+            'total_debit' => (float) $transactions->sum('debit'),
+            'total_credit' => (float) $transactions->sum('credit'),
+            'ledger_balance' => (float) ($transactions->last()['balance'] ?? 0),
+        ];
+
         return [
             'institution_name' => config('institution.name'),
             'institution' => config('institution'),
@@ -531,6 +559,8 @@ class InvoicesController extends Controller
                 'school' => $course->authority?->name,
                 'level' => $course->level?->name,
             ] : null,
+            'session_breakdown' => $sessionBreakdown,
+            'summary' => $summary,
             'transactions' => $transactions,
 
         ];
@@ -693,22 +723,19 @@ class InvoicesController extends Controller
             ], 200);
         }
 
-        $balanceExpression = "amount_due
-            - COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)
-            - COALESCE((SELECT SUM(CASE WHEN type IN ('discount', 'waiver', 'bursary', 'helb', 'reversal') THEN amount ELSE -amount END) FROM student_fee_adjustments WHERE invoice_id = invoices.id AND deleted_at IS NULL), 0)";
         $baseQuery = Invoice::query()
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
             ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
-            ->selectRaw("CASE WHEN ({$balanceExpression}) > 0 THEN ({$balanceExpression}) ELSE 0 END as balance_due");
+            ->selectRaw("CASE WHEN ({$this->balanceExpression()}) > 0 THEN ({$this->balanceExpression()}) ELSE 0 END as balance_due");
 
         $invoices = $baseQuery->get();
         $outstanding = (float) $invoices->sum('balance_due');
         $totalAdjustments = (float) \App\Models\StudentFeeAdjustment::query()
             ->whereHas('invoice', fn ($q) => $q->where('student_id', $student->id))
             ->whereNull('deleted_at')
-            ->selectRaw('COALESCE(SUM(CASE WHEN type IN (\'discount\',\'waiver\',\'bursary\',\'helb\',\'reversal\') THEN amount ELSE -amount END), 0) as total')
+            ->selectRaw("{$this->adjustmentExpression()} as total")
             ->value('total');
 
         $payments = Payment::query()

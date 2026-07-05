@@ -117,17 +117,10 @@ class FinanceReconciliationService
             ];
         }
 
-        if (abs((float) $invoice->paid_amount - $expectedPaid) > 0.01) {
-            $issues['paid_amount'] = [
-                'stored' => (float) $invoice->paid_amount,
-                'expected' => $expectedPaid,
-            ];
-        }
-
-        if (abs((float) $invoice->balance_due - $expectedBalance) > 0.01) {
-            $issues['balance_due'] = [
-                'stored' => (float) $invoice->balance_due,
-                'expected' => $expectedBalance,
+        if (abs((float) $invoice->computed_amount - $lineItemsTotal) > 0.01) {
+            $issues['computed_amount'] = [
+                'stored' => (float) $invoice->computed_amount,
+                'expected' => $lineItemsTotal,
             ];
         }
 
@@ -142,8 +135,7 @@ class FinanceReconciliationService
         if (!empty($issues)) {
             $invoice->update([
                 'amount_due' => $expectedAmountDue,
-                'paid_amount' => $expectedPaid,
-                'balance_due' => $expectedBalance,
+                'computed_amount' => $lineItemsTotal,
                 'status' => $expectedStatus,
                 'updated_by' => $invoice->updated_by,
             ]);
