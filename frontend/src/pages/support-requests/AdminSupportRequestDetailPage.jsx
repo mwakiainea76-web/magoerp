@@ -113,7 +113,7 @@ export function AdminSupportRequestDetailPage() {
     <section className="space-y-5">
       <button
         type="button"
-        onClick={() => navigate("/support-requests")}
+        onClick={() => navigate("/admin/support-requests")}
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-500 hover:text-slate-700"
       >
         <ArrowLeft className="h-4 w-4" /> Back to Requests

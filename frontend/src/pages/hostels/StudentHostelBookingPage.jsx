@@ -119,7 +119,7 @@ export function StudentHostelBookingPage() {
         </div>
 
         <div className="flex gap-3">
-          <FormButton onClick={() => navigate("/hostel")}>
+          <FormButton onClick={() => navigate("/student/hostel")}>
             View My Hostel
           </FormButton>
         </div>
@@ -133,7 +133,7 @@ export function StudentHostelBookingPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate("/hostel")}
+            onClick={() => navigate("/student/hostel")}
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-500 hover:text-slate-700"
           >
             <ArrowLeft className="h-4 w-4" /> Back
@@ -171,7 +171,7 @@ export function StudentHostelBookingPage() {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate("/hostel")}
+          onClick={() => navigate("/student/hostel")}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-500 hover:text-slate-700"
         >
           <ArrowLeft className="h-4 w-4" /> Back

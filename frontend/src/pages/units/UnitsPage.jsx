@@ -127,7 +127,7 @@ export function UnitsPage() {
           <p className="text-[13px] text-slate-500">Manage units within course curriculum versions</p>
         </div>
 
-        <Link to="/units/create">
+        <Link to="/admin/units/create">
           <FormButton className="sm:px-5">
             <Plus className="mr-2 h-4 w-4" />
             Add Unit

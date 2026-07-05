@@ -1,7 +1,7 @@
 ﻿export const dashboardPathByRole = {
-  admin: "/dashboard",
-  trainer: "/dashboard",
-  student: "/",
+  admin: "/admin/dashboard",
+  trainer: "/trainer/dashboard",
+  student: "/student",
 };
 
 export function getDashboardPath(role) {

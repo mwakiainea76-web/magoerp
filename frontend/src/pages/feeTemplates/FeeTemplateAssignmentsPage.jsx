@@ -196,7 +196,7 @@ export function FeeTemplateAssignmentsPage() {
           <h1 className="text-xl font-semibold text-slate-950">Fee Template: {template.name}</h1>
           <p className="mt-1 text-sm text-slate-500">{template.items} items Ã‚Â· {money(template.amount)}</p>
         </div>
-        <Link to="/finance/fee-templates" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><ArrowLeft className="size-4" />Back</Link>
+        <Link to="/admin/finance/fee-templates" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><ArrowLeft className="size-4" />Back</Link>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

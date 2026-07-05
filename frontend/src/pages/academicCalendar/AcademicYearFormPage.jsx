@@ -156,7 +156,7 @@ export function AcademicYearFormPage() {
         toast.success("Academic year created successfully.");
       }
 
-      navigate("/academic-calendar/years", { replace: true });
+      navigate("/admin/academic-calendar/years", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 
@@ -185,7 +185,7 @@ export function AcademicYearFormPage() {
         </div>
 
         <Link
-          to="/academic-calendar/years"
+          to="/admin/academic-calendar/years"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -275,7 +275,7 @@ export function AcademicYearFormPage() {
             </div>
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Link to="/academic-calendar/years" className="sm:w-auto">
+              <Link to="/admin/academic-calendar/years" className="sm:w-auto">
                 <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">Cancel</FormButton>
               </Link>
               <FormButton type="submit" disabled={isSaving} className="sm:w-auto sm:px-5">

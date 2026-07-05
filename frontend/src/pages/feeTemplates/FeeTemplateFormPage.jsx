@@ -123,7 +123,7 @@ export function FeeTemplateFormPage() {
         toast.success("Fee template created successfully.");
       }
 
-      navigate("/finance/fee-templates", { replace: true });
+      navigate("/admin/finance/fee-templates", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 
@@ -152,7 +152,7 @@ export function FeeTemplateFormPage() {
         </div>
 
         <Link
-          to="/finance/fee-templates"
+          to="/admin/finance/fee-templates"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -214,7 +214,7 @@ export function FeeTemplateFormPage() {
             </div>
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Link to="/finance/fee-templates" className="sm:w-auto">
+              <Link to="/admin/finance/fee-templates" className="sm:w-auto">
                 <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">Cancel</FormButton>
               </Link>
               <FormButton type="submit" disabled={isSaving} className="sm:w-auto sm:px-5">

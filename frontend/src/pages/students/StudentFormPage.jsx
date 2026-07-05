@@ -345,7 +345,7 @@ export function StudentFormPage() {
         toast.success("Student admitted successfully.");
       }
 
-      navigate("/students", { replace: true });
+      navigate("/admin/students", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 
@@ -382,7 +382,7 @@ export function StudentFormPage() {
         </div>
 
         <Link
-          to="/students"
+          to="/admin/students"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -636,7 +636,7 @@ export function StudentFormPage() {
         </div>
 
         <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-          <Link to="/students" className="sm:w-auto">
+          <Link to="/admin/students" className="sm:w-auto">
             <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">
               Cancel
             </FormButton>

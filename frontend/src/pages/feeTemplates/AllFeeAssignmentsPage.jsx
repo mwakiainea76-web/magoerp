@@ -92,7 +92,7 @@ export function AllFeeAssignmentsPage() {
           <h1 className="text-xl font-semibold text-slate-950">Fee Assignments</h1>
           <p className="mt-1 text-sm text-slate-500">All course fee assignments across fee templates.</p>
         </div>
-        <Link to="/finance/fee-templates" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><FileText className="size-4" />Fee Templates</Link>
+        <Link to="/admin/finance/fee-templates" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><FileText className="size-4" />Fee Templates</Link>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

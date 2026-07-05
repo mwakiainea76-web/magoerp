@@ -113,7 +113,7 @@ export function AccessRolesPage() {
         </div>
 
         <div className="flex gap-3">
-          <Link to="/access-roles/create">
+          <Link to="/admin/access-roles/create">
             <FormButton className="sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Role

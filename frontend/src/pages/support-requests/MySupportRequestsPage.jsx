@@ -53,7 +53,7 @@ export function MySupportRequestsPage() {
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">My Requests</h1>
           <p className="text-[13px] text-slate-500">Track your submitted requests and inquiries</p>
         </div>
-        <Link to="/support-requests/create">
+        <Link to="/student/support-requests/create">
           <FormButton>
             <Plus className="mr-2 h-4 w-4" />
             New Request

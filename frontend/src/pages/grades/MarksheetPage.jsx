@@ -41,7 +41,7 @@ function getCellValue(entry, key) {
   return formatMark(entry.scores?.[key]);
 }
 
-export function MarksheetPage({ selfService = false }) {
+export function MarksheetPage({ role = "admin" }) {
   const marksApi = useMarksApi();
   const lookupApi = useLookupApi();
   const sessionsApi = useAcademicSessionsApi();
@@ -64,10 +64,10 @@ export function MarksheetPage({ selfService = false }) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
 
-  const studentId = selfService ? null : (selectedStudent?.id ?? null);
+  const studentId = role === "student" ? null : (selectedStudent?.id ?? null);
 
   useEffect(() => {
-    if (selfService) return;
+    if (role === "student") return;
     let mounted = true;
     Promise.all([
       sessionsApi.list({ per_page: 100, sort_direction: "desc" }),
@@ -79,7 +79,7 @@ export function MarksheetPage({ selfService = false }) {
       }
     }).catch(() => {});
     return () => { mounted = false; };
-  }, [selfService, sessionsApi, unitsApi]);
+  }, [role === "student", sessionsApi, unitsApi]);
 
   useEffect(() => {
     setSelectedEnrolmentId("");
@@ -88,7 +88,7 @@ export function MarksheetPage({ selfService = false }) {
     setError("");
     setSelectedModule("");
 
-    if (selfService) {
+    if (role === "student") {
       let mounted = true;
       setIsLoadingEnrolments(true);
 
@@ -122,7 +122,7 @@ export function MarksheetPage({ selfService = false }) {
         if (mounted) {
           const items = res.data ?? [];
           setEnrolments(items);
-          if (selfService && items.length > 0) {
+          if (role === "student" && items.length > 0) {
             setSelectedEnrolmentId(items[0].id);
           }
         }
@@ -133,7 +133,7 @@ export function MarksheetPage({ selfService = false }) {
       });
 
     return () => { mounted = false; };
-  }, [studentId, selfService, marksApi]);
+  }, [studentId, role === "student", marksApi]);
 
   const selectedEnrolment = useMemo(
     () => enrolments.find((e) => e.id === selectedEnrolmentId) ?? null,
@@ -141,7 +141,7 @@ export function MarksheetPage({ selfService = false }) {
   );
 
   useEffect(() => {
-    if (selfService) {
+    if (role === "student") {
       if (!selectedEnrolmentId) return;
     } else if (!studentId) {
       return;
@@ -159,7 +159,7 @@ export function MarksheetPage({ selfService = false }) {
       params.module = Number(selectedModule);
     }
 
-    const promise = selfService
+    const promise = role === "student"
       ? marksApi.myMarksheet(params)
       : marksApi.adminMarksheet({ ...params, student_id: studentId });
 
@@ -175,7 +175,7 @@ export function MarksheetPage({ selfService = false }) {
       });
 
     return () => { mounted = false; };
-  }, [studentId, selectedEnrolmentId, selectedModule, selfService, marksApi]);
+  }, [studentId, selectedEnrolmentId, selectedModule, role === "student", marksApi]);
 
   useEffect(() => {
     setPage(1);
@@ -260,7 +260,7 @@ export function MarksheetPage({ selfService = false }) {
               ) : enrolments.length === 0 ? (
                 <option value="">No enrolments found</option>
               ) : (
-                [(!selfService ? <option key="all" value="">All sessions</option> : null)]
+                [(role !== "student" ? <option key="all" value="">All sessions</option> : null)]
                   .concat(enrolments.map((enrolment) => (
                     <option key={enrolment.id} value={enrolment.id}>
                       {enrolment.label}
@@ -296,7 +296,7 @@ export function MarksheetPage({ selfService = false }) {
           type="button"
           variant="secondary"
           onClick={() => {
-            setSelectedEnrolmentId(selfService ? (enrolments[0]?.id ?? "") : "");
+            setSelectedEnrolmentId(role === "student" ? (enrolments[0]?.id ?? "") : "");
             setSelectedModule("");
           }}
           disabled={!selectedEnrolmentId && !selectedModule}
@@ -312,7 +312,7 @@ export function MarksheetPage({ selfService = false }) {
       <div>
         <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Marksheet</h1>
         <p className="text-[13px] text-slate-500">
-          {selfService
+          {role === "student"
             ? "Browse your published marksheet by session enrolment"
             : "Search a student or generate a unit marksheet"}
         </p>
@@ -320,7 +320,7 @@ export function MarksheetPage({ selfService = false }) {
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
         <div className="space-y-4">
-          {!selfService ? (
+          {role !== "student" ? (
             <div className={studentId ? "lg:w-1/2" : ""}>
               <LookupSelect
                 label="Student"
@@ -333,7 +333,7 @@ export function MarksheetPage({ selfService = false }) {
             </div>
           ) : null}
 
-          {selfService || studentId ? renderStudentFilters() : renderAggregateFilters()}
+          {role === "student" || studentId ? renderStudentFilters() : renderAggregateFilters()}
         </div>
       </div>
 
@@ -345,11 +345,11 @@ export function MarksheetPage({ selfService = false }) {
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-slate-500 ${bodyTextClassName}`}>Loading marksheet...</div>
       ) : null}
 
-      {!isLoading && !selfService && !studentId && marksheetData && marksheetData.marksheet?.length === 0 ? (
+      {!isLoading && role !== "student" && !studentId && marksheetData && marksheetData.marksheet?.length === 0 ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>No marks found for the selected unit and session.</div>
       ) : null}
 
-      {!isLoading && !selfService && !studentId && marksheetData && marksheetData.marksheet?.length > 0 ? (
+      {!isLoading && role !== "student" && !studentId && marksheetData && marksheetData.marksheet?.length > 0 ? (
         <Table>
           <TableHeader>
             <h2 className="text-[1.0625rem] font-semibold text-slate-900">
@@ -400,25 +400,25 @@ export function MarksheetPage({ selfService = false }) {
         </Table>
       ) : null}
 
-      {!isLoading && !selfService && !studentId ? null : null}
+      {!isLoading && role !== "student" && !studentId ? null : null}
 
-      {!isLoading && !selfService && studentId && marksheetData === null && isLoadingEnrolments ? (
+      {!isLoading && role !== "student" && studentId && marksheetData === null && isLoadingEnrolments ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>Loading enrolments...</div>
       ) : null}
 
-      {!isLoading && selfService && !selectedEnrolmentId && !isLoadingEnrolments ? (
+      {!isLoading && role === "student" && !selectedEnrolmentId && !isLoadingEnrolments ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>Select a session enrolment to view your marksheet.</div>
       ) : null}
 
-      {!isLoading && !selfService && studentId && marksheetData === null && !isLoadingEnrolments && enrolments.length === 0 ? (
+      {!isLoading && role !== "student" && studentId && marksheetData === null && !isLoadingEnrolments && enrolments.length === 0 ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>No session enrolments found for this student.</div>
       ) : null}
 
-      {!isLoading && marksheetData !== null && marksheetRows.length === 0 && (selfService || studentId) ? (
+      {!isLoading && marksheetData !== null && marksheetRows.length === 0 && (role === "student" || studentId) ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>No published unit marks found for the selected filters.</div>
       ) : null}
 
-      {!isLoading && marksheetData !== null && marksheetRows.length > 0 && (selfService || studentId) ? (
+      {!isLoading && marksheetData !== null && marksheetRows.length > 0 && (role === "student" || studentId) ? (
         <Table>
           <TableHeader>
             <div>

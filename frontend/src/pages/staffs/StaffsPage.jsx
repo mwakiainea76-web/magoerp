@@ -299,7 +299,7 @@ export function StaffsPage() {
             )}
           </div>
 
-          <Link to="/staffs/create">
+          <Link to="/admin/staffs/create">
             <FormButton className="w-full sm:w-auto sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Staff

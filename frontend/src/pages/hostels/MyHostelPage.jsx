@@ -100,7 +100,7 @@ export function MyHostelPage() {
           <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
           <p className="text-slate-500">You do not have a hostel allocation yet.</p>
           <p className="mt-1 text-[12px] text-slate-400">Check available hostels and book online.</p>
-          <Link to="/hostel-book" className="mt-5 inline-block">
+          <Link to="/student/hostel-book" className="mt-5 inline-block">
             <FormButton>
               Book a Hostel
               <ArrowRight className="ml-2 h-4 w-4" />

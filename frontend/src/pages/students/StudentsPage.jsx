@@ -345,7 +345,7 @@ export function StudentsPage() {
             )}
           </div>
 
-          <Link to="/students/create">
+          <Link to="/admin/students/create">
             <FormButton className="w-full sm:w-auto sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Student

@@ -120,7 +120,7 @@ export function AttendanceMarkPage() {
     return (
       <section className="space-y-5">
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
-          Missing required parameters. <Link to="/attendance" className="font-medium text-emerald-600 underline">Go back</Link>
+          Missing required parameters. <Link to="/admin/attendance" className="font-medium text-emerald-600 underline">Go back</Link>
         </div>
       </section>
     );
@@ -135,7 +135,7 @@ export function AttendanceMarkPage() {
             {formatDate(sessionDate)} — {startTime}
           </p>
         </div>
-        <Link to="/attendance" className="rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50">
+        <Link to="/admin/attendance" className="rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50">
           Back
         </Link>
       </div>

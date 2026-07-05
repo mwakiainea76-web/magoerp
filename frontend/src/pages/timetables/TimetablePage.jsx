@@ -93,7 +93,7 @@ function TimetableGrid({ grid, onDelete }) {
                                 <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                                   <button
                                     type="button"
-                                    onClick={() => navigate(`/timetables/${entry.id}/edit`)}
+                                    onClick={() => navigate(`/admin/timetables/${entry.id}/edit`)}
                                     className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
                                     title="Edit"
                                   >
@@ -137,7 +137,7 @@ function TimetableGrid({ grid, onDelete }) {
   );
 }
 
-export function TimetableViewPage() {
+export function TimetablePage({ role }) {
   const timetableApi = useTimetableApi();
   const courseCurriculaApi = useCourseCurriculaApi();
 
@@ -148,6 +148,8 @@ export function TimetableViewPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const isAdmin = role === "admin";
+
   const fetchCurricula = useCallback(async (query) => {
     const res = await courseCurriculaApi.list({ q: query, per_page: 200 });
     return (res.data ?? []).map((cc) => ({
@@ -156,7 +158,7 @@ export function TimetableViewPage() {
     }));
   }, []);
 
-  async function loadGrid() {
+  async function loadAdminGrid() {
     if (!courseCurriculumId) return;
     setIsLoading(true);
     setError("");
@@ -172,7 +174,31 @@ export function TimetableViewPage() {
     }
   }
 
-  useEffect(() => { loadGrid(); }, [courseCurriculumId, moduleFilter]);
+  useEffect(() => {
+    if (isAdmin) {
+      loadAdminGrid();
+    }
+  }, [isAdmin, courseCurriculumId, moduleFilter]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      let mounted = true;
+      async function loadStudentGrid() {
+        setIsLoading(true);
+        setError("");
+        try {
+          const res = await timetableApi.myTimetable();
+          if (mounted) setGrid(res.data?.grid ?? {});
+        } catch (e) {
+          if (mounted) setError(getApiErrorMessage(e, "Failed to load timetable."));
+        } finally {
+          if (mounted) setIsLoading(false);
+        }
+      }
+      loadStudentGrid();
+      return () => { mounted = false; };
+    }
+  }, [isAdmin]);
 
   function handleCourseCurriculumChange(id, option) {
     setCourseCurriculumId(id ?? "");
@@ -185,7 +211,7 @@ export function TimetableViewPage() {
     try {
       await timetableApi.destroy(id);
       toast.success("Entry removed.");
-      await loadGrid();
+      await loadAdminGrid();
     } catch (e) {
       toast.error(getApiErrorMessage(e, "Failed to remove."));
     }
@@ -195,36 +221,42 @@ export function TimetableViewPage() {
     <section className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Timetables</h1>
-          <p className="text-[13px] text-slate-500">Weekly academic timetable grid</p>
+          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">
+            {isAdmin ? "Timetables" : "My Timetable"}
+          </h1>
+          <p className="text-[13px] text-slate-500">
+            {isAdmin ? "Weekly academic timetable grid" : "Your weekly class schedule"}
+          </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <LookupSelect
-            label="Course Curriculum"
-            value={courseCurriculumId}
-            onChange={handleCourseCurriculumChange}
-            fetchOptions={fetchCurricula}
-            selectedOption={selectedCourseCurriculum}
-            placeholder="Search course curriculum"
-          />
-          <div>
-            <label className="mb-1 block text-[13px] font-medium text-slate-600">Module</label>
-            <select
-              value={moduleFilter}
-              onChange={(e) => setModuleFilter(Number(e.target.value))}
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition"
-            >
-              <option value={0}>All</option>
-              <option value={1}>Module 1</option>
-              <option value={2}>Module 2</option>
-              <option value={3}>Module 3</option>
-            </select>
+      {isAdmin ? (
+        <div className="rounded-xl border border-slate-200/80 bg-white p-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <LookupSelect
+              label="Course Curriculum"
+              value={courseCurriculumId}
+              onChange={handleCourseCurriculumChange}
+              fetchOptions={fetchCurricula}
+              selectedOption={selectedCourseCurriculum}
+              placeholder="Search course curriculum"
+            />
+            <div>
+              <label className="mb-1 block text-[13px] font-medium text-slate-600">Module</label>
+              <select
+                value={moduleFilter}
+                onChange={(e) => setModuleFilter(Number(e.target.value))}
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition"
+              >
+                <option value={0}>All</option>
+                <option value={1}>Module 1</option>
+                <option value={2}>Module 2</option>
+                <option value={3}>Module 3</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {error ? (
         <div className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>{error}</div>
@@ -234,15 +266,13 @@ export function TimetableViewPage() {
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
           Loading timetable...
         </div>
-      ) : courseCurriculumId ? (
-        <TimetableGrid grid={grid} onDelete={handleDelete} />
-      ) : (
+      ) : isAdmin && !courseCurriculumId ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
           Select a course curriculum to view the timetable.
         </div>
+      ) : (
+        <TimetableGrid grid={grid} onDelete={isAdmin ? handleDelete : undefined} />
       )}
     </section>
   );
 }
-
-export { TimetableGrid };

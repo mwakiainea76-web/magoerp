@@ -596,7 +596,7 @@ export function BillingPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => navigate("/finance/invoices")}
+          onClick={() => navigate("/admin/finance/invoices")}
           className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 text-left shadow-sm transition hover:border-emerald-200 hover:shadow-md"
         >
           <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
@@ -609,7 +609,7 @@ export function BillingPage() {
         </button>
         <button
           type="button"
-          onClick={() => navigate("/finance/payments")}
+          onClick={() => navigate("/admin/finance/payments")}
           className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 text-left shadow-sm transition hover:border-emerald-200 hover:shadow-md"
         >
           <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-sm">

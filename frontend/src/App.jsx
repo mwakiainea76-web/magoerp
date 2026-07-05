@@ -3,7 +3,10 @@ import { Navigate, Route, Routes } from "react-router";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { AuthLayout } from "@/layouts/AuthLayout";
-import { AdminRoutes, StudentRoutes, TrainerRoutes } from "@/router";
+import { AdminRoutes } from "@/router/routes/admin.routes";
+import { TrainerRoutes } from "@/router/routes/trainer.routes";
+import { StudentRoutes } from "@/router/routes/student.routes";
+import { SharedRoutes } from "@/router/routes/shared.routes";
 import { ForbiddenPage } from "@/pages/app/ForbiddenPage";
 import { RequireAuth } from "@/router/RequireAuth";
 import { useAuthStore } from "@/store/authStore";
@@ -11,9 +14,12 @@ import { useAuthStore } from "@/store/authStore";
 const LoginPage = lazy(() =>
   import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })),
 );
-const ResetPasswordPage = lazy(() =>
-  import("@/pages/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })),
-);
+
+const ROUTES_BY_ROLE = {
+  admin: AdminRoutes,
+  trainer: TrainerRoutes,
+  student: StudentRoutes,
+};
 
 function PageLoader() {
   return (
@@ -26,20 +32,6 @@ function PageLoader() {
 function App() {
   const role = useAuthStore((state) => state.user?.role);
 
-  const roleRoutes =
-    role === "admin"
-      ? AdminRoutes()
-      : role === "trainer"
-        ? TrainerRoutes()
-        : role === "student"
-          ? StudentRoutes()
-          : (
-            <>
-              <Route path="/forbidden" element={<Navigate to="/login" replace />} />
-              <Route path="*" element={<Navigate to="/forbidden" replace />} />
-            </>
-          );
-
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
@@ -49,9 +41,9 @@ function App() {
 
         <Route element={<RequireAuth />}>
           <Route element={<AppLayout />}>
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/forbidden" element={<ForbiddenPage />} />
-            {roleRoutes}
+            {SharedRoutes}
+            {ROUTES_BY_ROLE[role]}
+            <Route path="*" element={<ForbiddenPage />} />
           </Route>
         </Route>
 

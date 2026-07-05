@@ -110,7 +110,7 @@ export function LectureRoomsPage() {
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Lecture Rooms</h1>
           <p className="text-[13px] text-slate-500">Manage room inventory</p>
         </div>
-        <Link to="/lecture-rooms/create">
+        <Link to="/admin/lecture-rooms/create">
           <FormButton className="w-full sm:w-auto sm:px-5">
             <Plus className="mr-2 h-4 w-4" />
             Add Room

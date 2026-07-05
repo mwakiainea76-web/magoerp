@@ -243,7 +243,7 @@ export function DepartmentsPage() {
             )}
           </div>
 
-          <Link to="/departments/create">
+          <Link to="/admin/departments/create">
             <FormButton className="w-full sm:w-auto sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Department

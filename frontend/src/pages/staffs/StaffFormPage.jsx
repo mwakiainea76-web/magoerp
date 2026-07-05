@@ -314,7 +314,7 @@ export function StaffFormPage() {
         toast.success("Staff created successfully.");
       }
 
-      navigate("/staffs", { replace: true });
+      navigate("/admin/staffs", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 
@@ -367,7 +367,7 @@ export function StaffFormPage() {
         </div>
 
         <Link
-          to="/staffs"
+          to="/admin/staffs"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -617,7 +617,7 @@ export function StaffFormPage() {
         </div>
 
         <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-          <Link to="/staffs" className="sm:w-auto">
+          <Link to="/admin/staffs" className="sm:w-auto">
             <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">
               Cancel
             </FormButton>

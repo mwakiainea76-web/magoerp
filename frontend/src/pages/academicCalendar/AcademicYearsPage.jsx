@@ -117,12 +117,12 @@ export function AcademicYearsPage() {
         </div>
 
         <div className="flex gap-3">
-          <Link to="/academic-calendar/sessions">
+          <Link to="/admin/academic-calendar/sessions">
             <FormButton variant="secondary" className="sm:px-5">
               View Sessions
             </FormButton>
           </Link>
-          <Link to="/academic-calendar/years/create">
+          <Link to="/admin/academic-calendar/years/create">
             <FormButton className="sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Academic Year

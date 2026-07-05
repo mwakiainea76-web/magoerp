@@ -16,7 +16,7 @@ function valueOrDash(value) {
   return value === null || value === undefined || value === "" ? "-" : value;
 }
 
-export function TranscriptPage({ selfService = false }) {
+export function TranscriptPage({ role = "admin" }) {
   const marksApi = useMarksApi();
   const lookupApi = useLookupApi();
 
@@ -30,7 +30,7 @@ export function TranscriptPage({ selfService = false }) {
   const [error, setError] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const studentId = selfService ? null : (selectedStudent?.id ?? null);
+  const studentId = role === "student" ? null : (selectedStudent?.id ?? null);
 
   useEffect(() => {
     setSelectedEnrolmentId("");
@@ -38,7 +38,7 @@ export function TranscriptPage({ selfService = false }) {
     setTranscriptData(null);
     setError("");
 
-    if (selfService) {
+    if (role === "student") {
       let mounted = true;
       setIsLoadingEnrolments(true);
 
@@ -87,10 +87,10 @@ export function TranscriptPage({ selfService = false }) {
     return () => {
       mounted = false;
     };
-  }, [studentId, selfService, marksApi]);
+  }, [studentId, role === "student", marksApi]);
 
   useEffect(() => {
-    if (selfService) {
+    if (role === "student") {
       if (!selectedEnrolmentId) return;
     } else if (!studentId || !selectedEnrolmentId) {
       return;
@@ -104,7 +104,7 @@ export function TranscriptPage({ selfService = false }) {
       session_enrolment_id: selectedEnrolmentId,
       transcript_type: transcriptType,
     };
-    const promise = selfService
+    const promise = role === "student"
       ? marksApi.myTranscript(params)
       : marksApi.adminTranscript({ ...params, student_id: studentId });
 
@@ -123,7 +123,7 @@ export function TranscriptPage({ selfService = false }) {
     return () => {
       mounted = false;
     };
-  }, [studentId, selectedEnrolmentId, transcriptType, selfService, marksApi]);
+  }, [studentId, selectedEnrolmentId, transcriptType, role === "student", marksApi]);
 
   const transcriptRows = transcriptData?.transcript ?? [];
   const student = transcriptData?.student;
@@ -146,7 +146,7 @@ export function TranscriptPage({ selfService = false }) {
   ].join("-");
 
   async function downloadTranscript() {
-    if (selfService) {
+    if (role === "student") {
       if (!selectedEnrolmentId) {
         setError("Select a session before downloading.");
         return;
@@ -164,10 +164,10 @@ export function TranscriptPage({ selfService = false }) {
         session_enrolment_id: selectedEnrolmentId,
         transcript_type: transcriptType,
       };
-      const downloadParams = selfService
+      const downloadParams = role === "student"
         ? params
         : { ...params, student_id: studentId };
-      const response = selfService
+      const response = role === "student"
         ? await marksApi.myTranscriptDownload(downloadParams)
         : await marksApi.adminTranscriptDownload(downloadParams);
 
@@ -210,7 +210,7 @@ export function TranscriptPage({ selfService = false }) {
             Transcript
           </h1>
           <p className="text-[13px] text-slate-500">
-            {selfService
+            {role === "student"
               ? "View your published transcript and final unit grades"
               : "View and download student transcripts"}
           </p>
@@ -229,7 +229,7 @@ export function TranscriptPage({ selfService = false }) {
       </div>
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-        {selfService || studentId ? (
+        {role === "student" || studentId ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,200px)_1fr_auto] lg:items-end">
             <div>
               <label
@@ -325,7 +325,7 @@ export function TranscriptPage({ selfService = false }) {
         </div>
       ) : null}
 
-      {!isLoading && !selfService && !studentId ? (
+      {!isLoading && role !== "student" && !studentId ? (
         <div
           className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
         >
@@ -342,7 +342,7 @@ export function TranscriptPage({ selfService = false }) {
       ) : null}
 
       {!isLoading &&
-      !selfService &&
+      role !== "student" &&
       studentId &&
       !selectedEnrolmentId &&
       isLoadingEnrolments ? (
@@ -356,11 +356,11 @@ export function TranscriptPage({ selfService = false }) {
       {!isLoading &&
       !selectedEnrolmentId &&
       !isLoadingEnrolments &&
-      (selfService || studentId) ? (
+      (role === "student" || studentId) ? (
         <div
           className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
         >
-          {selfService
+          {role === "student"
             ? "Select a session enrolment to view your transcript."
             : "No session enrolments found for this student."}
         </div>

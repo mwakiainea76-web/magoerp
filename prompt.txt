@@ -1,62 +1,71 @@
-I think the cleanest answer is: transcript should be anchored on `session enrolment progression`, not just `year + module`, and `module` should become optional metadata rather than the primary selector.
+Refactor my React Router route configuration from a single flat array into
+role-based route files that export JSX <Route> fragments directly, so App.jsx
+just plugs each role's fragment in without any filtering/mapping logic.
 
-Why:
-- `AcademicSessionEnrolment` already stores the student’s progression truth: `year_of_study` and `session_number`.
-- `StudentUnitRegistration` tells us which units the student actually took in that progression.
-- `Unit.modules_taught` is useful, but it is not universal. Some certification-body units span the whole year and have `modules_taught = null`, so making module mandatory breaks that model.
+CONTEXT:
+- Current file: src/router/index.jsx (or wherever routeConfigs lives) exports
+  a flat array `routeConfigs` of { path, element } objects covering admin,
+  trainer, and student routes.
+- App.jsx currently filters routeConfigs by role using path.split("/")[1]
+  and renders them with .map().
 
-For the non-modular certification-body case, I would not generate transcript “per enrolled session only” in the narrow sense. I would do this instead:
-- Primary transcript selector: `session enrolment`
-- Transcript result: all registered + published units up to that selected progression, or exactly within that selected progression depending on the document type
-- `module` only refines the result when the units are modularized
+WHAT TO DO:
 
-That gives us two clear transcript modes:
-1. `Progress Transcript`
-- Based on a selected session enrolment record
-- Shows units tied to that progression point
-- If units are non-modular and span the year, include the units registered under that session progression without forcing a module filter
+1. Create a new folder: src/router/routes/
+   Split routeConfigs into one file per role, preserving every existing
+   path and element EXACTLY as-is (do not rename paths, do not remove any
+   route, do not change any component props like role="admin"):
+   - src/router/routes/admin.routes.jsx   -> export const AdminRoutes
+   - src/router/routes/trainer.routes.jsx -> export const TrainerRoutes
+   - src/router/routes/student.routes.jsx -> export const StudentRoutes
+   - src/router/routes/shared.routes.jsx  -> export const SharedRoutes
+     (routes any authenticated role can access, e.g. /reset-password,
+     /forbidden — check current App.jsx for these)
 
-2. `Cumulative Transcript`
-- Based on the latest or selected session enrolment
-- Shows all published transcriptable units up to that point
+2. Each file must:
+   - Import only the page components it actually uses (no unused imports
+     left behind in any file, no missing imports either)
+   - Export a single constant that is a JSX fragment of <Route> elements,
+     e.g.:
+       export const AdminRoutes = (
+         <>
+           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+           ...
+         </>
+       );
+   - Import { Route } from "react-router" at the top
 
-For your student `View Marks` filters, I’d refactor like this:
-- `Session` as the first selector
-  - values come from the student’s own `AcademicSessionEnrolment` rows
-  - label example: `Year 1 Session 1 - Semester 1 2025/2026`
-- `Module` as the second selector
-  - populated from units registered within the selected session progression
-  - if no modularized units exist, either hide it or show `All modules`
-- Remove separate `Year of Study` filter from transcript if `Session` already carries progression
-- For marksheet, same idea can work, but only if you want one consistent student UX
+3. Update App.jsx to:
+   - Remove the old routeConfigs import, the .split("/")[1] role-prefix
+     filtering logic, and the useMemo-based filteredRoutes
+   - Import AdminRoutes, TrainerRoutes, StudentRoutes, SharedRoutes from
+     the new files
+   - Define a ROUTES_BY_ROLE map: { admin: AdminRoutes, trainer:
+     TrainerRoutes, student: StudentRoutes }
+   - Render SharedRoutes and ROUTES_BY_ROLE[role] as children of the
+     existing authenticated <Route element={<AppLayout />}> block
+   - Fix the current bug: an authenticated user landing on a route outside
+     their role should see <ForbiddenPage />, NOT get redirected to
+     /login. Only unauthenticated users hitting unknown paths should go
+     to /login. Keep the outer catch-all Route for unauthenticated users
+     as-is, but change the catch-all INSIDE the authenticated layout block
+     from Navigate to /login to <ForbiddenPage />.
 
-So the rule becomes:
-- Admin/staff can choose `academic session -> module` because they are querying cohorts
-- Student should choose `their session enrolment progression -> optional module` because they are querying personal progression
+4. Delete the old routeConfigs file/array once everything is migrated, but
+   only after confirming no other file still imports it (search the
+   codebase for "routeConfigs" and "@/router\"" imports first).
 
-That solves the edge case neatly:
-- Modular units: session filter narrows the cohort, module refines the units
-- Non-modular certification units: session filter still works, module is ignored or unavailable
-- No fake exclusion of year-long units just because `modules_taught` is null
+5. Keep this structure extensible: adding a future role (e.g. "parent")
+   should only require creating src/router/routes/parent.routes.jsx and
+   adding one entry to ROUTES_BY_ROLE in App.jsx — no other files should
+   need changes.
 
-My recommendation:
-- For `student transcript`: use `session enrolment` as the main selector
-- For `student marksheet`: also prefer `session enrolment`, with optional module
-- Keep `year_of_study` only as derived display text from the selected session enrolment, not the driving filter
+CONSTRAINTS:
+- Do not change any existing route path strings.
+- Do not change any component prop values (e.g. role="student" must stay
+  exactly as it is on that page).
+- Do not introduce any new routing library or config format — stick to
+  react-router's <Route> / <Routes> JSX pattern already in use.
+- After the refactor, list every file you created/modified/deleted so I
+  can review the diff.
 
-If we implement this, backend logic should shift from:
-- `where units.year_of_study = X`
-- optional `where units.modules_taught = Y`
-
-to:
-- start from selected `academic_session_enrolment_id`
-- fetch that enrolment’s registered units from `student_unit_registrations`
-- optionally refine by `modules_taught`
-- compute marks/grade only from published marks for those registrations
-
-That is more correct than using year alone.
-
-refactor proposal with:
-1. exact UI filter changes,
-2. exact backend payload shape,
-3. exact transcript behavior for modular vs non-modular units.

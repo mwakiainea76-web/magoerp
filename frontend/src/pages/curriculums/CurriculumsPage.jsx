@@ -147,7 +147,7 @@ export function CurriculumsPage() {
           </p>
         </div>
 
-        <Link to="/curriculums/create">
+        <Link to="/admin/curriculums/create">
           <FormButton className="sm:px-5">
             <Plus className="mr-2 h-4 w-4" />
             Add Curriculum

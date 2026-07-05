@@ -124,7 +124,7 @@ export function HostelFormPage() {
         await api.create(payload);
         toast.success("Hostel created.");
       }
-      navigate("/hostels");
+      navigate("/admin/hostels");
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {
@@ -243,7 +243,7 @@ export function HostelFormPage() {
         </div>
 
         <div className="flex justify-end gap-3">
-          <FormButton type="button" variant="secondary" onClick={() => navigate("/hostels")}>Cancel</FormButton>
+          <FormButton type="button" variant="secondary" onClick={() => navigate("/admin/hostels")}>Cancel</FormButton>
           <FormButton type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : isEditing ? "Update Hostel" : "Create Hostel"}</FormButton>
         </div>
       </form>

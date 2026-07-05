@@ -193,34 +193,50 @@ class StudentMarksController extends Controller
 
         $user = $request->user();
 
+        $admissionNumbers = collect($validated['marks'])->pluck('student_admission_number')->unique();
+        $students = Student::whereIn('admission_number', $admissionNumbers)->get()->keyBy('admission_number');
+
+        $sessionIds = collect($validated['marks'])->pluck('academic_session_id')->unique();
+        $unitIds = collect($validated['marks'])->pluck('unit_id')->unique();
+
+        $enrolments = AcademicSessionEnrolment::whereIn('student_id', $students->pluck('id'))
+            ->whereIn('academic_session_id', $sessionIds)
+            ->get()
+            ->keyBy(fn ($e) => "{$e->academic_session_id}|{$e->student_id}");
+
+        $enrolmentIds = $enrolments->pluck('id');
+        $registrations = StudentUnitRegistration::whereIn('academic_session_enrolment_id', $enrolmentIds)
+            ->whereIn('unit_id', $unitIds)
+            ->get()
+            ->keyBy(fn ($r) => "{$r->academic_session_enrolment_id}|{$r->unit_id}");
+
+        $existingMarks = StudentMark::whereIn('academic_session_enrolment_id', $enrolmentIds)
+            ->whereIn('unit_id', $unitIds)
+            ->get()
+            ->keyBy(fn ($m) => "{$m->academic_session_enrolment_id}|{$m->unit_id}|{$m->assessment_type}|{$m->assessment_number}");
+
         $created = [];
         $errors = [];
 
         DB::beginTransaction();
         try {
             foreach ($validated['marks'] as $entry) {
-                $student = Student::where('admission_number', $entry['student_admission_number'])->first();
+                $student = $students->get($entry['student_admission_number']);
                 if (! $student) {
                     $errors[] = "Student {$entry['student_admission_number']} was not found.";
 
                     continue;
                 }
 
-                $enrolment = AcademicSessionEnrolment::where('student_id', $student->id)
-                    ->where('academic_session_id', $entry['academic_session_id'])
-                    ->first();
-
-                if (! $enrolment) {
+                $enrol = $enrolments->get("{$entry['academic_session_id']}|{$student->id}");
+                if (! $enrol) {
                     $errors[] = "Student {$entry['student_admission_number']} is not enrolled in the session.";
 
                     continue;
                 }
 
-                $registration = StudentUnitRegistration::where('academic_session_enrolment_id', $enrolment->id)
-                    ->where('unit_id', $entry['unit_id'])
-                    ->first();
-
-                if (! $registration) {
+                $reg = $registrations->get("{$enrol->id}|{$entry['unit_id']}");
+                if (! $reg) {
                     $errors[] = "Student {$entry['student_admission_number']} is not enrolled for this unit.";
 
                     continue;
@@ -228,20 +244,15 @@ class StudentMarksController extends Controller
 
                 [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($entry['assessment_type']);
 
-                $exists = StudentMark::where('academic_session_enrolment_id', $enrolment->id)
-                    ->where('unit_id', $entry['unit_id'])
-                    ->where('assessment_type', $assessmentType)
-                    ->where('assessment_number', $assessmentNumber)
-                    ->exists();
-
-                if ($exists) {
+                $markKey = "{$enrol->id}|{$entry['unit_id']}|{$assessmentType}|{$assessmentNumber}";
+                if ($existingMarks->has($markKey)) {
                     $errors[] = "Score exists for student {$entry['student_admission_number']} - unit {$entry['unit_id']} - {$entry['assessment_type']}";
 
                     continue;
                 }
 
                 $created[] = StudentMark::create([
-                    'academic_session_enrolment_id' => $enrolment->id,
+                    'academic_session_enrolment_id' => $enrol->id,
                     'unit_id' => $entry['unit_id'],
                     'assessment_type' => $assessmentType,
                     'assessment_number' => $assessmentNumber,
@@ -1066,12 +1077,14 @@ class StudentMarksController extends Controller
             ->with('unit:id,code,name')
             ->get();
 
-        $results = $unitRegistrations->map(function ($reg) use ($sessionEnrolment) {
-            $marks = StudentMark::query()
-                ->where('academic_session_enrolment_id', $sessionEnrolment->id)
-                ->where('unit_id', $reg->unit_id)
-                ->where('is_published', true)
-                ->get();
+        $allMarks = StudentMark::query()
+            ->where('academic_session_enrolment_id', $sessionEnrolment->id)
+            ->where('is_published', true)
+            ->get()
+            ->groupBy('unit_id');
+
+        $results = $unitRegistrations->map(function ($reg) use ($allMarks) {
+            $marks = $allMarks->get($reg->unit_id, collect());
 
             $grouped = $marks->groupBy('assessment_type')->map(function ($typeMarks) {
                 return [
@@ -1206,26 +1219,31 @@ class StudentMarksController extends Controller
             ->orderBy('year_of_study')
             ->orderBy('session_number')
             ->orderBy('module')
-            ->get()
-            ->map(fn (AcademicSessionEnrolment $enrolment) => [
-                'id' => $enrolment->id,
-                'year_of_study' => $enrolment->year_of_study,
-                'session_number' => $enrolment->session_number,
-                'module' => $enrolment->module,
-                'academic_session_id' => $enrolment->academic_session_id,
-                'academic_session_name' => $enrolment->academicSession?->name,
-                'academic_session_code' => $enrolment->academicSession?->code,
-                'label' => 'Year ' . $enrolment->year_of_study
-                    . ' Session ' . $enrolment->session_number
-                    . ($enrolment->module ? ' Module ' . $enrolment->module : '')
-                    . ' - ' . ($enrolment->academicSession?->name ?? ''),
-                'has_published_marks' => StudentMark::query()
-                    ->where('academic_session_enrolment_id', $enrolment->id)
-                    ->where('is_published', true)
-                    ->exists(),
-            ]);
+            ->get();
 
-        return response()->json(['data' => $enrolments]);
+        $enrolmentIdsWithMarks = StudentMark::query()
+            ->whereIn('academic_session_enrolment_id', $enrolments->pluck('id'))
+            ->where('is_published', true)
+            ->distinct()
+            ->pluck('academic_session_enrolment_id')
+            ->toArray();
+
+        $data = $enrolments->map(fn (AcademicSessionEnrolment $enrolment) => [
+            'id' => $enrolment->id,
+            'year_of_study' => $enrolment->year_of_study,
+            'session_number' => $enrolment->session_number,
+            'module' => $enrolment->module,
+            'academic_session_id' => $enrolment->academic_session_id,
+            'academic_session_name' => $enrolment->academicSession?->name,
+            'academic_session_code' => $enrolment->academicSession?->code,
+            'label' => 'Year ' . $enrolment->year_of_study
+                . ' Session ' . $enrolment->session_number
+                . ($enrolment->module ? ' Module ' . $enrolment->module : '')
+                . ' - ' . ($enrolment->academicSession?->name ?? ''),
+            'has_published_marks' => in_array($enrolment->id, $enrolmentIdsWithMarks, true),
+        ]);
+
+        return response()->json(['data' => $data]);
     }
 
     public function adminMarksheet(Request $request): JsonResponse
@@ -1368,26 +1386,31 @@ class StudentMarksController extends Controller
             ->orderBy('year_of_study')
             ->orderBy('session_number')
             ->orderBy('module')
-            ->get()
-            ->map(fn (AcademicSessionEnrolment $enrolment) => [
-                'id' => $enrolment->id,
-                'year_of_study' => $enrolment->year_of_study,
-                'session_number' => $enrolment->session_number,
-                'module' => $enrolment->module,
-                'academic_session_id' => $enrolment->academic_session_id,
-                'academic_session_name' => $enrolment->academicSession?->name,
-                'academic_session_code' => $enrolment->academicSession?->code,
-                'label' => 'Year ' . $enrolment->year_of_study
-                    . ' Session ' . $enrolment->session_number
-                    . ($enrolment->module ? ' Module ' . $enrolment->module : '')
-                    . ' - ' . ($enrolment->academicSession?->name ?? ''),
-                'has_published_marks' => StudentMark::query()
-                    ->where('academic_session_enrolment_id', $enrolment->id)
-                    ->where('is_published', true)
-                    ->exists(),
-            ]);
+            ->get();
 
-        return response()->json(['data' => $enrolments]);
+        $enrolmentIdsWithMarks = StudentMark::query()
+            ->whereIn('academic_session_enrolment_id', $enrolments->pluck('id'))
+            ->where('is_published', true)
+            ->distinct()
+            ->pluck('academic_session_enrolment_id')
+            ->toArray();
+
+        $data = $enrolments->map(fn (AcademicSessionEnrolment $enrolment) => [
+            'id' => $enrolment->id,
+            'year_of_study' => $enrolment->year_of_study,
+            'session_number' => $enrolment->session_number,
+            'module' => $enrolment->module,
+            'academic_session_id' => $enrolment->academic_session_id,
+            'academic_session_name' => $enrolment->academicSession?->name,
+            'academic_session_code' => $enrolment->academicSession?->code,
+            'label' => 'Year ' . $enrolment->year_of_study
+                . ' Session ' . $enrolment->session_number
+                . ($enrolment->module ? ' Module ' . $enrolment->module : '')
+                . ' - ' . ($enrolment->academicSession?->name ?? ''),
+            'has_published_marks' => in_array($enrolment->id, $enrolmentIdsWithMarks, true),
+        ]);
+
+        return response()->json(['data' => $data]);
     }
 
     public function adminTranscript(Request $request): JsonResponse

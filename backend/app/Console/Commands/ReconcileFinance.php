@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\AcademicSession;
+use App\Enums\FinanceAuditAction;
+use App\Models\FinanceAuditLog;
 use App\Models\Student;
 use App\Services\BillingService;
 use Illuminate\Console\Command;
@@ -32,6 +34,13 @@ class ReconcileFinance extends Command
         foreach ($students as $student) {
             foreach ($sessions as $session) {
                 $billingService->reconcileStudentFinance($student, $session);
+                FinanceAuditLog::create([
+                    'student_id'  => $student->id,
+                    'action'      => FinanceAuditAction::RECONCILIATION_RUN,
+                    'entity_type' => 'reconciliation',
+                    'entity_id'   => "{$student->id}:{$session->id}",
+                    'changes'     => ['reconciled_at' => now()->toDateTimeString()],
+                ]);
                 $count++;
             }
         }

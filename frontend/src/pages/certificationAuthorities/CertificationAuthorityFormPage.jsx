@@ -79,7 +79,7 @@ export function CertificationAuthorityFormPage() {
   const authorityName = watch("name");
   const addLevelUrl = useMemo(() => {
     if (!isEdit || !authorityId) {
-      return "/certification-levels/create";
+      return "/admin/certification-levels/create";
     }
 
     const params = new URLSearchParams({
@@ -154,7 +154,7 @@ export function CertificationAuthorityFormPage() {
         toast.success("Certification authority created successfully.");
       }
 
-      navigate("/certification-authorities", {
+      navigate("/admin/certification-authorities", {
         replace: true,
       });
     } catch (saveError) {
@@ -188,7 +188,7 @@ export function CertificationAuthorityFormPage() {
         </div>
 
         <Link
-          to="/certification-authorities"
+          to="/admin/certification-authorities"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -262,7 +262,7 @@ export function CertificationAuthorityFormPage() {
 
               <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
                 <Link
-                  to="/certification-authorities"
+                  to="/admin/certification-authorities"
                   className="sm:w-auto"
                 >
                   <FormButton

@@ -86,7 +86,7 @@ export function LectureRoomFormPage() {
         await api.create(payload);
         toast.success("Room created.");
       }
-      navigate("/lecture-rooms");
+      navigate("/admin/lecture-rooms");
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {
@@ -107,7 +107,7 @@ export function LectureRoomFormPage() {
     <section className="space-y-5">
       <button
         type="button"
-        onClick={() => navigate("/lecture-rooms")}
+        onClick={() => navigate("/admin/lecture-rooms")}
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-500 hover:text-slate-700"
       >
         <ArrowLeft className="h-4 w-4" /> Back to Rooms
@@ -181,7 +181,7 @@ export function LectureRoomFormPage() {
           </div>
 
           <div className="flex justify-end gap-3">
-            <FormButton type="button" variant="secondary" onClick={() => navigate("/lecture-rooms")}>Cancel</FormButton>
+            <FormButton type="button" variant="secondary" onClick={() => navigate("/admin/lecture-rooms")}>Cancel</FormButton>
             <FormButton type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Saving..." : isEdit ? "Update Room" : "Create Room"}
             </FormButton>

@@ -123,13 +123,13 @@ export function FeeTemplatesPage() {
         </div>
 
         <div className="flex gap-3">
-          <Link to="/finance/fee-assignments">
+          <Link to="/admin/finance/fee-assignments">
             <FormButton variant="secondary" className="sm:px-5"><Link2 className="mr-2 h-4 w-4" />View Assignments</FormButton>
           </Link>
-          <Link to="/finance/fee-templates/items">
+          <Link to="/admin/finance/fee-templates/items">
             <FormButton variant="secondary" className="sm:px-5">View Components</FormButton>
           </Link>
-          <Link to="/finance/fee-templates/create">
+          <Link to="/admin/finance/fee-templates/create">
             <FormButton className="sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Template

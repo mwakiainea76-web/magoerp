@@ -11,13 +11,13 @@ import { getApiErrorMessage } from '@/lib/api/authClient';
 const money = (value) => `Ksh ${Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const scopes = { session_to_date: 'Session 1 to date', per_session: 'Single session', per_year: 'Full academic year', custom: 'Custom session range' };
 
-export function StudentFeeStatementPage({ selfService = false }) {
+export function StudentFeeStatementPage({ role = "admin" }) {
   const invoicesApi = useInvoicesApi();
   const lookupApi = useLookupApi();
   const sessionsApi = useAcademicSessionsApi();
   const yearsApi = useAcademicYearsApi();
 
-  const [studentId, setStudentId] = useState(selfService ? 'me' : null);
+  const [studentId, setStudentId] = useState(role === "student" ? 'me' : null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [statement, setStatement] = useState(null);
   const [sessions, setSessions] = useState([]);
@@ -43,13 +43,13 @@ export function StudentFeeStatementPage({ selfService = false }) {
     let current = true;
     setLoading(true);
     setError('');
-    const request = selfService ? invoicesApi.myStatement(params) : invoicesApi.studentStatement(studentId, params);
+    const request = role === "student" ? invoicesApi.myStatement(params) : invoicesApi.studentStatement(studentId, params);
     request
       .then((response) => { if (current) setStatement(response.data); })
       .catch((requestError) => { if (current) setError(getApiErrorMessage(requestError, 'Failed to load the fee statement.')); })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [filters.academic_session_id, filters.scope, filters.to_academic_session_id, invoicesApi, params, selfService, studentId]);
+  }, [filters.academic_session_id, filters.scope, filters.to_academic_session_id, invoicesApi, params, role === "student", studentId]);
 
   function update(name, value) {
     setFilters((current) => ({ ...current, [name]: value, ...(name === 'academic_year_id' ? { academic_session_id: '', to_academic_session_id: '' } : {}) }));
@@ -60,7 +60,7 @@ export function StudentFeeStatementPage({ selfService = false }) {
   async function download() {
     setDownloading(true);
     try {
-      const response = selfService
+      const response = role === "student"
         ? await invoicesApi.downloadMyStatement(params)
         : await invoicesApi.downloadStudentStatement(studentId, params);
       const blob = response.data;
@@ -91,7 +91,7 @@ export function StudentFeeStatementPage({ selfService = false }) {
       </div>
 
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
-        {!selfService && (
+        {role !== "student" && (
           <LookupSelect label="Student" placeholder="Search by admission number or name" value={selectedStudent?.id ?? ''} selectedOption={selectedStudent} onChange={(id, option) => { setStudentId(id); setSelectedStudent(option); }} fetchOptions={fetchStudents} />
         )}
         <label className="text-xs font-medium text-slate-600">Statement scope<select value={filters.scope} onChange={(e) => update('scope', e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{Object.entries(scopes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

@@ -112,7 +112,7 @@ export function AccessRoleFormPage() {
         toast.success("Role created successfully.");
       }
 
-          navigate("/access-roles", { replace: true });
+          navigate("/admin/access-roles", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 
@@ -141,7 +141,7 @@ export function AccessRoleFormPage() {
         </div>
 
         <Link
-          to="/access-roles"
+          to="/admin/access-roles"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -181,7 +181,7 @@ export function AccessRoleFormPage() {
             </div>
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Link to="/access-roles" className="sm:w-auto">
+              <Link to="/admin/access-roles" className="sm:w-auto">
                 <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">Cancel</FormButton>
               </Link>
               <FormButton type="submit" disabled={isSaving} className="sm:w-auto sm:px-5">

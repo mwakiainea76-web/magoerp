@@ -59,7 +59,7 @@ export function HostelsPage() {
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Hostels</h1>
           <p className="text-[13px] text-slate-500">Manage hostel accommodation facilities</p>
         </div>
-        <Link to="/hostels/create">
+        <Link to="/admin/hostels/create">
           <FormButton><Plus className="mr-2 h-4 w-4" />Add Hostel</FormButton>
         </Link>
       </div>

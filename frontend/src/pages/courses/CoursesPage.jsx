@@ -204,7 +204,7 @@ export function CoursesPage() {
               </div>
             )}
           </div>
-          <Link to="/courses/create">
+          <Link to="/admin/courses/create">
             <FormButton className="sm:px-5"><Plus className="mr-2 h-4 w-4" />Add Course</FormButton>
           </Link>
         </div>

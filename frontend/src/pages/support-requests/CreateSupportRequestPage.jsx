@@ -32,7 +32,7 @@ export function CreateSupportRequestPage() {
     try {
       await api.create(data);
       toast.success("Request submitted.");
-      navigate("/support-requests");
+      navigate("/student/support-requests");
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {
@@ -82,7 +82,7 @@ export function CreateSupportRequestPage() {
         </div>
 
         <div className="flex justify-end gap-3">
-          <FormButton type="button" variant="secondary" onClick={() => navigate("/support-requests")}>Cancel</FormButton>
+          <FormButton type="button" variant="secondary" onClick={() => navigate("/student/support-requests")}>Cancel</FormButton>
           <FormButton type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Submitting..." : "Submit Request"}
           </FormButton>
