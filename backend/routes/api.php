@@ -7,8 +7,10 @@ use App\Http\Controllers\Api\AcademicSessionEnrolmentsController;
 use App\Http\Controllers\Api\AcademicSessionsController;
 use App\Http\Controllers\Api\AcademicTimetablesController;
 use App\Http\Controllers\Api\AcademicYearsController;
+use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CalendarController;
+use App\Http\Controllers\Api\TrainerDashboardController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
 use App\Http\Controllers\Api\CertificationAuthorityGradesController;
 use App\Http\Controllers\Api\CourseChangeController;
@@ -224,6 +226,8 @@ Route::middleware([
             ->middleware('permission:institution.update');
         Route::put('/system-configurations/{key}', [SystemConfigurationsController::class, 'update'])
             ->middleware('permission:institution.update');
+
+        Route::get('/admin/dashboard', AdminDashboardController::class);
     });
 
     Route::middleware('role:admin|trainer')->group(function () {
@@ -256,6 +260,10 @@ Route::middleware([
             Route::get('/roster', [TrainerAttendanceController::class, 'roster']);
             Route::post('/mark', [TrainerAttendanceController::class, 'mark'])->middleware('throttle:10,1');
         });
+
+        Route::get('/trainer/dashboard', TrainerDashboardController::class);
+
+        Route::get('/academic-session-enrolments/unit', [AcademicSessionEnrolmentsController::class, 'unitEnrolments']);
     });
 
     Route::get('/student/dashboard', StudentDashboardController::class);

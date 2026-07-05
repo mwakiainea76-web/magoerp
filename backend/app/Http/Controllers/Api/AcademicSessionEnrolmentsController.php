@@ -69,6 +69,24 @@ class AcademicSessionEnrolmentsController extends Controller
         ]);
     }
 
+    public function unitEnrolments(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'academic_session_id' => ['required', 'string', 'exists:academic_sessions,id'],
+            'unit_id' => ['required', 'string', 'exists:units,id'],
+        ]);
+
+        $enrolments = AcademicSessionEnrolment::query()
+            ->with(['student.user', 'academicSession'])
+            ->where('academic_session_id', $validated['academic_session_id'])
+            ->whereHas('unitRegistrations', fn ($q) => $q->where('unit_id', $validated['unit_id']))
+            ->orderBy('enrolled_at')
+            ->get()
+            ->map(fn (AcademicSessionEnrolment $e) => $this->transform($e));
+
+        return response()->json(['data' => $enrolments]);
+    }
+
     public function myEnrolments(Request $request): JsonResponse
     {
         $student = $request->user()->student;
