@@ -1227,4 +1227,98 @@ class StudentMarksController extends Controller
 
         return response()->json(['data' => $enrolments]);
     }
+
+    public function adminStudentEnrolments(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
+        $validated = $request->validate([
+            'student_id' => 'required|string|exists:students,id',
+        ]);
+
+        $enrolments = AcademicSessionEnrolment::query()
+            ->with('academicSession:id,name,code')
+            ->where('student_id', $validated['student_id'])
+            ->orderBy('year_of_study')
+            ->orderBy('session_number')
+            ->orderBy('module')
+            ->get()
+            ->map(fn (AcademicSessionEnrolment $enrolment) => [
+                'id' => $enrolment->id,
+                'year_of_study' => $enrolment->year_of_study,
+                'session_number' => $enrolment->session_number,
+                'module' => $enrolment->module,
+                'academic_session_id' => $enrolment->academic_session_id,
+                'academic_session_name' => $enrolment->academicSession?->name,
+                'academic_session_code' => $enrolment->academicSession?->code,
+                'label' => 'Year ' . $enrolment->year_of_study
+                    . ' Session ' . $enrolment->session_number
+                    . ($enrolment->module ? ' Module ' . $enrolment->module : '')
+                    . ' - ' . ($enrolment->academicSession?->name ?? ''),
+                'has_published_marks' => StudentMark::query()
+                    ->where('academic_session_enrolment_id', $enrolment->id)
+                    ->where('is_published', true)
+                    ->exists(),
+            ]);
+
+        return response()->json(['data' => $enrolments]);
+    }
+
+    public function adminTranscript(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
+        $validated = $request->validate([
+            'student_id' => 'required|string|exists:students,id',
+            'session_enrolment_id' => 'nullable|string|exists:academic_session_enrolments,id',
+            'transcript_type' => 'nullable|in:progress,cumulative',
+            'module' => 'nullable|integer|min:1',
+        ]);
+
+        $student = Student::find($validated['student_id']);
+
+        if (!$student) {
+            return response()->json(['message' => 'Student not found.'], 404);
+        }
+
+        return response()->json([
+            'data' => $this->buildMyTranscriptData($student, $validated),
+        ]);
+    }
+
+    public function adminTranscriptDownload(Request $request): Response
+    {
+        abort_unless($request->user()?->can('assessments.view'), 403);
+
+        $validated = $request->validate([
+            'student_id' => 'required|string|exists:students,id',
+            'session_enrolment_id' => 'required|string|exists:academic_session_enrolments,id',
+            'transcript_type' => 'nullable|in:progress,cumulative',
+        ]);
+
+        $student = Student::find($validated['student_id']);
+
+        if (!$student) {
+            return response()->json(['message' => 'Student not found.'], 404);
+        }
+
+        $data = $this->buildMyTranscriptData($student, $validated);
+        $data['generated_at'] = now()->format('d/m/Y H:i');
+        $data['transcript_reference'] = implode('-', array_filter([
+            'TR',
+            preg_replace('/[^A-Za-z0-9]+/', '', (string) $student->admission_number) ?: 'NA',
+            'E' . substr($validated['session_enrolment_id'], 0, 8),
+        ]));
+
+        $safeAdmissionNumber = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $student->admission_number);
+        $filename = 'transcript-' . trim($safeAdmissionNumber, '-') . '.pdf';
+
+        $pdf = Pdf::loadView('pdf.transcript', $data)
+            ->setPaper('a4', 'portrait')
+            ->setWarnings(false);
+
+        return $pdf->download($filename, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
+    }
 }

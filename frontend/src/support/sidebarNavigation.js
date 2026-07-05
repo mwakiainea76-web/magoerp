@@ -102,6 +102,7 @@ export const sidebarNavigationByRole = {
         { label: "View Marks", to: "/assessments" },
         { label: "Add Marks", to: "/assessments/add" },
         { label: "Publish Marks", to: "/assessments/publish" },
+        { label: "Transcript", to: "/assessments/transcript" },
       ],
     },
     {
@@ -228,7 +229,10 @@ export const sidebarNavigationByRole = {
     {
       label: "Assessments",
       icon: ClipboardCheck,
-      children: [{ label: "View Assessments", to: "/assessments" }],
+      children: [
+        { label: "Marksheet", to: "/assessments/marksheet" },
+        { label: "Transcript", to: "/assessments/transcript" },
+      ],
     },
     {
       label: "Analytics",

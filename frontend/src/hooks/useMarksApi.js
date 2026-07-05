@@ -98,6 +98,28 @@ export function useMarksApi() {
         const response = await authClient.get("/my/session-enrolments", { params });
         return response.data;
       },
+      adminTranscriptEnrolments: async (params = {}) => {
+        const response = await authClient.get("/marks/transcript/enrolments", { params });
+        return response.data;
+      },
+      adminTranscript: async (params = {}) => {
+        const response = await authClient.get("/marks/transcript", { params });
+        return response.data;
+      },
+      adminTranscriptDownload: async (params = {}) => {
+        try {
+          return await authClient.get("/marks/transcript/download", {
+            params,
+            responseType: "blob",
+            timeout: 0,
+          });
+        } catch (error) {
+          if (error.response?.data instanceof Blob && error.response.data.type?.includes("application/json")) {
+            error.response.data = JSON.parse(await error.response.text());
+          }
+          throw error;
+        }
+      },
     }),
     [],
   );

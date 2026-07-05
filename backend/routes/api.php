@@ -166,6 +166,10 @@ Route::middleware([
     Route::get('/marks/available-units', [StudentMarksController::class, 'availableUnits']);
     Route::get('/marks/available-students', [StudentMarksController::class, 'availableStudents']);
     Route::get('/marks/marksheet', [StudentMarksController::class, 'marksheet']);
+    Route::get('/marks/transcript/enrolments', [StudentMarksController::class, 'adminStudentEnrolments']);
+    Route::get('/marks/transcript', [StudentMarksController::class, 'adminTranscript']);
+    Route::get('/marks/transcript/download', [StudentMarksController::class, 'adminTranscriptDownload'])
+        ->middleware('throttle:3,1');
     Route::get('/marks/{student_mark}', [StudentMarksController::class, 'show']);
     Route::put('/marks/{student_mark}', [StudentMarksController::class, 'update']);
     Route::post('/marks/{student_mark}/toggle-publish', [StudentMarksController::class, 'togglePublish']);

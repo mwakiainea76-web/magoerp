@@ -1,7 +1,8 @@
 import { Route } from "react-router";
 
 import { StudentDashboard } from "@/pages/student/StudentDashboard";
-import { MyResultsPage } from "@/pages/grades/MyResultsPage";
+import { StudentMarksheetPage } from "@/pages/grades/StudentMarksheetPage";
+import { StudentTranscriptPage } from "@/pages/grades/StudentTranscriptPage";
 import { MyTimetablePage } from "@/pages/timetables/MyTimetablePage";
 import { CreateSupportRequestPage } from "@/pages/support-requests/CreateSupportRequestPage";
 import { MySupportRequestsPage } from "@/pages/support-requests/MySupportRequestsPage";
@@ -14,7 +15,9 @@ export function StudentRoutes() {
   return (
     <>
       <Route path="/" element={<StudentDashboard />} />
-      <Route path="/assessments" element={<MyResultsPage />} />
+      <Route path="/assessments/marksheet" element={<StudentMarksheetPage />} />
+      <Route path="/assessments/transcript" element={<StudentTranscriptPage />} />
+      <Route path="/assessments" element={<StudentMarksheetPage />} />
       <Route path="/timetables" element={<MyTimetablePage />} />
       <Route path="/my-units" element={<MyUnitsPage />} />
       <Route path="/support-requests" element={<MySupportRequestsPage />} />

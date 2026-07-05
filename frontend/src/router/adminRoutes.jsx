@@ -45,6 +45,7 @@ import { HostelAllocationsPage } from "@/pages/hostels/HostelAllocationsPage";
 import { HostelFormPage } from "@/pages/hostels/HostelFormPage";
 import { HostelsPage } from "@/pages/hostels/HostelsPage";
 import { AddMarksPage } from "@/pages/grades/AddMarksPage";
+import { AdminTranscriptPage } from "@/pages/grades/AdminTranscriptPage";
 import { MarksheetPage } from "@/pages/grades/MarksheetPage";
 import { PublishMarksPage } from "@/pages/grades/PublishMarksPage";
 import { ViewMarksPage } from "@/pages/grades/ViewMarksPage";
@@ -129,6 +130,7 @@ export function AdminRoutes() {
       <Route path="/assessments/add" element={<AddMarksPage />} />
       <Route path="/assessments/publish" element={<PublishMarksPage />} />
       <Route path="/assessments/marksheet" element={<MarksheetPage />} />
+      <Route path="/assessments/transcript" element={<AdminTranscriptPage />} />
       <Route path="/timetables" element={<TimetableViewPage />} />
       <Route path="/timetables/create" element={<TimetableCreatePage />} />
       <Route path="/timetables/:timetableId/edit" element={<TimetableCreatePage />} />
