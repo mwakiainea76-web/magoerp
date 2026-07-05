@@ -166,6 +166,7 @@ Route::middleware([
     Route::get('/marks/available-units', [StudentMarksController::class, 'availableUnits']);
     Route::get('/marks/available-students', [StudentMarksController::class, 'availableStudents']);
     Route::get('/marks/marksheet', [StudentMarksController::class, 'marksheet']);
+    Route::get('/marks/student-marksheet', [StudentMarksController::class, 'adminMarksheet']);
     Route::get('/marks/transcript/enrolments', [StudentMarksController::class, 'adminStudentEnrolments']);
     Route::get('/marks/transcript', [StudentMarksController::class, 'adminTranscript']);
     Route::get('/marks/transcript/download', [StudentMarksController::class, 'adminTranscriptDownload'])

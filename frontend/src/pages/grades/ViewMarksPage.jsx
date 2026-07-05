@@ -131,7 +131,7 @@ export function ViewMarksPage() {
   }, [marksApi, filterSession]);
 
   const loadData = useCallback(async () => {
-    if (!filterSession || !filterUnit) {
+    if (!filterStudent && (!filterSession || !filterUnit)) {
       setMarks([]);
       setMarksheetData(null);
       setIsLoading(false);
@@ -142,24 +142,27 @@ export function ViewMarksPage() {
     setError("");
 
     try {
-      if (!filterType) {
-        const params = {
-          academic_session_id: filterSession,
-          unit_id: filterUnit,
-        };
-        if (filterStudent) params.student_id = filterStudent;
-        const res = await marksApi.marksheet(params);
-        setMarksheetData(res.data ?? null);
-        setMarks([]);
+      if (filterUnit) {
+        if (!filterType) {
+          const params = { academic_session_id: filterSession, unit_id: filterUnit };
+          if (filterStudent) params.student_id = filterStudent;
+          const res = await marksApi.marksheet(params);
+          setMarksheetData(res.data ?? null);
+          setMarks([]);
+        } else {
+          const params = { academic_session_id: filterSession, unit_id: filterUnit, assessment_type: filterType, page, per_page: perPage };
+          if (filterStudent) params.student_id = filterStudent;
+          const res = await marksApi.list(params);
+          setMarks(res.data ?? []);
+          setTotalMarks(res.total ?? 0);
+          setLastPage(res.last_page ?? 1);
+          setMarksheetData(null);
+        }
       } else {
-        const params = {
-          academic_session_id: filterSession,
-          unit_id: filterUnit,
-          assessment_type: filterType,
-          page,
-          per_page: perPage,
-        };
+        const params = { page, per_page: perPage };
+        if (filterSession) params.academic_session_id = filterSession;
         if (filterStudent) params.student_id = filterStudent;
+        if (filterType) params.assessment_type = filterType;
         const res = await marksApi.list(params);
         setMarks(res.data ?? []);
         setTotalMarks(res.total ?? 0);
@@ -481,8 +484,8 @@ export function ViewMarksPage() {
         </div>
       ) : null}
 
-      {/* Specific type view */}
-      {filterType ? (
+      {/* Marks list view (student-only or with type filter) */}
+      {marks.length > 0 ? (
         <Table>
           <TableWrapper>
             <Thead>
@@ -490,6 +493,7 @@ export function ViewMarksPage() {
                 <Th className="w-10 text-center">#</Th>
                 <Th>Admission</Th>
                 <Th>Student</Th>
+                {!filterUnit ? <Th>Unit</Th> : null}
                 <Th>Assessment</Th>
                 <Th className="text-center">Score</Th>
                 <Th className="text-center">Status</Th>
@@ -499,7 +503,7 @@ export function ViewMarksPage() {
             <Tbody>
               {marks.length === 0 && !isLoading ? (
                 <tr>
-                  <Td colSpan={7} className={`py-10 text-center text-slate-500 ${bodyTextClassName}`}>No marks found.</Td>
+                  <Td colSpan={filterUnit ? 7 : 8} className={`py-10 text-center text-slate-500 ${bodyTextClassName}`}>No marks found.</Td>
                 </tr>
               ) : (
                 marks.map((mark, index) => (
@@ -509,6 +513,7 @@ export function ViewMarksPage() {
                     <Td className="font-medium text-slate-800">
                       {mark.student ? [mark.student.first_name, mark.student.middle_name, mark.student.last_name].filter(Boolean).join(" ") : "—"}
                     </Td>
+                    {!filterUnit ? <Td className="text-slate-600">{mark.unit?.code ?? "—"}</Td> : null}
                     <Td className="text-slate-700">{mark.assessment_type} {mark.assessment_number}</Td>
                     <Td className="text-center font-semibold">{mark.score ?? mark.marks}</Td>
                     <Td className="text-center">
@@ -548,10 +553,17 @@ export function ViewMarksPage() {
         </div>
       ) : null}
 
-      {/* Initial state (no session/unit selected) */}
-      {!isLoading && !filterSession && !filterUnit && !error ? (
+      {/* Initial state (no filters) */}
+      {!isLoading && !filterSession && !filterUnit && !filterStudent && !error ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
           Select a session and unit to view marks.
+        </div>
+      ) : null}
+
+      {/* Empty state when student selected but no marks found */}
+      {!isLoading && filterStudent && !marksheetData && marks.length === 0 && !error ? (
+        <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
+          No marks found for the selected criteria.
         </div>
       ) : null}
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import logo from "@/assets/logo.PNG";
 import { LookupSelect } from "@/components/LookupSelect";
@@ -16,7 +16,7 @@ function valueOrDash(value) {
   return value === null || value === undefined || value === "" ? "-" : value;
 }
 
-export function AdminTranscriptPage() {
+export function TranscriptPage({ selfService = false }) {
   const marksApi = useMarksApi();
   const lookupApi = useLookupApi();
 
@@ -30,13 +30,38 @@ export function AdminTranscriptPage() {
   const [error, setError] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const studentId = selectedStudent?.id ?? null;
+  const studentId = selfService ? null : (selectedStudent?.id ?? null);
 
   useEffect(() => {
     setSelectedEnrolmentId("");
     setEnrolments([]);
     setTranscriptData(null);
     setError("");
+
+    if (selfService) {
+      let mounted = true;
+      setIsLoadingEnrolments(true);
+
+      marksApi
+        .mySessionEnrolments()
+        .then((res) => {
+          if (mounted) {
+            const items = res.data ?? [];
+            setEnrolments(items);
+            if (items.length > 0) {
+              setSelectedEnrolmentId(items[0].id);
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (mounted) setIsLoadingEnrolments(false);
+        });
+
+      return () => {
+        mounted = false;
+      };
+    }
 
     if (!studentId) return;
 
@@ -62,30 +87,34 @@ export function AdminTranscriptPage() {
     return () => {
       mounted = false;
     };
-  }, [studentId, marksApi]);
+  }, [studentId, selfService, marksApi]);
 
   useEffect(() => {
-    if (!studentId || !selectedEnrolmentId) return;
+    if (selfService) {
+      if (!selectedEnrolmentId) return;
+    } else if (!studentId || !selectedEnrolmentId) {
+      return;
+    }
 
     let mounted = true;
     setIsLoading(true);
     setError("");
 
     const params = {
-      student_id: studentId,
       session_enrolment_id: selectedEnrolmentId,
       transcript_type: transcriptType,
     };
+    const promise = selfService
+      ? marksApi.myTranscript(params)
+      : marksApi.adminTranscript({ ...params, student_id: studentId });
 
-    marksApi
-      .adminTranscript(params)
+    promise
       .then((res) => {
         if (mounted) setTranscriptData(res.data ?? null);
       })
       .catch((e) => {
-        if (mounted) {
+        if (mounted)
           setError(getApiErrorMessage(e, "Failed to load transcript."));
-        }
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -94,7 +123,7 @@ export function AdminTranscriptPage() {
     return () => {
       mounted = false;
     };
-  }, [studentId, selectedEnrolmentId, transcriptType, marksApi]);
+  }, [studentId, selectedEnrolmentId, transcriptType, selfService, marksApi]);
 
   const transcriptRows = transcriptData?.transcript ?? [];
   const student = transcriptData?.student;
@@ -117,7 +146,12 @@ export function AdminTranscriptPage() {
   ].join("-");
 
   async function downloadTranscript() {
-    if (!studentId || !selectedEnrolmentId) {
+    if (selfService) {
+      if (!selectedEnrolmentId) {
+        setError("Select a session before downloading.");
+        return;
+      }
+    } else if (!studentId || !selectedEnrolmentId) {
       setError("Select a student and session before downloading.");
       return;
     }
@@ -127,12 +161,16 @@ export function AdminTranscriptPage() {
 
     try {
       const params = {
-        student_id: studentId,
         session_enrolment_id: selectedEnrolmentId,
         transcript_type: transcriptType,
       };
+      const downloadParams = selfService
+        ? params
+        : { ...params, student_id: studentId };
+      const response = selfService
+        ? await marksApi.myTranscriptDownload(downloadParams)
+        : await marksApi.adminTranscriptDownload(downloadParams);
 
-      const response = await marksApi.adminTranscriptDownload(params);
       const blob = response.data;
       const contentDisposition =
         response.headers?.["content-disposition"] ?? "";
@@ -172,7 +210,9 @@ export function AdminTranscriptPage() {
             Transcript
           </h1>
           <p className="text-[13px] text-slate-500">
-            View and download student transcripts
+            {selfService
+              ? "View your published transcript and final unit grades"
+              : "View and download student transcripts"}
           </p>
         </div>
 
@@ -189,96 +229,84 @@ export function AdminTranscriptPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,200px)_1fr_auto] lg:items-end">
-          <LookupSelect
-            label="Student"
-            placeholder="Search by admission number or name"
-            value={selectedStudent?.id ?? ""}
-            selectedOption={selectedStudent}
-            onChange={(id, option) => {
-              setSelectedStudent(option);
-            }}
-            fetchOptions={fetchStudents}
-          />
-
-          <div>
-            <label
-              className={`mb-2 block text-slate-600 ${labelTextClassName}`}
-            >
-              Session Enrolment
-            </label>
-            <select
-              value={selectedEnrolmentId}
-              onChange={(event) => setSelectedEnrolmentId(event.target.value)}
-              className={`${selectClassName} w-full`}
-              disabled={!studentId || isLoadingEnrolments}
-            >
-              {!studentId ? (
-                <option value="">Select a student first</option>
-              ) : isLoadingEnrolments ? (
-                <option value="">Loading...</option>
-              ) : enrolments.length === 0 ? (
-                <option value="">No enrolments found</option>
-              ) : (
-                enrolments.map((enrolment) => (
-                  <option key={enrolment.id} value={enrolment.id}>
-                    {enrolment.label}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
-          <div>
-            <label
-              className={`mb-2 block text-slate-600 ${labelTextClassName}`}
-            >
-              Transcript Type
-            </label>
-            <select
-              value={transcriptType}
-              onChange={(event) => setTranscriptType(event.target.value)}
-              className={`${selectClassName} w-full`}
-              disabled={!studentId}
-            >
-              <option value="progress">Progress (current session only)</option>
-              <option value="cumulative">
-                Cumulative (up to this session)
-              </option>
-            </select>
-          </div>
-
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50 px-4 py-3 text-[13px] text-slate-600">
-            <div className="font-semibold text-slate-900">
-              {student?.name ?? selectedStudent?.label ?? "Student"}
+        {selfService || studentId ? (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,200px)_1fr_auto] lg:items-end">
+            <div>
+              <label
+                className={`mb-2 block text-slate-600 ${labelTextClassName}`}
+              >
+                Session Enrolment
+              </label>
+              <select
+                value={selectedEnrolmentId}
+                onChange={(event) => setSelectedEnrolmentId(event.target.value)}
+                className={`${selectClassName} w-full`}
+                disabled={isLoadingEnrolments}
+              >
+                {isLoadingEnrolments ? (
+                  <option value="">Loading...</option>
+                ) : enrolments.length === 0 ? (
+                  <option value="">No enrolments found</option>
+                ) : (
+                  enrolments.map((enrolment) => (
+                    <option key={enrolment.id} value={enrolment.id}>
+                      {enrolment.label}
+                    </option>
+                  ))
+                )}
+              </select>
             </div>
-            <div className="mt-1 text-slate-500">
-              {student?.admission_number ?? ""}
+
+            <div>
+              <label
+                className={`mb-2 block text-slate-600 ${labelTextClassName}`}
+              >
+                Transcript Type
+              </label>
+              <select
+                value={transcriptType}
+                onChange={(event) => setTranscriptType(event.target.value)}
+                className={`${selectClassName} w-full`}
+              >
+                <option value="progress">
+                  Progress (current session only)
+                </option>
+                <option value="cumulative">
+                  Cumulative (up to this session)
+                </option>
+              </select>
             </div>
-            {transcriptCourse ? (
-              <div className="mt-1 text-slate-500">
-                {[
-                  transcriptCourse.name,
-                  transcriptCourse.code,
-                  transcriptCourse.certification_level,
-                ]
-                  .filter(Boolean)
-                  .join(" | ")}
+
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50 px-4 py-3 text-[13px] text-slate-600">
+              <div className="font-semibold text-slate-900">
+                {student?.name ?? selectedStudent?.label ?? "Student"}
               </div>
-            ) : null}
-          </div>
+              <div className="mt-1 text-slate-500">
+                {student?.admission_number ?? ""}
+              </div>
+            </div>
 
-          <FormButton
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setSelectedStudent(null);
-            }}
-            disabled={!studentId}
-          >
-            Reset
-          </FormButton>
-        </div>
+            <FormButton
+              type="button"
+              variant="secondary"
+              onClick={() => setSelectedStudent(null)}
+              disabled={!selectedEnrolmentId}
+            >
+              Reset
+            </FormButton>
+          </div>
+        ) : (
+          <div className="lg:w-1/2">
+            <LookupSelect
+              label="Student"
+              placeholder="Search by admission number or name"
+              value={selectedStudent?.id ?? ""}
+              selectedOption={selectedStudent}
+              onChange={(id, option) => setSelectedStudent(option)}
+              fetchOptions={fetchStudents}
+            />
+          </div>
+        )}
       </div>
 
       {error ? (
@@ -297,18 +325,7 @@ export function AdminTranscriptPage() {
         </div>
       ) : null}
 
-      {!isLoading &&
-      studentId &&
-      selectedEnrolmentId &&
-      transcriptRows.length === 0 ? (
-        <div
-          className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
-        >
-          No published transcript records found for the selected filters.
-        </div>
-      ) : null}
-
-      {!isLoading && !studentId ? (
+      {!isLoading && !selfService && !studentId ? (
         <div
           className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
         >
@@ -316,12 +333,35 @@ export function AdminTranscriptPage() {
         </div>
       ) : null}
 
-      {!isLoading && studentId && !selectedEnrolmentId ? (
+      {!isLoading && selectedEnrolmentId && transcriptRows.length === 0 ? (
         <div
           className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
         >
-          {isLoadingEnrolments
-            ? "Loading enrolments..."
+          No published transcript records found for the selected filters.
+        </div>
+      ) : null}
+
+      {!isLoading &&
+      !selfService &&
+      studentId &&
+      !selectedEnrolmentId &&
+      isLoadingEnrolments ? (
+        <div
+          className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
+        >
+          Loading enrolments...
+        </div>
+      ) : null}
+
+      {!isLoading &&
+      !selectedEnrolmentId &&
+      !isLoadingEnrolments &&
+      (selfService || studentId) ? (
+        <div
+          className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
+        >
+          {selfService
+            ? "Select a session enrolment to view your transcript."
             : "No session enrolments found for this student."}
         </div>
       ) : null}
@@ -436,7 +476,7 @@ export function AdminTranscriptPage() {
                         {valueOrDash(transcriptMeta?.year_of_study_label || "")}
                       </td>
                       <td className="border-l border-slate-300 px-2 py-1.5" />
-                      <td className="px-2 py-1.5"></td>
+                      <td className="px-2 py-1.5" />
                     </tr>
                   </tbody>
                 </table>
