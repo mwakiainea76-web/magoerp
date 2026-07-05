@@ -17,11 +17,12 @@ class AcademicSessionsController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->can('institution.view'), 403);
+        abort_unless($request->user()?->canAny(['institution.view', 'assessments.view']), 403);
 
         $search = trim((string) $request->string('q', ''));
         $status = (string) $request->string('status', 'all');
         $yearId = (string) $request->string('academic_year_id', '');
+        $studentId = (string) $request->string('student_id', '');
         $sortBy = (string) $request->string('sort_by', 'created_at');
         $sortDirection = strtolower((string) $request->string('sort_direction', 'desc')) === 'desc' ? 'desc' : 'asc';
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
@@ -44,6 +45,7 @@ class AcademicSessionsController extends Controller
             })
             ->when($status === 'active', fn ($query) => $query->where('is_active', true))
             ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
+            ->when($studentId !== '', fn ($query) => $query->whereHas('sessionEnrolments', fn ($q) => $q->where('student_id', $studentId)))
             ->orderBy($sortableColumns[$sortBy] ?? 'created_at', $sortDirection)
             ->paginate($perPage)
             ->withQueryString();
@@ -82,7 +84,7 @@ class AcademicSessionsController extends Controller
 
     public function show(Request $request, AcademicSession $academic_session): JsonResponse
     {
-        abort_unless($request->user()?->can('institution.view'), 403);
+        abort_unless($request->user()?->canAny(['institution.view', 'assessments.view']), 403);
 
         $academic_session->load($this->sessionRelations());
 

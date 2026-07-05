@@ -446,7 +446,7 @@ class StudentMarksController extends Controller
         $authenticatedStudent = $this->authenticatedStudent($request);
 
         $validated = $request->validate([
-            'academic_session_id' => 'required|string|exists:academic_sessions,id',
+            'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'nullable|string|exists:units,id',
         ]);
 
@@ -455,7 +455,7 @@ class StudentMarksController extends Controller
             ->select('students.id', 'students.user_id', 'students.admission_number')
             ->join('academic_session_enrolments', 'academic_session_enrolments.student_id', '=', 'students.id')
             ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
-            ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id'])
+            ->when($validated['academic_session_id'] ?? null, fn ($q) => $q->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']))
             ->when($authenticatedStudent, fn ($studentQuery, Student $student) => $studentQuery->where('students.id', $student->id));
 
         if ($unitId = $validated['unit_id'] ?? null) {

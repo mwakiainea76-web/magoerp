@@ -64,116 +64,215 @@ Route::middleware([
 
     Route::get('/lookups/{resource}', LookupController::class);
 
-    Route::get('/departments/meta', [DepartmentsController::class, 'meta'])
-        ->middleware('permission:institution.view');
-    Route::get('/departments/export', [DepartmentsController::class, 'export']);
-    Route::apiResource('departments', DepartmentsController::class)
-        ->parameters(['departments' => 'department']);
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/departments/meta', [DepartmentsController::class, 'meta'])
+            ->middleware('permission:institution.view');
+        Route::get('/departments/export', [DepartmentsController::class, 'export']);
+        Route::apiResource('departments', DepartmentsController::class)
+            ->parameters(['departments' => 'department']);
 
-    Route::apiResource('certification-authorities', CertificationAuthoritiesController::class)
-        ->parameters(['certification-authorities' => 'certification_authority']);
+        Route::apiResource('certification-authorities', CertificationAuthoritiesController::class)
+            ->parameters(['certification-authorities' => 'certification_authority']);
 
-    Route::apiResource('certification-authorities.grades', CertificationAuthorityGradesController::class)
-        ->parameters(['certification-authorities' => 'certification_authority', 'grades' => 'grade']);
+        Route::apiResource('certification-authorities.grades', CertificationAuthorityGradesController::class)
+            ->parameters(['certification-authorities' => 'certification_authority', 'grades' => 'grade']);
 
-    Route::apiResource('certification-levels', CertificationLevelsController::class)
-        ->parameters(['certification-levels' => 'certification_level']);
+        Route::apiResource('certification-levels', CertificationLevelsController::class)
+            ->parameters(['certification-levels' => 'certification_level']);
 
-    Route::apiResource('curricula', CurriculaController::class)
-        ->parameters(['curricula' => 'curriculum']);
+        Route::apiResource('curricula', CurriculaController::class)
+            ->parameters(['curricula' => 'curriculum']);
 
-    Route::get('/courses/export', [CoursesController::class, 'export']);
+        Route::get('/courses/export', [CoursesController::class, 'export']);
 
-    Route::apiResource('courses', CoursesController::class)
-        ->parameters(['courses' => 'course']);
+        Route::apiResource('courses', CoursesController::class)
+            ->parameters(['courses' => 'course']);
 
-    Route::post('/courses/{course}/curricula', [CoursesController::class, 'attachCurriculum']);
-    Route::delete('/courses/{course}/curricula', [CoursesController::class, 'detachCurriculum']);
-    Route::patch('/courses/{course}/curricula/toggle', [CoursesController::class, 'toggleCurriculum']);
+        Route::post('/courses/{course}/curricula', [CoursesController::class, 'attachCurriculum']);
+        Route::delete('/courses/{course}/curricula', [CoursesController::class, 'detachCurriculum']);
+        Route::patch('/courses/{course}/curricula/toggle', [CoursesController::class, 'toggleCurriculum']);
+
+        Route::apiResource('units', UnitsController::class)
+            ->parameters(['units' => 'unit'])
+            ->except(['index', 'show']);
+
+        Route::apiResource('academic-years', AcademicYearsController::class)
+            ->parameters(['academic-years' => 'academic_year']);
+
+        Route::apiResource('academic-sessions', AcademicSessionsController::class)
+            ->parameters(['academic-sessions' => 'academic_session'])
+            ->except(['index', 'show']);
+
+        Route::post('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'store']);
+        Route::get('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'index']);
+        Route::get('/academic-session-enrolments/{academic_session_enrolment}', [AcademicSessionEnrolmentsController::class, 'show']);
+
+        Route::get('/finance/dashboard', FinanceReportsDashboardController::class);
+        Route::get('/finance/reports', [FinanceReportsController::class, 'index']);
+        Route::get('/finance/reports/export', [FinanceReportsController::class, 'export'])->middleware('throttle:6,1');
+        Route::get('/finance/audit-logs', [FinanceAuditController::class, 'index'])->middleware('permission:finance.view');
+        Route::get('/finance/audit-logs/{financeAuditLog}', [FinanceAuditController::class, 'show'])->middleware('permission:finance.view');
+        Route::get('/finance/dashboard/export', [FinanceDataExportsController::class, 'dashboard'])->middleware('throttle:6,1');
+        Route::get('/invoices/export', [FinanceDataExportsController::class, 'invoices'])->middleware('throttle:6,1');
+        Route::get('/payments/export', [FinanceDataExportsController::class, 'payments'])->middleware('throttle:6,1');
+        Route::get('/ledger/export', [FinanceDataExportsController::class, 'ledger'])->middleware('throttle:6,1');
+
+        Route::apiResource('fee-templates', FeeTemplatesController::class)
+            ->parameters(['fee-templates' => 'fee_template']);
+
+        Route::apiResource('fee-template-items', FeeTemplateItemsController::class)
+            ->parameters(['fee-template-items' => 'fee_template_item']);
+
+        Route::get('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'index']);
+        Route::post('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'store']);
+        Route::put('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'update']);
+        Route::delete('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'destroy']);
+
+        Route::get('/course-assignments', [CurriculumFeeAssignmentsController::class, 'search']);
+
+        Route::get('/students/{student}/financial-statement/download', [InvoicesController::class, 'statementDownload']);
+        Route::post('/invoices', [InvoicesController::class, 'store']);
+        Route::get('/invoices', [InvoicesController::class, 'index']);
+        Route::post('/finance/reconcile', [InvoicesController::class, 'reconcile']);
+        Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
+        Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
+        Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
+        Route::get('/students/{student}/financial-statement', [InvoicesController::class, 'studentStatement']);
+        Route::post('/payments', [PaymentsController::class, 'store']);
+        Route::get('/payments', [PaymentsController::class, 'index']);
+        Route::post('/refunds', [RefundsController::class, 'store']);
+        Route::post('/invoice-adjustments', [InvoiceAdjustmentsController::class, 'store']);
+        Route::post('/invoice-charges', [InvoiceAdjustmentsController::class, 'storeCharge']);
+        Route::post('/invoices/{invoice}/adjustments', [StudentFeeAdjustmentsController::class, 'store']);
+        Route::get('/ledger', [StudentLedgerController::class, 'index']);
+
+        Route::get('/timetables', [AcademicTimetablesController::class, 'index']);
+        Route::get('/timetables/week-grid', [AcademicTimetablesController::class, 'weekGrid']);
+        Route::get('/timetables/available-units', [AcademicTimetablesController::class, 'availableUnits']);
+        Route::get('/timetables/staff-list', [AcademicTimetablesController::class, 'staffList']);
+        Route::post('/timetables', [AcademicTimetablesController::class, 'store']);
+        Route::get('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'show']);
+        Route::put('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'update']);
+        Route::delete('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'destroy']);
+        Route::apiResource('lecture-rooms', LectureRoomsController::class)
+            ->parameters(['lecture-rooms' => 'lecture_room']);
+
+        Route::prefix('academic-sessions/{academic_session}/calendar')->name('calendar.')->group(function () {
+            Route::get('/', [CalendarController::class, 'index'])->name('index');
+            Route::post('/generate', [CalendarController::class, 'generate'])->name('generate');
+            Route::post('/events', [CalendarController::class, 'store'])->name('events.store');
+            Route::put('/events/{calendar_event}', [CalendarController::class, 'update'])->name('events.update');
+            Route::delete('/events/{calendar_event}', [CalendarController::class, 'destroy'])->name('events.destroy');
+            Route::post('/sync-holidays', [CalendarController::class, 'syncHolidays'])->name('sync-holidays');
+        });
+        Route::get('/calendar/event-types', [CalendarController::class, 'eventTypes'])->name('calendar.event-types');
+        Route::get('/academic-years/{academic_year}/calendar', [CalendarController::class, 'yearCalendar'])->name('calendar.year');
+
+        Route::get('/support-requests', [SupportRequestsController::class, 'adminIndex']);
+        Route::get('/support-requests/{support_request}', [SupportRequestsController::class, 'show']);
+        Route::post('/support-requests/{support_request}/escalate', [SupportRequestsController::class, 'escalate']);
+        Route::post('/support-requests/{support_request}/resolve', [SupportRequestsController::class, 'resolve']);
+        Route::post('/support-requests/{support_request}/review', [SupportRequestsController::class, 'review']);
+        Route::get('/support-requests/staff-list', [SupportRequestsController::class, 'staffList']);
+
+        Route::apiResource('hostels', HostelsController::class)
+            ->parameters(['hostels' => 'hostel']);
+        Route::post('/hostel-rooms', [HostelsController::class, 'storeRoom']);
+        Route::put('/hostel-rooms/{hostel_room}', [HostelsController::class, 'updateRoom']);
+        Route::get('/hostels/{hostel}/rooms', [HostelsController::class, 'roomsByHostel']);
+        Route::get('/hostel-rooms/{hostel_room}/beds', [HostelsController::class, 'bedsByRoom']);
+        Route::get('/hostel-allocations', [HostelsController::class, 'allocations']);
+        Route::post('/hostel-allocations', [HostelsController::class, 'storeAllocation']);
+        Route::post('/hostel-allocations/{hostel_allocation}/vacate', [HostelsController::class, 'vacateAllocation']);
+
+        Route::get('/staffs/meta', [StaffsController::class, 'meta'])
+            ->middleware('permission:staff.create');
+        Route::get('/staffs/export', [StaffsController::class, 'export']);
+        Route::apiResource('staffs', StaffsController::class)
+            ->parameters(['staffs' => 'staff']);
+
+        Route::get('/students/export', [StudentsController::class, 'export'])
+            ->middleware('throttle:3,1');
+        Route::get('/students/meta', [StudentsController::class, 'meta'])
+            ->middleware('permission:students.create');
+        Route::apiResource('students', StudentsController::class)
+            ->parameters(['students' => 'student']);
+        Route::get('/students/{student}/admission-letter', [StudentsController::class, 'admissionLetter']);
+
+        Route::post('/course-change/lookup', [CourseChangeController::class, 'lookupStudent']);
+        Route::post('/course-change/available-mappings', [CourseChangeController::class, 'availableMappings']);
+        Route::post('/course-change/transfer', [CourseChangeController::class, 'store']);
+        Route::post('/course-change/history', [CourseChangeController::class, 'history']);
+        Route::get('/course-change/transfers', [CourseChangeController::class, 'allTransfers']);
+
+        Route::apiResource('course-curricula', CourseCurriculaController::class)
+            ->parameters(['course-curricula' => 'course_curriculum'])
+            ->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('/course-enrolments/export', [CourseEnrolmentsController::class, 'export']);
+        Route::get('/course-enrolments', [CourseEnrolmentsController::class, 'index']);
+        Route::get('/course-enrolments/{course_enrolment}', [CourseEnrolmentsController::class, 'show']);
+        Route::put('/course-enrolments/{course_enrolment}/status', [CourseEnrolmentsController::class, 'updateStatus']);
+        Route::get('/student-status-logs', [CourseEnrolmentsController::class, 'statusLogs']);
+
+        Route::get('/access-roles/{access_role}/permissions/grouped', [AccessRolePermissionsController::class, 'grouped']);
+        Route::put('/access-roles/{access_role}/permissions', [AccessRolePermissionsController::class, 'sync']);
+        Route::apiResource('access-roles', AccessRolesController::class)
+            ->parameters(['access-roles' => 'access_role']);
+
+        Route::get('/system-configurations', [SystemConfigurationsController::class, 'index'])
+            ->middleware('permission:institution.update');
+        Route::put('/system-configurations/{key}', [SystemConfigurationsController::class, 'update'])
+            ->middleware('permission:institution.update');
+    });
+
+    Route::middleware('role:admin|trainer')->group(function () {
+        Route::get('/units', [UnitsController::class, 'index']);
+        Route::get('/units/{unit}', [UnitsController::class, 'show']);
+        Route::get('/academic-sessions', [AcademicSessionsController::class, 'index']);
+        Route::get('/academic-sessions/{academic_session}', [AcademicSessionsController::class, 'show']);
+        Route::get('/assessment-types', [StudentMarksController::class, 'assessmentTypes']);
+        Route::get('/marks', [StudentMarksController::class, 'index']);
+        Route::get('/marks/export', [StudentMarksController::class, 'export'])
+            ->middleware('throttle:3,1');
+        Route::post('/marks', [StudentMarksController::class, 'store']);
+        Route::post('/marks/bulk', [StudentMarksController::class, 'bulkStore']);
+        Route::post('/marks/publish-assessment', [StudentMarksController::class, 'publishAssessment']);
+        Route::post('/marks/publish-filtered', [StudentMarksController::class, 'publishFiltered']);
+        Route::get('/marks/available-units', [StudentMarksController::class, 'availableUnits']);
+        Route::get('/marks/available-students', [StudentMarksController::class, 'availableStudents']);
+        Route::get('/marks/marksheet', [StudentMarksController::class, 'marksheet']);
+        Route::get('/marks/student-marksheet', [StudentMarksController::class, 'adminMarksheet']);
+        Route::get('/marks/transcript/enrolments', [StudentMarksController::class, 'adminStudentEnrolments']);
+        Route::get('/marks/transcript', [StudentMarksController::class, 'adminTranscript']);
+        Route::get('/marks/transcript/download', [StudentMarksController::class, 'adminTranscriptDownload'])
+            ->middleware('throttle:3,1');
+        Route::get('/marks/{student_mark}', [StudentMarksController::class, 'show']);
+        Route::put('/marks/{student_mark}', [StudentMarksController::class, 'update']);
+        Route::post('/marks/{student_mark}/toggle-publish', [StudentMarksController::class, 'togglePublish']);
+
+        Route::prefix('attendance')->group(function () {
+            Route::get('/assigned-units', [TrainerAttendanceController::class, 'assignedUnits']);
+            Route::get('/roster', [TrainerAttendanceController::class, 'roster']);
+            Route::post('/mark', [TrainerAttendanceController::class, 'mark'])->middleware('throttle:10,1');
+        });
+    });
 
     Route::get('/student/dashboard', StudentDashboardController::class);
 
     Route::get('/my/units', [UnitsController::class, 'myUnits']);
-    Route::apiResource('units', UnitsController::class)
-        ->parameters(['units' => 'unit']);
-
-    Route::apiResource('academic-years', AcademicYearsController::class)
-        ->parameters(['academic-years' => 'academic_year']);
-
-    Route::apiResource('academic-sessions', AcademicSessionsController::class)
-        ->parameters(['academic-sessions' => 'academic_session']);
 
     Route::post('/student/register-session', [AcademicSessionEnrolmentsController::class, 'registerCurrentSession']);
     Route::post('/student/register-units', [AcademicSessionEnrolmentsController::class, 'registerUnits']);
     Route::get('/my/session-enrolments', [AcademicSessionEnrolmentsController::class, 'myEnrolments']);
     Route::get('/my/available-sessions', [AcademicSessionEnrolmentsController::class, 'availableSessions']);
-    Route::post('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'store']);
-    Route::get('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'index']);
-    Route::get('/academic-session-enrolments/{academic_session_enrolment}', [AcademicSessionEnrolmentsController::class, 'show']);
-
-    Route::get('/finance/dashboard', FinanceReportsDashboardController::class);
-    Route::get('/finance/reports', [FinanceReportsController::class, 'index']);
-    Route::get('/finance/reports/export', [FinanceReportsController::class, 'export'])->middleware('throttle:6,1');
-    Route::get('/finance/audit-logs', [FinanceAuditController::class, 'index'])->middleware('permission:finance.view');
-    Route::get('/finance/audit-logs/{financeAuditLog}', [FinanceAuditController::class, 'show'])->middleware('permission:finance.view');
-    Route::get('/finance/dashboard/export', [FinanceDataExportsController::class, 'dashboard'])->middleware('throttle:6,1');
-    Route::get('/invoices/export', [FinanceDataExportsController::class, 'invoices'])->middleware('throttle:6,1');
-    Route::get('/payments/export', [FinanceDataExportsController::class, 'payments'])->middleware('throttle:6,1');
-    Route::get('/ledger/export', [FinanceDataExportsController::class, 'ledger'])->middleware('throttle:6,1');
-
-    Route::apiResource('fee-templates', FeeTemplatesController::class)
-        ->parameters(['fee-templates' => 'fee_template']);
-
-    Route::apiResource('fee-template-items', FeeTemplateItemsController::class)
-        ->parameters(['fee-template-items' => 'fee_template_item']);
-
-    Route::get('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'index']);
-    Route::post('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'store']);
-    Route::put('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'update']);
-    Route::delete('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'destroy']);
-
-    Route::get('/course-assignments', [CurriculumFeeAssignmentsController::class, 'search']);
 
     Route::get('/my/invoices', [InvoicesController::class, 'myInvoices']);
     Route::get('/my/finance-summary', [InvoicesController::class, 'financeSummary']);
     Route::get('/my/ledger', [StudentLedgerController::class, 'myLedger']);
     Route::get('/my/financial-statement', [InvoicesController::class, 'myStatement']);
     Route::get('/my/financial-statement/download', [InvoicesController::class, 'myStatementDownload']);
-    Route::get('/students/{student}/financial-statement/download', [InvoicesController::class, 'statementDownload']);
-    Route::post('/invoices', [InvoicesController::class, 'store']);
-    Route::get('/invoices', [InvoicesController::class, 'index']);
-    Route::post('/finance/reconcile', [InvoicesController::class, 'reconcile']);
-    Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
-    Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
-    Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
-    Route::get('/students/{student}/financial-statement', [InvoicesController::class, 'studentStatement']);
-    Route::post('/payments', [PaymentsController::class, 'store']);
-    Route::get('/payments', [PaymentsController::class, 'index']);
-    Route::post('/refunds', [RefundsController::class, 'store']);
-    Route::post('/invoice-adjustments', [InvoiceAdjustmentsController::class, 'store']);
-    Route::post('/invoice-charges', [InvoiceAdjustmentsController::class, 'storeCharge']);
-    Route::post('/invoices/{invoice}/adjustments', [StudentFeeAdjustmentsController::class, 'store']);
-    Route::get('/ledger', [StudentLedgerController::class, 'index']);
 
-    Route::get('/assessment-types', [StudentMarksController::class, 'assessmentTypes']);
-    Route::get('/marks', [StudentMarksController::class, 'index']);
-    Route::get('/marks/export', [StudentMarksController::class, 'export'])
-        ->middleware('throttle:3,1');
-    Route::post('/marks', [StudentMarksController::class, 'store']);
-    Route::post('/marks/bulk', [StudentMarksController::class, 'bulkStore']);
-    Route::post('/marks/publish-assessment', [StudentMarksController::class, 'publishAssessment']);
-    Route::post('/marks/publish-filtered', [StudentMarksController::class, 'publishFiltered']);
-    Route::get('/marks/available-units', [StudentMarksController::class, 'availableUnits']);
-    Route::get('/marks/available-students', [StudentMarksController::class, 'availableStudents']);
-    Route::get('/marks/marksheet', [StudentMarksController::class, 'marksheet']);
-    Route::get('/marks/student-marksheet', [StudentMarksController::class, 'adminMarksheet']);
-    Route::get('/marks/transcript/enrolments', [StudentMarksController::class, 'adminStudentEnrolments']);
-    Route::get('/marks/transcript', [StudentMarksController::class, 'adminTranscript']);
-    Route::get('/marks/transcript/download', [StudentMarksController::class, 'adminTranscriptDownload'])
-        ->middleware('throttle:3,1');
-    Route::get('/marks/{student_mark}', [StudentMarksController::class, 'show']);
-    Route::put('/marks/{student_mark}', [StudentMarksController::class, 'update']);
-    Route::post('/marks/{student_mark}/toggle-publish', [StudentMarksController::class, 'togglePublish']);
     Route::get('/my/results', [StudentMarksController::class, 'myResults']);
     Route::get('/my/marksheet', [StudentMarksController::class, 'myMarksheet']);
     Route::get('/my/transcript', [StudentMarksController::class, 'myTranscript']);
@@ -182,94 +281,8 @@ Route::middleware([
     Route::get('/my/session-enrolments', [StudentMarksController::class, 'sessionEnrolments']);
 
     Route::get('/my/timetable', [AcademicTimetablesController::class, 'myTimetable']);
-    Route::get('/timetables', [AcademicTimetablesController::class, 'index']);
-    Route::get('/timetables/week-grid', [AcademicTimetablesController::class, 'weekGrid']);
-    Route::get('/timetables/available-units', [AcademicTimetablesController::class, 'availableUnits']);
-    Route::get('/timetables/staff-list', [AcademicTimetablesController::class, 'staffList']);
-    Route::post('/timetables', [AcademicTimetablesController::class, 'store']);
-    Route::get('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'show']);
-    Route::put('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'update']);
-    Route::delete('/timetables/{academic_timetable}', [AcademicTimetablesController::class, 'destroy']);
-    Route::apiResource('lecture-rooms', LectureRoomsController::class)
-        ->parameters(['lecture-rooms' => 'lecture_room']);
-
-    Route::prefix('attendance')->group(function () {
-        Route::get('/assigned-units', [TrainerAttendanceController::class, 'assignedUnits']);
-        Route::get('/roster', [TrainerAttendanceController::class, 'roster']);
-        Route::post('/mark', [TrainerAttendanceController::class, 'mark'])->middleware('throttle:10,1');
-    });
-
-    Route::prefix('academic-sessions/{academic_session}/calendar')->name('calendar.')->group(function () {
-        Route::get('/', [CalendarController::class, 'index'])->name('index');
-        Route::post('/generate', [CalendarController::class, 'generate'])->name('generate');
-        Route::post('/events', [CalendarController::class, 'store'])->name('events.store');
-        Route::put('/events/{calendar_event}', [CalendarController::class, 'update'])->name('events.update');
-        Route::delete('/events/{calendar_event}', [CalendarController::class, 'destroy'])->name('events.destroy');
-        Route::post('/sync-holidays', [CalendarController::class, 'syncHolidays'])->name('sync-holidays');
-    });
-    Route::get('/calendar/event-types', [CalendarController::class, 'eventTypes'])->name('calendar.event-types');
-    Route::get('/academic-years/{academic_year}/calendar', [CalendarController::class, 'yearCalendar'])->name('calendar.year');
 
     Route::get('/my/support-requests', [SupportRequestsController::class, 'myRequests']);
     Route::post('/support-requests', [SupportRequestsController::class, 'store']);
-    Route::get('/support-requests', [SupportRequestsController::class, 'adminIndex']);
-    Route::get('/support-requests/{support_request}', [SupportRequestsController::class, 'show']);
-    Route::post('/support-requests/{support_request}/escalate', [SupportRequestsController::class, 'escalate']);
-    Route::post('/support-requests/{support_request}/resolve', [SupportRequestsController::class, 'resolve']);
-    Route::post('/support-requests/{support_request}/review', [SupportRequestsController::class, 'review']);
-    Route::get('/support-requests/staff-list', [SupportRequestsController::class, 'staffList']);
 
-    Route::get('/my/hostel-allocation', [HostelsController::class, 'myAllocation']);
-    Route::get('/my/available-hostels', [HostelsController::class, 'availableHostels']);
-    Route::get('/my/hostel-booking/eligibility', [HostelsController::class, 'bookingEligibility']);
-    Route::post('/my/hostel-booking', [HostelsController::class, 'selfBook']);
-    Route::apiResource('hostels', HostelsController::class)
-        ->parameters(['hostels' => 'hostel']);
-    Route::post('/hostel-rooms', [HostelsController::class, 'storeRoom']);
-    Route::put('/hostel-rooms/{hostel_room}', [HostelsController::class, 'updateRoom']);
-    Route::get('/hostels/{hostel}/rooms', [HostelsController::class, 'roomsByHostel']);
-    Route::get('/hostel-rooms/{hostel_room}/beds', [HostelsController::class, 'bedsByRoom']);
-    Route::get('/hostel-allocations', [HostelsController::class, 'allocations']);
-    Route::post('/hostel-allocations', [HostelsController::class, 'storeAllocation']);
-    Route::post('/hostel-allocations/{hostel_allocation}/vacate', [HostelsController::class, 'vacateAllocation']);
-
-    Route::get('/staffs/meta', [StaffsController::class, 'meta'])
-        ->middleware('permission:staff.create');
-    Route::get('/staffs/export', [StaffsController::class, 'export']);
-    Route::apiResource('staffs', StaffsController::class)
-        ->parameters(['staffs' => 'staff']);
-
-    Route::get('/students/export', [StudentsController::class, 'export'])
-        ->middleware('throttle:3,1');
-    Route::get('/students/meta', [StudentsController::class, 'meta'])
-        ->middleware('permission:students.create');
-    Route::apiResource('students', StudentsController::class)
-        ->parameters(['students' => 'student']);
-    Route::get('/students/{student}/admission-letter', [StudentsController::class, 'admissionLetter']);
-
-    Route::post('/course-change/lookup', [CourseChangeController::class, 'lookupStudent']);
-    Route::post('/course-change/available-mappings', [CourseChangeController::class, 'availableMappings']);
-    Route::post('/course-change/transfer', [CourseChangeController::class, 'store']);
-    Route::post('/course-change/history', [CourseChangeController::class, 'history']);
-    Route::get('/course-change/transfers', [CourseChangeController::class, 'allTransfers']);
-
-    Route::apiResource('course-curricula', CourseCurriculaController::class)
-        ->parameters(['course-curricula' => 'course_curriculum'])
-        ->only(['index', 'store', 'update', 'destroy']);
-
-    Route::get('/course-enrolments/export', [CourseEnrolmentsController::class, 'export']);
-    Route::get('/course-enrolments', [CourseEnrolmentsController::class, 'index']);
-    Route::get('/course-enrolments/{course_enrolment}', [CourseEnrolmentsController::class, 'show']);
-    Route::put('/course-enrolments/{course_enrolment}/status', [CourseEnrolmentsController::class, 'updateStatus']);
-    Route::get('/student-status-logs', [CourseEnrolmentsController::class, 'statusLogs']);
-
-    Route::get('/access-roles/{access_role}/permissions/grouped', [AccessRolePermissionsController::class, 'grouped']);
-    Route::put('/access-roles/{access_role}/permissions', [AccessRolePermissionsController::class, 'sync']);
-    Route::apiResource('access-roles', AccessRolesController::class)
-        ->parameters(['access-roles' => 'access_role']);
-
-    Route::get('/system-configurations', [SystemConfigurationsController::class, 'index'])
-        ->middleware('permission:institution.update');
-    Route::put('/system-configurations/{key}', [SystemConfigurationsController::class, 'update'])
-        ->middleware('permission:institution.update');
 });
