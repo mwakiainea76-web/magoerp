@@ -1,71 +1,61 @@
-Refactor my React Router route configuration from a single flat array into
-role-based route files that export JSX <Route> fragments directly, so App.jsx
-just plugs each role's fragment in without any filtering/mapping logic.
+Refactor my sidebar navigation config from one large object into per-role
+files, so adding/editing a role's nav doesn't require touching a giant
+shared file.
 
 CONTEXT:
-- Current file: src/router/index.jsx (or wherever routeConfigs lives) exports
-  a flat array `routeConfigs` of { path, element } objects covering admin,
-  trainer, and student routes.
-- App.jsx currently filters routeConfigs by role using path.split("/")[1]
-  and renders them with .map().
+- Current file: src/support/sidebarNavigationByRole.js (or wherever it
+  lives) exports a single object `sidebarNavigationByRole` with keys
+  admin, trainer, student — each an array of nav items (some with
+  `children`, some flat with `to`).
+- It also exports `getSidebarLinks(role)` which reads from that object
+  with a fallback to `student`.
+- Icons come from lucide-react. Dashboard paths come from
+  `dashboardPathByRole` in "@/support/dashboardPaths".
 
 WHAT TO DO:
 
-1. Create a new folder: src/router/routes/
-   Split routeConfigs into one file per role, preserving every existing
-   path and element EXACTLY as-is (do not rename paths, do not remove any
-   route, do not change any component props like role="admin"):
-   - src/router/routes/admin.routes.jsx   -> export const AdminRoutes
-   - src/router/routes/trainer.routes.jsx -> export const TrainerRoutes
-   - src/router/routes/student.routes.jsx -> export const StudentRoutes
-   - src/router/routes/shared.routes.jsx  -> export const SharedRoutes
-     (routes any authenticated role can access, e.g. /reset-password,
-     /forbidden — check current App.jsx for these)
+1. Create a new folder: src/support/navigation/
+   Split the object into one file per role, preserving every existing
+   label, `to` path, icon, and `children` structure EXACTLY as-is (no
+   renaming labels, no changing paths, no reordering items unless it's
+   clearly grouping-related):
+   - src/support/navigation/admin.nav.js   -> export const adminNav = [...]
+   - src/support/navigation/trainer.nav.js -> export const trainerNav = [...]
+   - src/support/navigation/student.nav.js -> export const studentNav = [...]
 
 2. Each file must:
-   - Import only the page components it actually uses (no unused imports
-     left behind in any file, no missing imports either)
-   - Export a single constant that is a JSX fragment of <Route> elements,
-     e.g.:
-       export const AdminRoutes = (
-         <>
-           <Route path="/admin/dashboard" element={<AdminDashboard />} />
-           ...
-         </>
-       );
-   - Import { Route } from "react-router" at the top
+   - Import only the lucide-react icons it actually uses (no unused
+     imports, no missing imports)
+   - Import `dashboardPathByRole` only if that role's file references it
+     for its Dashboard link
+   - Export a single named array constant matching the pattern above
 
-3. Update App.jsx to:
-   - Remove the old routeConfigs import, the .split("/")[1] role-prefix
-     filtering logic, and the useMemo-based filteredRoutes
-   - Import AdminRoutes, TrainerRoutes, StudentRoutes, SharedRoutes from
-     the new files
-   - Define a ROUTES_BY_ROLE map: { admin: AdminRoutes, trainer:
-     TrainerRoutes, student: StudentRoutes }
-   - Render SharedRoutes and ROUTES_BY_ROLE[role] as children of the
-     existing authenticated <Route element={<AppLayout />}> block
-   - Fix the current bug: an authenticated user landing on a route outside
-     their role should see <ForbiddenPage />, NOT get redirected to
-     /login. Only unauthenticated users hitting unknown paths should go
-     to /login. Keep the outer catch-all Route for unauthenticated users
-     as-is, but change the catch-all INSIDE the authenticated layout block
-     from Navigate to /login to <ForbiddenPage />.
+3. Create src/support/navigation/index.js that:
+   - Imports adminNav, trainerNav, studentNav from the files above
+   - Exports `sidebarNavigationByRole = { admin: adminNav, trainer:
+     trainerNav, student: studentNav }`
+   - Exports `getSidebarLinks(role)` with the same fallback-to-student
+     behavior as the original
 
-4. Delete the old routeConfigs file/array once everything is migrated, but
-   only after confirming no other file still imports it (search the
-   codebase for "routeConfigs" and "@/router\"" imports first).
+4. Update any file currently importing `sidebarNavigationByRole` or
+   `getSidebarLinks` from the old location to import from
+   `@/support/navigation` instead (search the codebase for both names
+   first to find every usage).
 
-5. Keep this structure extensible: adding a future role (e.g. "parent")
-   should only require creating src/router/routes/parent.routes.jsx and
-   adding one entry to ROUTES_BY_ROLE in App.jsx — no other files should
-   need changes.
+5. Delete the old file once nothing else imports it.
+
+6. Keep this extensible: adding a future role (e.g. "parent") should only
+   require creating src/support/navigation/parent.nav.js and adding one
+   line `parent: parentNav` inside index.js — no other files should need
+   changes.
 
 CONSTRAINTS:
-- Do not change any existing route path strings.
-- Do not change any component prop values (e.g. role="student" must stay
-  exactly as it is on that page).
-- Do not introduce any new routing library or config format — stick to
-  react-router's <Route> / <Routes> JSX pattern already in use.
+- Do not change any `to` path strings.
+- Do not change any label text or icon assignment.
+- Do not change the shape of nav item objects (keep `children`,
+  `defaultOpen`, etc. exactly as structured now).
+- Do not introduce a new nav data format — keep the same array-of-objects
+  shape already in use by whatever component renders the sidebar.
 - After the refactor, list every file you created/modified/deleted so I
   can review the diff.
 

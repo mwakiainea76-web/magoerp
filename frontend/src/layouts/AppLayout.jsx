@@ -4,7 +4,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
 import { useAuthApi } from "@/hooks/useAuthApi";
-import { getSidebarLinks } from "@/support/sidebarNavigation";
+import { getSidebarLinks } from "@/support/navigation";
 import { useAuthStore } from "@/store/authStore";
 
 export function AppLayout() {
