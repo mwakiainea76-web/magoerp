@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import logo from "@/assets/logo.PNG";
 import { bodyTextClassName, labelTextClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
-import { PaginationFooter } from "@/components/PaginationFooter";
 import { useMarksApi } from "@/hooks/useMarksApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -21,8 +20,6 @@ export function StudentTranscriptPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingEnrolments, setIsLoadingEnrolments] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
@@ -75,18 +72,12 @@ export function StudentTranscriptPage() {
     return () => { mounted = false; };
   }, [marksApi, selectedEnrolmentId, transcriptType]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [selectedEnrolmentId, transcriptType]);
-
   const transcriptRows = transcriptData?.transcript ?? [];
-  const visibleRows = transcriptRows.slice((page - 1) * perPage, page * perPage);
   const student = transcriptData?.student;
   const transcriptCourse = transcriptData?.course;
   const transcriptMeta = transcriptData?.student_meta ?? {};
   const institution = transcriptData?.institution || { name: transcriptData?.institution_name };
   const gradeLegend = transcriptData?.grade_legend ?? [];
-  const lastPage = Math.max(1, Math.ceil(transcriptRows.length / perPage));
   const generatedOn = new Date().toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -96,7 +87,7 @@ export function StudentTranscriptPage() {
     "TR",
     (student?.admission_number || "NA").replace(/[^A-Za-z0-9]/g, ""),
     selectedEnrolmentId ? selectedEnrolmentId.slice(0, 8) : "NA",
-    String(page).padStart(2, "0"),
+    "01",
   ].join("-");
 
   async function downloadTranscript() {
@@ -358,7 +349,7 @@ export function StudentTranscriptPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleRows.map((entry) => (
+                      {transcriptRows.map((entry) => (
                         <tr key={entry.unit.id}>
                           <td className="border border-slate-500 px-2 py-1.5 align-top">{valueOrDash(entry.unit.code)}</td>
                           <td className="border border-slate-500 px-2 py-1.5 align-top">{valueOrDash(entry.unit.name)}</td>
@@ -404,7 +395,6 @@ export function StudentTranscriptPage() {
                   <p>This is a provisional and unofficial transcript issued for reference only.</p>
                   <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.08em] text-slate-700">
                     <span>Document Ref: {transcriptReference}</span>
-                    <span>Page: {page} of {lastPage}</span>
                   </div>
                 </div>
 
@@ -415,16 +405,6 @@ export function StudentTranscriptPage() {
             </article>
           </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-white">
-            <PaginationFooter
-              page={page}
-              perPage={perPage}
-              total={transcriptRows.length}
-              lastPage={lastPage}
-              onPageChange={setPage}
-              onPerPageChange={setPerPage}
-            />
-          </div>
         </div>
       ) : null}
     </section>

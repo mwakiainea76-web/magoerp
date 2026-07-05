@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import logo from "@/assets/logo.PNG";
 import { LookupSelect } from "@/components/LookupSelect";
-import { bodyTextClassName, labelTextClassName, selectClassName } from "@/lib/styles";
+import {
+  bodyTextClassName,
+  labelTextClassName,
+  selectClassName,
+} from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
-import { PaginationFooter } from "@/components/PaginationFooter";
 import { useMarksApi } from "@/hooks/useMarksApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -25,8 +28,6 @@ export function AdminTranscriptPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingEnrolments, setIsLoadingEnrolments] = useState(false);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const studentId = selectedStudent?.id ?? null;
@@ -36,7 +37,6 @@ export function AdminTranscriptPage() {
     setEnrolments([]);
     setTranscriptData(null);
     setError("");
-    setPage(1);
 
     if (!studentId) return;
 
@@ -96,15 +96,7 @@ export function AdminTranscriptPage() {
     };
   }, [studentId, selectedEnrolmentId, transcriptType, marksApi]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [selectedEnrolmentId, transcriptType]);
-
   const transcriptRows = transcriptData?.transcript ?? [];
-  const visibleRows = transcriptRows.slice(
-    (page - 1) * perPage,
-    page * perPage,
-  );
   const student = transcriptData?.student;
   const transcriptCourse = transcriptData?.course;
   const transcriptMeta = transcriptData?.student_meta ?? {};
@@ -112,7 +104,6 @@ export function AdminTranscriptPage() {
     name: transcriptData?.institution_name,
   };
   const gradeLegend = transcriptData?.grade_legend ?? [];
-  const lastPage = Math.max(1, Math.ceil(transcriptRows.length / perPage));
   const generatedOn = new Date().toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -122,7 +113,7 @@ export function AdminTranscriptPage() {
     "TR",
     (student?.admission_number || "NA").replace(/[^A-Za-z0-9]/g, ""),
     selectedEnrolmentId ? selectedEnrolmentId.slice(0, 8) : "NA",
-    String(page).padStart(2, "0"),
+    "01",
   ].join("-");
 
   async function downloadTranscript() {
@@ -143,7 +134,8 @@ export function AdminTranscriptPage() {
 
       const response = await marksApi.adminTranscriptDownload(params);
       const blob = response.data;
-      const contentDisposition = response.headers?.["content-disposition"] ?? "";
+      const contentDisposition =
+        response.headers?.["content-disposition"] ?? "";
       const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
       const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
       const filename = utfMatch
@@ -158,7 +150,9 @@ export function AdminTranscriptPage() {
       document.body.removeChild(anchor);
       window.URL.revokeObjectURL(url);
     } catch (downloadError) {
-      setError(getApiErrorMessage(downloadError, "Failed to download transcript."));
+      setError(
+        getApiErrorMessage(downloadError, "Failed to download transcript."),
+      );
     } finally {
       setIsDownloading(false);
     }
@@ -248,13 +242,15 @@ export function AdminTranscriptPage() {
               disabled={!studentId}
             >
               <option value="progress">Progress (current session only)</option>
-              <option value="cumulative">Cumulative (up to this session)</option>
+              <option value="cumulative">
+                Cumulative (up to this session)
+              </option>
             </select>
           </div>
 
           <div className="rounded-xl border border-slate-200/80 bg-slate-50 px-4 py-3 text-[13px] text-slate-600">
             <div className="font-semibold text-slate-900">
-              {student?.name ?? (selectedStudent?.label ?? "Student")}
+              {student?.name ?? selectedStudent?.label ?? "Student"}
             </div>
             <div className="mt-1 text-slate-500">
               {student?.admission_number ?? ""}
@@ -301,7 +297,10 @@ export function AdminTranscriptPage() {
         </div>
       ) : null}
 
-      {!isLoading && studentId && selectedEnrolmentId && transcriptRows.length === 0 ? (
+      {!isLoading &&
+      studentId &&
+      selectedEnrolmentId &&
+      transcriptRows.length === 0 ? (
         <div
           className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}
         >
@@ -339,10 +338,14 @@ export function AdminTranscriptPage() {
                 />
 
                 {institution?.postal_address ? (
-                  <p className="mt-0.5 text-[10px] text-slate-700">{institution.postal_address}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-700">
+                    {institution.postal_address}
+                  </p>
                 ) : null}
                 {institution?.telephone ? (
-                  <p className="text-[10px] text-slate-700">TEL: {institution.telephone}</p>
+                  <p className="text-[10px] text-slate-700">
+                    TEL: {institution.telephone}
+                  </p>
                 ) : null}
                 {institution?.email || institution?.website ? (
                   <p className="text-[10px] text-slate-700">
@@ -355,7 +358,9 @@ export function AdminTranscriptPage() {
                   Office of the Registrar - Academics
                 </p>
                 <p className="mt-1 text-[16px] font-bold tracking-[0.02em] text-black">
-                  {transcriptType === "cumulative" ? "Cumulative Transcript" : "Progress Transcript"}
+                  {transcriptType === "cumulative"
+                    ? "Cumulative Transcript"
+                    : "Progress Transcript"}
                 </p>
               </header>
 
@@ -374,39 +379,64 @@ export function AdminTranscriptPage() {
                   </colgroup>
                   <tbody>
                     <tr className="border-b border-slate-400">
-                      <td className="px-1.5 py-1.5 font-bold text-slate-700">Name:</td>
-                      <td className="px-2 py-1.5 text-black">{valueOrDash(student?.name)}</td>
-                      <td className="border-l border-slate-300 px-2 py-1.5 font-bold text-slate-700">Reg No:</td>
-                      <td className="px-2 py-1.5 text-black">{valueOrDash(student?.admission_number)}</td>
+                      <td className="px-1.5 py-1.5 font-bold text-slate-700">
+                        Name:
+                      </td>
+                      <td className="px-2 py-1.5 text-black">
+                        {valueOrDash(student?.name)}
+                      </td>
+                      <td className="border-l border-slate-300 px-2 py-1.5 font-bold text-slate-700">
+                        Reg No:
+                      </td>
+                      <td className="px-2 py-1.5 text-black">
+                        {valueOrDash(student?.admission_number)}
+                      </td>
                     </tr>
                     <tr className="border-b border-slate-300">
-                      <td className="px-1.5 py-1.5 font-bold text-slate-700">School:</td>
-                      <td className="px-2 py-1.5 text-black">{valueOrDash(
-                        transcriptCourse?.school ||
+                      <td className="px-1.5 py-1.5 font-bold text-slate-700">
+                        Department:
+                      </td>
+                      <td className="px-2 py-1.5 text-black">
+                        {valueOrDash(
                           transcriptCourse?.department ||
-                          transcriptCourse?.certification_authority,
-                      )}</td>
-                      <td className="border-l border-slate-300 px-2 py-1.5 font-bold text-slate-700">Program:</td>
-                      <td className="px-2 py-1.5 text-black">{valueOrDash(transcriptCourse?.name)}</td>
+                            transcriptCourse?.certification_authority,
+                        )}
+                      </td>
+                      <td className="border-l border-slate-300 px-2 py-1.5 font-bold text-slate-700">
+                        Course:
+                      </td>
+                      <td className="px-2 py-1.5 text-black">
+                        {valueOrDash(transcriptCourse?.name)}
+                      </td>
                     </tr>
                     <tr className="border-b border-slate-300">
-                      <td className="px-1.5 py-1.5 font-bold text-slate-700">Class:</td>
-                      <td className="px-2 py-1.5 text-black">{valueOrDash(
-                        transcriptMeta?.class_name ||
-                          (transcriptMeta?.session_number
-                            ? `Session ${transcriptMeta.session_number}`
-                            : ""),
-                      )}</td>
-                      <td className="border-l border-slate-300 px-2 py-1.5 font-bold text-slate-700">Admission Year:</td>
-                      <td className="px-2 py-1.5 text-black">{valueOrDash(transcriptMeta?.admission_year)}</td>
+                      <td className="px-1.5 py-1.5 font-bold text-slate-700">
+                        Class:
+                      </td>
+                      <td className="px-2 py-1.5 text-black">
+                        {valueOrDash(
+                          transcriptMeta?.class_name ||
+                            (transcriptMeta?.session_number
+                              ? `Session ${transcriptMeta.session_number}`
+                              : ""),
+                        )}
+                      </td>
+                      <td className="border-l border-slate-300 px-2 py-1.5 font-bold text-slate-700">
+                        Admission Year:
+                      </td>
+                      <td className="px-2 py-1.5 text-black">
+                        {valueOrDash(transcriptMeta?.admission_year)}
+                      </td>
                     </tr>
                     <tr>
-                      <td className="px-1.5 py-1.5 font-bold text-slate-700">Year of Study:</td>
-                      <td className="px-2 py-1.5 text-black">{valueOrDash(
-                        transcriptMeta?.year_of_study_label || "",
-                      )}</td>
+                      <td className="px-1.5 py-1.5 font-bold text-slate-700">
+                        Year of Study:
+                      </td>
+                      <td className="px-2 py-1.5 text-black">
+                        {valueOrDash(transcriptMeta?.year_of_study_label || "")}
+                      </td>
                       <td className="border-l border-slate-300 px-2 py-1.5" />
-                      <td className="px-2 py-1.5" />
+                      <td className="px-2 py-1.5"></td>
                     </tr>
                   </tbody>
                 </table>
@@ -443,7 +473,7 @@ export function AdminTranscriptPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleRows.map((entry) => (
+                      {transcriptRows.map((entry) => (
                         <tr key={entry.unit.id}>
                           <td className="border border-slate-500 px-2 py-1.5 align-top">
                             {valueOrDash(entry.unit.code)}
@@ -481,12 +511,16 @@ export function AdminTranscriptPage() {
                             key={`${entry.grade}-${entry.points}`}
                             className="grid grid-cols-[72px_1fr]"
                           >
-                            <span className="font-bold">{valueOrDash(entry.grade)}</span>
+                            <span className="font-bold">
+                              {valueOrDash(entry.grade)}
+                            </span>
                             <span>{valueOrDash(entry.points)}</span>
                           </div>
                         ))
                       ) : (
-                        <div className="text-slate-600">No grade bands configured.</div>
+                        <div className="text-slate-600">
+                          No grade bands configured.
+                        </div>
                       )}
                     </div>
                   </div>
@@ -497,31 +531,18 @@ export function AdminTranscriptPage() {
                     <span>Registrar Academics</span>
                     <span className="min-w-[120px] flex-1 border-b border-slate-700" />
                     <span>Date Generated</span>
-                    <span className="min-w-[110px] border-b border-slate-700 px-1 text-center">{generatedOn}</span>
-                  </div>
-                  <p>This is a provisional and unofficial transcript issued for reference only.</p>
-                  <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.08em] text-slate-700">
-                    <span>Document Ref: {transcriptReference}</span>
-                    <span>Page: {page} of {lastPage}</span>
+                    <span className="min-w-[110px] border-b border-slate-700 px-1 text-center">
+                      {generatedOn}
+                    </span>
                   </div>
                 </div>
 
                 <footer className="mt-5 border-t border-slate-700 pt-2 text-[10px] text-slate-800">
-                  This result slip is issued without any erasures or alterations. Not valid without official stamp.
+                  This result slip is issued without any erasures or
+                  alterations. Not valid without official stamp.
                 </footer>
               </div>
             </article>
-          </div>
-
-          <div className="rounded-xl border border-slate-200/80 bg-white">
-            <PaginationFooter
-              page={page}
-              perPage={perPage}
-              total={transcriptRows.length}
-              lastPage={lastPage}
-              onPageChange={setPage}
-              onPerPageChange={setPerPage}
-            />
           </div>
         </div>
       ) : null}
