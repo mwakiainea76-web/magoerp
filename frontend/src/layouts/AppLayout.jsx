@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Navbar from "@/components/Navbar";
@@ -6,6 +6,21 @@ import { Sidebar } from "@/components/Sidebar";
 import { useAuthApi } from "@/hooks/useAuthApi";
 import { getSidebarLinks } from "@/support/navigation";
 import { useAuthStore } from "@/store/authStore";
+
+function ContentRouteLoader() {
+  return (
+    <div className="animate-pulse space-y-5" role="status" aria-live="polite">
+      <span className="sr-only">Loading page...</span>
+      <div className="h-24 rounded-xl border border-slate-200/70 bg-white" />
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="h-28 rounded-xl bg-slate-100" />
+        <div className="h-28 rounded-xl bg-slate-100" />
+        <div className="h-28 rounded-xl bg-slate-100" />
+      </div>
+      <div className="h-64 rounded-xl border border-slate-200/70 bg-white" />
+    </div>
+  );
+}
 
 export function AppLayout() {
   const location = useLocation();
@@ -101,7 +116,9 @@ export function AppLayout() {
 
         <main className="min-w-0 flex-1 px-5 py-5 sm:px-8">
           <section className="min-h-full" aria-label="Page content">
-            <Outlet />
+            <Suspense fallback={<ContentRouteLoader />}>
+              <Outlet />
+            </Suspense>
           </section>
         </main>
       </div>

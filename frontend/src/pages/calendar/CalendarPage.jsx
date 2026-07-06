@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName } from "@/lib/styles";
+import { bodyTextClassName, inputClassName, labelClassName, selectClassName, textAreaClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
+import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
 import { useAcademicYearsApi } from "@/hooks/useAcademicYearsApi";
 import { useCalendarApi } from "@/hooks/useCalendarApi";
@@ -65,7 +66,6 @@ export function CalendarPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [quickDate, setQuickDate] = useState("");
-  const [dateWarnings, setDateWarnings] = useState([]);
   const [formData, setFormData] = useState({
     event_type_id: "",
     title: "",
@@ -78,6 +78,7 @@ export function CalendarPage() {
   useEffect(() => {
     let mounted = true;
     async function load() {
+      let waitingForInitialCalendar = false;
       setIsLoading(true);
       setError("");
       try {
@@ -94,16 +95,19 @@ export function CalendarPage() {
             map[t.code] = t.id;
           }
           setCodeToId(map);
-        const yr = yearsRes.data?.[0];
-        if (yr) {
-          setSelectedYearId(yr.id);
-        } else if (sessRes.data?.length) {
-          setSelectedSessionId(sessRes.data[0].id);
-        }
+        const initialSession = sessRes.data?.[0] ?? null;
+        waitingForInitialCalendar = Boolean(initialSession);
+        const initialYear = initialSession
+          ? (yearsRes.data ?? []).find((year) => year.id === initialSession.academic_year_id)
+            ?? yearsRes.data?.[0]
+          : yearsRes.data?.[0];
+
+        if (initialYear) setSelectedYearId(initialYear.id);
+        if (initialSession) setSelectedSessionId(initialSession.id);
       } catch (e) {
         if (mounted) setError(getApiErrorMessage(e, "Failed to load initial data."));
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted && !waitingForInitialCalendar) setIsLoading(false);
       }
     }
     load();
@@ -166,9 +170,12 @@ export function CalendarPage() {
   useEffect(() => {
     if (!selectedYearId) return;
     const currentInYear = filteredSessions.find((s) => s.id === selectedSessionId);
-    if (!currentInYear && filteredSessions.length > 0) {
-      setSelectedSessionId(filteredSessions[0].id);
-    }
+    if (currentInYear) return;
+
+    const nextSessionId = filteredSessions[0]?.id ?? "";
+    if (!nextSessionId) setCalendar(null);
+
+    setSelectedSessionId(nextSessionId);
   }, [selectedYearId, filteredSessions, selectedSessionId]);
 
   const refreshCalendar = useCallback(async () => {
@@ -233,18 +240,12 @@ export function CalendarPage() {
     return events.filter((e) => e.event_type?.code === "holiday");
   }, [events]);
 
-  useEffect(() => {
+  const dateWarnings = useMemo(() => {
     const { start_date, end_date } = formData;
-    if (!start_date) {
-      setDateWarnings([]);
-      return;
-    }
+    if (!start_date) return [];
     const start = parseLocalDate(start_date);
     const end = end_date ? parseLocalDate(end_date) : start;
-    if (!start || !end) {
-      setDateWarnings([]);
-      return;
-    }
+    if (!start || !end) return [];
     const warnings = [];
     const seen = new Set();
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -264,7 +265,7 @@ export function CalendarPage() {
         warnings.push({ date: key, type: "holiday", message: `${key} is a public holiday: ${holiday.title}` });
       }
     }
-    setDateWarnings(warnings);
+    return warnings;
   }, [formData.start_date, formData.end_date, holidays]);
 
   function isWeekend(d) {
@@ -368,7 +369,11 @@ export function CalendarPage() {
     e.preventDefault();
     const sessionId = selectedSessionId;
     if (!sessionId) return;
-    const realId = codeToId[formData.event_type_id] || formData.event_type_id;
+    const realId = codeToId[formData.event_type_id];
+    if (!realId) {
+      toast.error("The selected event type is unavailable. Refresh the page and try again.");
+      return;
+    }
     const payload = { ...formData, event_type_id: realId };
     setIsLoading(true);
     try {
@@ -524,7 +529,7 @@ export function CalendarPage() {
   }
 
   // Loading / error
-  if (!activeData && !error) {
+  if (isLoading && !activeData) {
     return <div className={bodyTextClassName}>Loading calendar...</div>;
   }
   if (error && !activeData) {
@@ -561,10 +566,10 @@ export function CalendarPage() {
               </option>
             ))}
           </select>
-          <FormButton type="button" variant="secondary" size="sm" onClick={handleGenerate} disabled={isLoading}>
+          <FormButton type="button" variant="secondary" size="sm" onClick={handleGenerate} disabled={isLoading || !selectedSessionId}>
             <RefreshCw className="size-3.5" /> Generate
           </FormButton>
-          <FormButton type="button" size="sm" onClick={() => openCreateForm(null)} disabled={isLoading}>
+          <FormButton type="button" size="sm" onClick={() => openCreateForm(null)} disabled={isLoading || !selectedSessionId}>
             <Plus className="size-3.5" /> Add Event
           </FormButton>
           <FormButton
@@ -579,6 +584,12 @@ export function CalendarPage() {
         </div>
       </div>
 
+
+      {!activeData && !isLoading ? (
+        <div className={`rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 ${bodyTextClassName}`}>
+          No academic session is available for the selected year. Add a session or choose another academic year.
+        </div>
+      ) : null}
       {/* View Toggle */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 p-0.5">
@@ -630,7 +641,7 @@ export function CalendarPage() {
       </div>
 
       {/* Calendar View: Month Grid */}
-      {viewScope === "calendar" && (
+      {viewScope === "calendar" && activeData && (
         <>
           <div className="flex flex-wrap items-center gap-3">
             {HARDCODED_EVENT_TYPES.map((t) => (
@@ -837,14 +848,15 @@ export function CalendarPage() {
       )}
 
       {/* Event Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <div className="fixed inset-0 bg-black/30" onClick={() => { setShowForm(false); setEditingEvent(null); }} />
-          <div className="relative z-10 w-full max-w-lg rounded-t-xl bg-white p-5 shadow-xl sm:rounded-xl">
-            <h2 className="mb-4 text-[15px] font-semibold text-slate-900">
-              {editingEvent ? "Edit Event" : "New Event"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+      <Modal
+        open={showForm}
+        onClose={() => { setShowForm(false); setEditingEvent(null); }}
+        title={editingEvent ? "Edit Event" : "Add Event"}
+        description={editingEvent ? "Update the selected calendar event." : "Add an event to the selected academic session."}
+        size="lg"
+      >
+        <ModalBody>
+          <form id="calendar-event-form" onSubmit={handleSubmit} className="space-y-4">
               {dateWarnings.length > 0 && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                   <p className="text-[12px] font-medium text-amber-800">Selected dates include:</p>
@@ -856,13 +868,13 @@ export function CalendarPage() {
                   <p className="mt-1 text-[11px] text-amber-600">You can still proceed to create this event.</p>
                 </div>
               )}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-700">Type</label>
+                  <label className={labelClassName}>Type</label>
                       <select
                         value={formData.event_type_id}
                         onChange={(e) => setFormData({ ...formData, event_type_id: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-[13px]"
+                        className={selectClassName}
                         required
                       >
                         <option value="">Select event type</option>
@@ -872,61 +884,60 @@ export function CalendarPage() {
                       </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-700">Title</label>
+                  <label className={labelClassName}>Title</label>
                   <input
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-[13px]"
+                    className={inputClassName}
                     required
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-[13px] font-medium text-slate-700">Description</label>
+                  <label className={labelClassName}>Description</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-[13px]"
+                    className={textAreaClassName}
                     rows={2}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-700">Start Date</label>
+                  <label className={labelClassName}>Start Date</label>
                   <input
                     type="date"
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-[13px]"
+                    className={inputClassName}
                     required
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-700">End Date</label>
+                  <label className={labelClassName}>End Date</label>
                   <input
                     type="date"
                     value={formData.end_date}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-[13px]"
+                    className={inputClassName}
                     required
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <FormButton type="submit" size="sm" disabled={isLoading}>
-                  {editingEvent ? "Update" : "Create"}
-                </FormButton>
-                <FormButton
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => { setShowForm(false); setEditingEvent(null); }}
-                >
-                  Cancel
-                </FormButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        </ModalBody>
+        <ModalFooter>
+          <FormButton
+            type="button"
+            variant="secondary"
+            onClick={() => { setShowForm(false); setEditingEvent(null); }}
+            disabled={isLoading}
+          >
+            Cancel
+          </FormButton>
+          <FormButton type="submit" form="calendar-event-form" disabled={isLoading}>
+            {isLoading ? "Saving..." : editingEvent ? "Update Event" : "Create Event"}
+          </FormButton>
+        </ModalFooter>
+      </Modal>
     </section>
   );
 }

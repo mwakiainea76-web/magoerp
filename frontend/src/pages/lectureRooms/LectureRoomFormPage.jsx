@@ -125,15 +125,6 @@ export function LectureRoomFormPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <FormInput
-              id="name"
-              label="Room Name"
-              placeholder="e.g. Main Lecture Hall"
-              required
-              maxLength={255}
-              error={errors.name?.message}
-              {...register("name")}
-            />
-            <FormInput
               id="code"
               label="Code"
               placeholder="e.g. MLH-01"
@@ -141,6 +132,15 @@ export function LectureRoomFormPage() {
               maxLength={50}
               error={errors.code?.message}
               {...register("code")}
+            />
+            <FormInput
+              id="name"
+              label="Room Name"
+              placeholder="e.g. Main Lecture Hall"
+              required
+              maxLength={255}
+              error={errors.name?.message}
+              {...register("name")}
             />
             <FormInput
               id="capacity"

@@ -143,11 +143,11 @@ export function CertificationAuthoritiesPage() {
   }
 
   function getViewLevelsUrl(authority) {
-    return `/certification-levels?${getAuthorityParams(authority)}`;
+    return `/admin/certification-levels?${getAuthorityParams(authority)}`;
   }
 
   function getViewGradesUrl(authority) {
-    return `/certification-authorities/grades?${getAuthorityParams(authority)}`;
+    return `/admin/certification-authorities/grades?${getAuthorityParams(authority)}`;
   }
 
   function openCreateAuthorityModal() {

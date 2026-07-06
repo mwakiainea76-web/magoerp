@@ -60,6 +60,8 @@ export function AcademicSessionsPage() {
   const [isFormLoading, setIsFormLoading] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editData, setEditData] = useState(null);
+  const resolvedYearId = editData?.academic_year_id ?? yearId;
+  const resolvedYearName = editData?.academic_year_name ?? yearName;
 
   const formModalValues = useMemo(() => {
     if (editData) {
@@ -175,7 +177,7 @@ export function AcademicSessionsPage() {
   }
 
   async function onSubmitForm(data) {
-    if (!yearId) {
+    if (!resolvedYearId) {
       setFormError("Choose an academic year first before adding a session.");
       return;
     }
@@ -184,7 +186,7 @@ export function AcademicSessionsPage() {
     setFormError("");
 
     try {
-      const payload = normalizeAcademicSessionPayload(data, yearId);
+      const payload = normalizeAcademicSessionPayload(data, resolvedYearId);
 
       if (editingSessionId) {
         await sessionsApi.update(editingSessionId, payload);
@@ -219,8 +221,8 @@ export function AcademicSessionsPage() {
 
   const isEditing = Boolean(editingSessionId);
   const modalTitle = isEditing ? "Edit Academic Session" : "Add Academic Session";
-  const modalDescription = yearName
-    ? `${isEditing ? "Update" : "Create"} a session for ${yearName}.`
+  const modalDescription = resolvedYearName
+    ? `${isEditing ? "Update" : "Create"} a session for ${resolvedYearName}.`
     : `${isEditing ? "Update" : "Create"} a session for this academic year.`;
 
   const summaryTitle = yearName ? `Academic Year: ${yearName}` : "Academic Sessions";
@@ -234,10 +236,10 @@ export function AcademicSessionsPage() {
     () => (
       <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-[14px] text-emerald-800">
         <span className="font-medium text-emerald-900">Academic Year:</span>{" "}
-        {yearName || "Selected year"}
+        {resolvedYearName || "Selected year"}
       </div>
     ),
-    [yearName],
+    [resolvedYearName],
   );
 
   return (

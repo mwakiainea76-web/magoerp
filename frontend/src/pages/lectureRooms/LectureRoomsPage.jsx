@@ -170,8 +170,8 @@ export function LectureRoomsPage() {
             <Thead>
               <tr>
                 <Th className="w-10 text-center">#</Th>
-                <SortableTh sortKey="name" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Name</SortableTh>
                 <SortableTh sortKey="code" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Code</SortableTh>
+                <SortableTh sortKey="name" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Name</SortableTh>
                 <SortableTh sortKey="capacity" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Capacity</SortableTh>
                 <SortableTh sortKey="location" sortBy={sortBy} sortDirection={sortDirection} onSort={handleSort}>Location</SortableTh>
                 <Th>Status</Th>
@@ -184,8 +184,8 @@ export function LectureRoomsPage() {
                   <Td className="w-10 text-center text-slate-400">
                     {(meta.current_page - 1) * meta.per_page + index + 1}
                   </Td>
-                  <Td className="font-medium text-slate-900">{room.name}</Td>
                   <Td>{room.code}</Td>
+                  <Td className="font-medium text-slate-900">{room.name}</Td>
                   <Td>{room.capacity ?? "—"}</Td>
                   <Td>{room.location ?? "—"}</Td>
                   <Td>

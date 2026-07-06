@@ -1,11 +1,8 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router";
 
 import { AppLayout } from "@/layouts/AppLayout";
 import { AuthLayout } from "@/layouts/AuthLayout";
-import { AdminRoutes } from "@/router/routes/admin.routes";
-import { TrainerRoutes } from "@/router/routes/trainer.routes";
-import { StudentRoutes } from "@/router/routes/student.routes";
 import { SharedRoutes } from "@/router/routes/shared.routes";
 import { ForbiddenPage } from "@/pages/app/ForbiddenPage";
 import { RequireAuth } from "@/router/RequireAuth";
@@ -15,11 +12,31 @@ const LoginPage = lazy(() =>
   import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })),
 );
 
-const ROUTES_BY_ROLE = {
-  admin: AdminRoutes,
-  trainer: TrainerRoutes,
-  student: StudentRoutes,
+const ROUTE_LOADERS_BY_ROLE = {
+  admin: () => import("@/router/routes/admin.routes").then((module) => module.AdminRoutes),
+  trainer: () => import("@/router/routes/trainer.routes").then((module) => module.TrainerRoutes),
+  student: () => import("@/router/routes/student.routes").then((module) => module.StudentRoutes),
 };
+
+function useRoleRoutes(role) {
+  const [loadedRoutes, setLoadedRoutes] = useState({ role: null, routes: null });
+
+  useEffect(() => {
+    const loadRoutes = ROUTE_LOADERS_BY_ROLE[role];
+    if (!loadRoutes) return undefined;
+
+    let active = true;
+    loadRoutes().then((routes) => {
+      if (active) setLoadedRoutes({ role, routes });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [role]);
+
+  return loadedRoutes.role === role ? loadedRoutes.routes : null;
+}
 
 function PageLoader() {
   return (
@@ -31,6 +48,7 @@ function PageLoader() {
 
 function App() {
   const role = useAuthStore((state) => state.user?.role);
+  const roleRoutes = useRoleRoutes(role);
 
   return (
     <Suspense fallback={<PageLoader />}>
@@ -42,8 +60,14 @@ function App() {
         <Route element={<RequireAuth />}>
           <Route element={<AppLayout />}>
             {SharedRoutes}
-            {ROUTES_BY_ROLE[role]}
-            <Route path="*" element={<ForbiddenPage />} />
+            {roleRoutes ? (
+              <>
+                {roleRoutes}
+                <Route path="*" element={<ForbiddenPage />} />
+              </>
+            ) : (
+              <Route path="*" element={<PageLoader />} />
+            )}
           </Route>
         </Route>
 

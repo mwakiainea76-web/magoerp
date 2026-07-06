@@ -1,15 +1,17 @@
+/* eslint-disable react-refresh/only-export-components */
+import { lazy } from "react";
 import { Route } from "react-router";
 
-import { StudentDashboard } from "@/pages/student/StudentDashboard";
-import { MarksheetPage } from "@/pages/grades/MarksheetPage";
-import { TranscriptPage } from "@/pages/grades/TranscriptPage";
-import { TimetablePage } from "@/pages/timetables/TimetablePage";
-import { MyUnitsPage } from "@/pages/units/MyUnitsPage";
-import { CreateSupportRequestPage } from "@/pages/support-requests/CreateSupportRequestPage";
-import { MySupportRequestsPage } from "@/pages/support-requests/MySupportRequestsPage";
-import { MyHostelPage } from "@/pages/hostels/MyHostelPage";
-import { StudentHostelBookingPage } from "@/pages/hostels/StudentHostelBookingPage";
-import { StudentFeeStatementPage } from "@/pages/finance/StudentFeeStatementPage";
+const StudentDashboard = lazy(() => import("@/pages/student/StudentDashboard").then((module) => ({ default: module.StudentDashboard })));
+const MarksheetPage = lazy(() => import("@/pages/grades/MarksheetPage").then((module) => ({ default: module.MarksheetPage })));
+const TranscriptPage = lazy(() => import("@/pages/grades/TranscriptPage").then((module) => ({ default: module.TranscriptPage })));
+const TimetablePage = lazy(() => import("@/pages/timetables/TimetablePage").then((module) => ({ default: module.TimetablePage })));
+const MyUnitsPage = lazy(() => import("@/pages/units/MyUnitsPage").then((module) => ({ default: module.MyUnitsPage })));
+const CreateSupportRequestPage = lazy(() => import("@/pages/support-requests/CreateSupportRequestPage").then((module) => ({ default: module.CreateSupportRequestPage })));
+const MySupportRequestsPage = lazy(() => import("@/pages/support-requests/MySupportRequestsPage").then((module) => ({ default: module.MySupportRequestsPage })));
+const MyHostelPage = lazy(() => import("@/pages/hostels/MyHostelPage").then((module) => ({ default: module.MyHostelPage })));
+const StudentHostelBookingPage = lazy(() => import("@/pages/hostels/StudentHostelBookingPage").then((module) => ({ default: module.StudentHostelBookingPage })));
+const StudentFeeStatementPage = lazy(() => import("@/pages/finance/StudentFeeStatementPage").then((module) => ({ default: module.StudentFeeStatementPage })));
 
 export const StudentRoutes = (
   <>
