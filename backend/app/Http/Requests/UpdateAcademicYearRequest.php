@@ -10,7 +10,7 @@ class UpdateAcademicYearRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('institution.update') ?? false;
+        return $this->user()?->hasRole('admin') || $this->user()?->can('institution.update') ?? false;
     }
 
     public function rules(): array

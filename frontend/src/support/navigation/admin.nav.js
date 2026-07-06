@@ -138,6 +138,7 @@ export const adminNav = [
     icon: Settings2,
     children: [
       { label: "System Configurations", to: "/admin/system-configurations" },
+      { label: "Institution Details", to: "/admin/institution-details" },
     ],
   },
   {

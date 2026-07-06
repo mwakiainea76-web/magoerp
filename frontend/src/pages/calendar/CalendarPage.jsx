@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { bodyTextClassName } from "@/lib/styles";
@@ -10,11 +10,6 @@ import { useCalendarApi } from "@/hooks/useCalendarApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const VIEW_OPTIONS = [
-  { value: "monthly", label: "Monthly" },
-  { value: "termly", label: "Termly" },
-  { value: "yearly", label: "Yearly" },
-];
 
 function getMonthDays(year, month) {
   const first = new Date(year, month, 1);
@@ -51,13 +46,15 @@ export function CalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [viewMode, setViewMode] = useState("monthly");
+  const [viewScope, setViewScope] = useState("calendar");
   const [navDate, setNavDate] = useState(() => new Date());
   const [selectedDayEvents, setSelectedDayEvents] = useState(null);
 
+  const [downloading, setDownloading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [quickDate, setQuickDate] = useState("");
+  const [dateWarnings, setDateWarnings] = useState([]);
   const [formData, setFormData] = useState({
     event_type_id: "",
     title: "",
@@ -66,6 +63,7 @@ export function CalendarPage() {
     end_date: "",
   });
 
+  // Load initial data
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -97,9 +95,9 @@ export function CalendarPage() {
     return () => { mounted = false; };
   }, []);
 
-  // Fetch session calendar
+  // Fetch session calendar (calendar view + session events view)
   useEffect(() => {
-    if (!selectedSessionId || viewMode === "yearly") return;
+    if (!selectedSessionId || viewScope === "year") return;
     let mounted = true;
     async function load() {
       setIsLoading(true);
@@ -108,8 +106,9 @@ export function CalendarPage() {
         const cal = await calendarApi.get(selectedSessionId);
         if (mounted) {
           setCalendar(cal);
-          const s = cal.session;
-          if (s?.start_date) setNavDate(parseLocalDate(s.start_date));
+          if (viewScope === "calendar" && cal.session?.start_date) {
+            setNavDate(parseLocalDate(cal.session.start_date));
+          }
         }
       } catch (e) {
         if (mounted) setError(getApiErrorMessage(e, "Failed to load calendar."));
@@ -119,11 +118,11 @@ export function CalendarPage() {
     }
     load();
     return () => { mounted = false; };
-  }, [selectedSessionId, viewMode]);
+  }, [selectedSessionId, viewScope]);
 
-  // Fetch year calendar
+  // Fetch year calendar (year events view)
   useEffect(() => {
-    if (!selectedYearId || viewMode !== "yearly") return;
+    if (!selectedYearId || viewScope !== "year") return;
     let mounted = true;
     async function load() {
       setIsLoading(true);
@@ -132,8 +131,6 @@ export function CalendarPage() {
         const cal = await calendarApi.yearCalendar(selectedYearId);
         if (mounted) {
           setYearCalendar(cal);
-          const y = cal.year;
-          if (y?.start_date) setNavDate(parseLocalDate(y.start_date));
         }
       } catch (e) {
         if (mounted) setError(getApiErrorMessage(e, "Failed to load year calendar."));
@@ -143,7 +140,7 @@ export function CalendarPage() {
     }
     load();
     return () => { mounted = false; };
-  }, [selectedYearId, viewMode]);
+  }, [selectedYearId, viewScope]);
 
   // When year changes, select the first session in that year
   const filteredSessions = useMemo(() => {
@@ -160,39 +157,47 @@ export function CalendarPage() {
   }, [selectedYearId, filteredSessions, selectedSessionId]);
 
   const refreshCalendar = useCallback(async () => {
-    if (!selectedSessionId) return;
-    setIsLoading(true);
-    setError("");
-    try {
-      if (viewMode === "yearly" && selectedYearId) {
+    if (viewScope === "year" && selectedYearId) {
+      setIsLoading(true);
+      setError("");
+      try {
         const cal = await calendarApi.yearCalendar(selectedYearId);
         setYearCalendar(cal);
-      } else {
+      } catch (e) {
+        setError(getApiErrorMessage(e, "Failed to load calendar."));
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (selectedSessionId) {
+      setIsLoading(true);
+      setError("");
+      try {
         const cal = await calendarApi.get(selectedSessionId);
         setCalendar(cal);
+      } catch (e) {
+        setError(getApiErrorMessage(e, "Failed to load calendar."));
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      setError(getApiErrorMessage(e, "Failed to load calendar."));
-    } finally {
-      setIsLoading(false);
     }
-  }, [selectedSessionId, selectedYearId, viewMode, calendarApi]);
+  }, [selectedSessionId, selectedYearId, viewScope, calendarApi]);
 
-  // Determine which data to use based on view mode
-  const activeData = viewMode === "yearly" ? yearCalendar : calendar;
+  const activeData = viewScope === "year" ? yearCalendar : calendar;
   const sessionObj = activeData?.session ?? null;
   const yearObj = activeData?.year ?? null;
   const events = activeData?.events ?? [];
 
-  let rangeStart = null;
-  let rangeEnd = null;
-  if (viewMode === "yearly" && yearObj) {
-    rangeStart = parseLocalDate(yearObj.start_date);
-    rangeEnd = parseLocalDate(yearObj.end_date);
-  } else if (sessionObj) {
-    rangeStart = parseLocalDate(sessionObj.start_date);
-    rangeEnd = parseLocalDate(sessionObj.end_date);
-  }
+  const rangeStart = useMemo(() => {
+    if (viewScope === "year" && yearObj) return parseLocalDate(yearObj.start_date);
+    if (sessionObj) return parseLocalDate(sessionObj.start_date);
+    return null;
+  }, [viewScope, yearObj, sessionObj]);
+
+  const rangeEnd = useMemo(() => {
+    if (viewScope === "year" && yearObj) return parseLocalDate(yearObj.end_date);
+    if (sessionObj) return parseLocalDate(sessionObj.end_date);
+    return null;
+  }, [viewScope, yearObj, sessionObj]);
 
   const dateEventMap = useMemo(() => {
     const map = {};
@@ -208,6 +213,44 @@ export function CalendarPage() {
     }
     return map;
   }, [events]);
+
+  const holidays = useMemo(() => {
+    return events.filter((e) => e.event_type?.code === "holiday");
+  }, [events]);
+
+  useEffect(() => {
+    const { start_date, end_date } = formData;
+    if (!start_date) {
+      setDateWarnings([]);
+      return;
+    }
+    const start = parseLocalDate(start_date);
+    const end = end_date ? parseLocalDate(end_date) : start;
+    if (!start || !end) {
+      setDateWarnings([]);
+      return;
+    }
+    const warnings = [];
+    const seen = new Set();
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = dateStr(d);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (isWeekend(d)) {
+        warnings.push({ date: key, type: "weekend", message: `${key} is a weekend` });
+      }
+      const holiday = holidays.find((h) => {
+        const hStart = parseLocalDate(h.start_date);
+        const hEnd = parseLocalDate(h.end_date);
+        const d2 = new Date(d);
+        return hStart <= d2 && d2 <= hEnd;
+      });
+      if (holiday) {
+        warnings.push({ date: key, type: "holiday", message: `${key} is a public holiday: ${holiday.title}` });
+      }
+    }
+    setDateWarnings(warnings);
+  }, [formData.start_date, formData.end_date, holidays]);
 
   function isWeekend(d) {
     const wd = d.getDay();
@@ -234,14 +277,10 @@ export function CalendarPage() {
     return t?.label ?? typeCode;
   }
 
-  // Generate the month range based on view mode
   const monthRange = useMemo(() => {
     if (!rangeStart || !rangeEnd) {
-      if (viewMode === "monthly") {
-        const now = new Date();
-        return [{ year: now.getFullYear(), month: now.getMonth() }];
-      }
-      return [];
+      const now = new Date();
+      return [{ year: now.getFullYear(), month: now.getMonth() }];
     }
     const months = [];
     const start = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
@@ -250,22 +289,22 @@ export function CalendarPage() {
       months.push({ year: d.getFullYear(), month: d.getMonth() });
     }
     return months;
-  }, [rangeStart, rangeEnd, viewMode]);
-
-  const activeMonthIndex = useMemo(() => {
-    if (viewMode !== "monthly") return -1;
-    return monthRange.findIndex(
-      (m) => m.year === navDate.getFullYear() && m.month === navDate.getMonth(),
-    );
-  }, [viewMode, monthRange, navDate]);
+  }, [rangeStart, rangeEnd]);
 
   const currentMonthData = useMemo(() => {
-    if (viewMode !== "monthly") return null;
     const { first, last, days } = getMonthDays(navDate.getFullYear(), navDate.getMonth());
     const padStart = (first.getDay() + 6) % 7;
     const padEnd = (7 - ((padStart + days.length) % 7)) % 7;
     return { first, last, days, padStart, padEnd };
-  }, [viewMode, navDate]);
+  }, [navDate]);
+
+  // Filter events excluding weekends and holidays for the table
+  const tableEvents = useMemo(() => {
+    return events.filter((e) => {
+      const code = e.event_type?.code;
+      return code !== "weekend" && code !== "holiday";
+    });
+  }, [events]);
 
   // CRUD handlers
 
@@ -312,14 +351,15 @@ export function CalendarPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!selectedSessionId) return;
+    const sessionId = selectedSessionId;
+    if (!sessionId) return;
     setIsLoading(true);
     try {
       if (editingEvent) {
-        await calendarApi.updateEvent(selectedSessionId, editingEvent.id, formData);
+        await calendarApi.updateEvent(sessionId, editingEvent.id, formData);
         toast.success("Event updated.");
       } else {
-        await calendarApi.createEvent(selectedSessionId, formData);
+        await calendarApi.createEvent(sessionId, formData);
         toast.success("Event created.");
       }
       setShowForm(false);
@@ -329,6 +369,34 @@ export function CalendarPage() {
       toast.error(getApiErrorMessage(e, "Failed to save event."));
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleExportPdf() {
+    setDownloading(true);
+    try {
+      const response = viewScope === "year" && selectedYearId
+        ? await calendarApi.exportYearPdf(selectedYearId)
+        : await calendarApi.exportSessionPdf(selectedSessionId);
+      const blob = response.data;
+      const disposition = response.headers?.["content-disposition"] ?? "";
+      const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const regularMatch = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = encodedMatch
+        ? decodeURIComponent(encodedMatch[1])
+        : regularMatch?.[1] ?? "calendar-events.pdf";
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Failed to export PDF."));
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -348,36 +416,26 @@ export function CalendarPage() {
     }
   }
 
-  // Render a month grid (used by all views)
-  function renderMonthGrid(monthYear, compact = false) {
+  function renderMonthGrid(monthYear) {
     const { first, last, days, padStart, padEnd } = getMonthDays(monthYear.year, monthYear.month);
-    const cellH = compact ? "min-h-[36px]" : "min-h-[100px]";
-    const cellPad = compact ? "p-0.5" : "p-1.5";
-    const dateSize = compact ? "h-5 w-5 text-[10px]" : "h-6 w-6 text-[12px]";
 
     return (
-      <div key={`${monthYear.year}-${monthYear.month}`} className={compact ? "min-w-[220px]" : ""}>
-        {/* Month header */}
+      <div key={`${monthYear.year}-${monthYear.month}`}>
         <div className="mb-1 text-center text-[13px] font-semibold text-slate-700">
           {new Date(monthYear.year, monthYear.month).toLocaleDateString("en-KE", { month: "long", year: "numeric" })}
         </div>
 
-        {/* Day headers */}
         <div className="grid grid-cols-7">
           {DAY_LABELS.map((label) => (
-            <div
-              key={label}
-              className="border-b border-slate-200 px-1 py-1 text-center text-[9px] font-semibold uppercase tracking-wider text-slate-500"
-            >
-              {compact ? label[0] : label}
+            <div key={label} className="border-b border-slate-200 px-1 py-1 text-center text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+              {label}
             </div>
           ))}
         </div>
 
-        {/* Day cells */}
         <div className="grid grid-cols-7">
           {Array.from({ length: padStart }).map((_, i) => (
-            <div key={`ps-${i}`} className={`${cellH} border-b border-r border-slate-100 bg-slate-50/50`} />
+            <div key={`ps-${i}`} className="min-h-[100px] border-b border-r border-slate-100 bg-slate-50/50" />
           ))}
           {days.map((d) => {
             const key = dateStr(d);
@@ -394,43 +452,35 @@ export function CalendarPage() {
                   const evts = dateEventMap[key] ?? [];
                   setSelectedDayEvents({ date: key, events: evts, numDate: d.getDate() });
                 }}
-                className={`group relative ${cellH} ${cellPad} border-b border-r border-slate-100 text-left align-top transition-colors hover:bg-blue-50/40 ${
+                className={`group relative min-h-[100px] p-1.5 border-b border-r border-slate-100 text-left align-top transition-colors hover:bg-blue-50/40 ${
                   !inSess ? "bg-slate-50/70" : weekend ? "bg-slate-50" : "bg-white"
                 }`}
               >
                 <span
-                  className={`inline-flex items-center justify-center rounded-full ${dateSize} font-medium ${
+                  className={`inline-flex items-center justify-center rounded-full h-6 w-6 text-[12px] font-medium ${
                     today ? "bg-blue-600 text-white" : weekend ? "text-slate-400" : "text-slate-700"
                   } ${!inSess ? "opacity-40" : ""}`}
                 >
                   {d.getDate()}
                 </span>
                 {inSess && dayEvts.length > 0 && (
-                  <div className={compact ? "mt-0.5 flex flex-wrap gap-0.5" : "mt-0.5 space-y-0.5"}>
-                    {compact
-                      ? dayEvts.slice(0, 4).map((evt) => (
-                          <span
-                            key={evt.id}
-                            className="inline-block h-1.5 w-1.5 rounded-full"
-                            style={{ backgroundColor: getTypeColor(evt.event_type?.code) }}
-                          />
-                        ))
-                      : dayEvts.slice(0, 3).map((evt) => {
-                          const color = getTypeColor(evt.event_type?.code);
-                          return (
-                            <div
-                              key={evt.id}
-                              className="truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight"
-                              style={{ backgroundColor: color + "20", color: color }}
-                              title={evt.title}
-                            >
-                              {evt.title}
-                            </div>
-                          );
-                        })}
-                    {dayEvts.length > (compact ? 4 : 3) && (
+                  <div className="mt-0.5 space-y-0.5">
+                    {dayEvts.slice(0, 3).map((evt) => {
+                      const color = getTypeColor(evt.event_type?.code);
+                      return (
+                        <div
+                          key={evt.id}
+                          className="truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight"
+                          style={{ backgroundColor: color + "20", color: color }}
+                          title={evt.title}
+                        >
+                          {evt.title}
+                        </div>
+                      );
+                    })}
+                    {dayEvts.length > 3 && (
                       <div className="text-[10px] font-medium text-slate-400">
-                        +{dayEvts.length - (compact ? 4 : 3)}
+                        +{dayEvts.length - 3}
                       </div>
                     )}
                   </div>
@@ -439,7 +489,7 @@ export function CalendarPage() {
             );
           })}
           {Array.from({ length: padEnd }).map((_, i) => (
-            <div key={`pe-${i}`} className={`${cellH} border-b border-r border-slate-100 bg-slate-50/50`} />
+            <div key={`pe-${i}`} className="min-h-[100px] border-b border-r border-slate-100 bg-slate-50/50" />
           ))}
         </div>
       </div>
@@ -447,7 +497,7 @@ export function CalendarPage() {
   }
 
   // Loading / error
-  if (isLoading && !activeData) {
+  if (!activeData && !error) {
     return <div className={bodyTextClassName}>Loading calendar...</div>;
   }
   if (error && !activeData) {
@@ -490,105 +540,192 @@ export function CalendarPage() {
           <FormButton type="button" size="sm" onClick={() => openCreateForm(null)} disabled={isLoading}>
             <Plus className="size-3.5" /> Add Event
           </FormButton>
+          <FormButton
+            type="button"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={downloading || (viewScope !== "year" && !selectedSessionId)}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Download className="size-3.5" /> {downloading ? "Exporting..." : "Export PDF"}
+          </FormButton>
         </div>
       </div>
 
-      {/* View Toggle + Range Info */}
+      {/* View Toggle */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 p-0.5">
-          {VIEW_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setViewMode(opt.value)}
-              className={`rounded-md px-3 py-1 text-[12px] font-medium transition ${
-                viewMode === opt.value
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setViewScope("calendar")}
+            className={`rounded-md px-3 py-1 text-[12px] font-medium transition ${
+              viewScope === "calendar"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Calendar
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewScope("session")}
+            className={`rounded-md px-3 py-1 text-[12px] font-medium transition ${
+              viewScope === "session"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            By Session
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewScope("year")}
+            className={`rounded-md px-3 py-1 text-[12px] font-medium transition ${
+              viewScope === "year"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            By Academic Year
+          </button>
         </div>
 
-        {viewMode === "yearly" && yearObj && (
-          <p className="text-[13px] text-slate-500">
-            {yearObj.name} &middot; {yearObj.start_date} &ndash; {yearObj.end_date}
-          </p>
-        )}
-        {viewMode !== "yearly" && sessionObj && (
+        {sessionObj && viewScope !== "year" && (
           <p className="text-[13px] text-slate-500">
             {sessionObj.name} &middot; {sessionObj.start_date} &ndash; {sessionObj.end_date}
           </p>
         )}
+        {viewScope === "year" && yearObj && (
+          <p className="text-[13px] text-slate-500">
+            {yearObj.name} &middot; {yearObj.start_date} &ndash; {yearObj.end_date}
+          </p>
+        )}
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-3">
-        {eventTypes
-          .filter((t) => t.code !== "weekend")
-          .map((t) => (
-            <span key={t.id} className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
-              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
-              {t.label}
-            </span>
-          ))}
-        <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-300" />
-          Weekend
-        </span>
-      </div>
-
-      {/* MONTHLY VIEW */}
-      {viewMode === "monthly" && currentMonthData && (
+      {/* Calendar View: Month Grid */}
+      {viewScope === "calendar" && (
         <>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setNavDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <span className="min-w-[160px] text-center text-[15px] font-semibold text-slate-800">
-                {navDate.toLocaleDateString("en-KE", { month: "long", year: "numeric" })}
-              </span>
-              <button
-                type="button"
-                onClick={() => setNavDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-            <FormButton type="button" variant="secondary" size="sm" onClick={() => setNavDate(new Date())}>
-              Today
-            </FormButton>
+          <div className="flex flex-wrap items-center gap-3">
+            {eventTypes
+              .filter((t) => t.code !== "weekend")
+              .map((t) => (
+                <span key={t.id} className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                  {t.label}
+                </span>
+              ))}
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-300" />
+              Weekend
+            </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <div className="min-w-[600px]">
-              {renderMonthGrid({ year: navDate.getFullYear(), month: navDate.getMonth() }, false)}
-            </div>
-          </div>
+          {currentMonthData && (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setNavDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                    className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <span className="min-w-[160px] text-center text-[15px] font-semibold text-slate-800">
+                    {navDate.toLocaleDateString("en-KE", { month: "long", year: "numeric" })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setNavDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                    className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+                <FormButton type="button" variant="secondary" size="sm" onClick={() => setNavDate(new Date())}>
+                  Today
+                </FormButton>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[600px]">
+                  {renderMonthGrid({ year: navDate.getFullYear(), month: navDate.getMonth() })}
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
-      {/* TERMLY / YEARLY VIEW */}
-      {(viewMode === "termly" || viewMode === "yearly") && (
-        <div className="space-y-6">
-          {monthRange.length === 0 && (
-            <p className="py-8 text-center text-[13px] text-slate-400">
-              No date range available for this period.
-            </p>
-          )}
-          <div className="flex flex-wrap justify-center gap-4">
-            {monthRange.map((m) => renderMonthGrid(m, true))}
-          </div>
+      {/* Events Table (shown in all views, excludes weekends and holidays) */}
+      <div className="rounded-xl border border-slate-200/80 bg-white">
+        <div className="border-b border-slate-200 px-5 py-3">
+          <h2 className="text-[15px] font-semibold text-slate-900">
+            {viewScope === "calendar" ? "All Events" : viewScope === "session" ? "Session Events" : "Year Events"}
+          </h2>
+          <p className="text-[12px] text-slate-500">Excludes weekends and public holidays</p>
         </div>
-      )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/50">
+                <th className="w-12 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">#</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Event</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Type</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Start Date</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">End Date</th>
+                <th className="w-24 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableEvents.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-slate-400">No events found.</td>
+                </tr>
+              ) : (
+                tableEvents.map((evt, index) => {
+                  const color = getTypeColor(evt.event_type?.code);
+                  const isSystem = evt.source === "system_api" || evt.source === "system_computed";
+                  return (
+                    <tr key={evt.id} className="border-b border-slate-100 transition hover:bg-slate-50/50">
+                      <td className="px-4 py-2.5 text-slate-400">{index + 1}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                          <span className="font-medium text-slate-800">{evt.title}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-500">{getTypeLabel(evt.event_type?.code)}</td>
+                      <td className="px-4 py-2.5 text-slate-700">{evt.start_date}</td>
+                      <td className="px-4 py-2.5 text-slate-700">{evt.end_date}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(evt)}
+                            className="rounded px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50"
+                          >
+                            edit
+                          </button>
+                          {!isSystem && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(evt.id)}
+                              className="rounded px-2 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50"
+                            >
+                              delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Day Events Popover */}
       {selectedDayEvents && (
@@ -648,15 +785,15 @@ export function CalendarPage() {
                             <p className="mt-0.5 text-[12px] text-slate-500">{evt.description}</p>
                           )}
                         </div>
-                        {!isSystem && (
-                          <div className="flex shrink-0 gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(evt)}
-                              className="rounded px-1.5 py-0.5 text-[11px] text-blue-600 hover:bg-blue-50"
-                            >
-                              edit
-                            </button>
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(evt)}
+                            className="rounded px-1.5 py-0.5 text-[11px] text-blue-600 hover:bg-blue-50"
+                          >
+                            edit
+                          </button>
+                          {!isSystem && (
                             <button
                               type="button"
                               onClick={() => handleDelete(evt.id)}
@@ -664,8 +801,8 @@ export function CalendarPage() {
                             >
                               delete
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -685,6 +822,17 @@ export function CalendarPage() {
               {editingEvent ? "Edit Event" : "New Event"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {dateWarnings.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="text-[12px] font-medium text-amber-800">Selected dates include:</p>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5">
+                    {dateWarnings.map((w, i) => (
+                      <li key={i} className="text-[11px] text-amber-700">{w.message}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-[11px] text-amber-600">You can still proceed to create this event.</p>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[13px] font-medium text-slate-700">Type</label>

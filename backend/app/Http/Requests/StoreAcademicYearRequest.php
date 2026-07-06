@@ -10,7 +10,7 @@ class StoreAcademicYearRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('institution.create') ?? false;
+        return $this->user()?->hasRole('admin') || $this->user()?->can('institution.create') ?? false;
     }
 
     public function rules(): array

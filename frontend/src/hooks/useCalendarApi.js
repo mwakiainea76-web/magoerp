@@ -36,6 +36,18 @@ export function useCalendarApi() {
         const response = await authClient.post(`/academic-sessions/${sessionId}/calendar/sync-holidays`, { year });
         return response.data;
       },
+      exportSessionPdf: async (sessionId) => {
+        const response = await authClient.get(`/academic-sessions/${sessionId}/calendar/export-pdf`, {
+          responseType: "blob",
+        });
+        return response;
+      },
+      exportYearPdf: async (yearId) => {
+        const response = await authClient.get(`/academic-years/${yearId}/calendar/export-pdf`, {
+          responseType: "blob",
+        });
+        return response;
+      },
     }),
     [],
   );

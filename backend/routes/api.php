@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\FinanceAuditController;
+use App\Http\Controllers\Api\InstitutionsController;
 use App\Http\Controllers\Api\AccessRolePermissionsController;
 use App\Http\Controllers\Api\AccessRolesController;
 use App\Http\Controllers\Api\AcademicSessionEnrolmentsController;
@@ -166,9 +167,11 @@ Route::middleware([
             Route::put('/events/{calendar_event}', [CalendarController::class, 'update'])->name('events.update');
             Route::delete('/events/{calendar_event}', [CalendarController::class, 'destroy'])->name('events.destroy');
             Route::post('/sync-holidays', [CalendarController::class, 'syncHolidays'])->name('sync-holidays');
+            Route::get('/export-pdf', [CalendarController::class, 'exportSessionPdf'])->name('export.session');
         });
         Route::get('/calendar/event-types', [CalendarController::class, 'eventTypes'])->name('calendar.event-types');
         Route::get('/academic-years/{academic_year}/calendar', [CalendarController::class, 'yearCalendar'])->name('calendar.year');
+        Route::get('/academic-years/{academic_year}/calendar/export-pdf', [CalendarController::class, 'exportYearPdf'])->name('calendar.export.year');
 
         Route::get('/support-requests', [SupportRequestsController::class, 'adminIndex']);
         Route::get('/support-requests/{support_request}', [SupportRequestsController::class, 'show']);
@@ -221,6 +224,10 @@ Route::middleware([
         Route::put('/access-roles/{access_role}/permissions', [AccessRolePermissionsController::class, 'sync']);
         Route::apiResource('access-roles', AccessRolesController::class)
             ->parameters(['access-roles' => 'access_role']);
+
+        Route::get('/institution/active', [InstitutionsController::class, 'active']);
+        Route::apiResource('institutions', InstitutionsController::class)
+            ->parameters(['institutions' => 'institution']);
 
         Route::get('/system-configurations', [SystemConfigurationsController::class, 'index'])
             ->middleware('permission:institution.update');

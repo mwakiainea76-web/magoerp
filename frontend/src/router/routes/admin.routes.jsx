@@ -7,6 +7,7 @@ import { AccessRolesPage } from "@/pages/access/AccessRolesPage";
 import { CalendarPage } from "@/pages/calendar/CalendarPage";
 import { StudentStatusLogsPage } from "@/pages/enrolments/StudentStatusLogsPage";
 import { SystemConfigurationsPage } from "@/pages/admin/SystemConfigurationsPage";
+import { InstitutionDetailsPage } from "@/pages/admin/InstitutionDetailsPage";
 import { AcademicSessionFormPage } from "@/pages/academicCalendar/AcademicSessionFormPage";
 import { AcademicSessionsPage } from "@/pages/academicCalendar/AcademicSessionsPage";
 import { AcademicYearFormPage } from "@/pages/academicCalendar/AcademicYearFormPage";
@@ -143,5 +144,6 @@ export const AdminRoutes = (
     <Route path="/admin/hostels/:hostelId/edit" element={<HostelFormPage />} />
     <Route path="/admin/hostel-allocations" element={<HostelAllocationsPage />} />
     <Route path="/admin/system-configurations" element={<SystemConfigurationsPage />} />
+    <Route path="/admin/institution-details" element={<InstitutionDetailsPage />} />
   </>
 );

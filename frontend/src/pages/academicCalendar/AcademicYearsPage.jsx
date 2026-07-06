@@ -192,7 +192,7 @@ export function AcademicYearsPage() {
                   <Td className="whitespace-nowrap">{year.end_date ?? "-"}</Td>
                   <Td>
                     <Link
-                      to={`/academic-calendar/sessions?yearId=${year.id}&yearName=${year.name}`}
+                      to={`/admin/academic-calendar/sessions?yearId=${year.id}&yearName=${year.name}`}
                       className="font-medium text-emerald-600 hover:underline"
                     >
                       {year.sessions_count} session{year.sessions_count !== 1 ? "s" : ""}
@@ -210,7 +210,7 @@ export function AcademicYearsPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/academic-calendar/years/${year.id}/edit`}
+                        to={`/admin/academic-calendar/years/${year.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />
