@@ -55,6 +55,8 @@ class CalendarService
      */
     public function getEventTypes(): Collection
     {
+        $this->seedEventTypes();
+
         return CalendarEventType::all()->map(fn ($t) => [
             'id'    => $t->id,
             'code'  => $t->code,
