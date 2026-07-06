@@ -200,7 +200,7 @@ export function LectureRoomsPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/lecture-rooms/${room.id}/edit`}
+                        to={`/admin/lecture-rooms/${room.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />

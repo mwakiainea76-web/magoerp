@@ -321,7 +321,7 @@ export function InvoicesPage() {
                   <td className="px-5 py-3">
                     <button
                       type="button"
-                      onClick={() => navigate(`/finance/statement/${inv.student_id}`)}
+                      onClick={() => navigate(`/admin/finance/statement/${inv.student_id}`)}
                       className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-emerald-600"
                       title="View statement"
                     >

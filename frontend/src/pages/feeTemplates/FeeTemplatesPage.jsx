@@ -208,7 +208,7 @@ export function FeeTemplatesPage() {
                   <Td>{template.name}</Td>
                   <Td>
                     <Link
-                      to={`/finance/fee-templates/items?templateId=${template.id}`}
+                      to={`/admin/finance/fee-templates/items?templateId=${template.id}`}
                       className="font-medium text-emerald-600 hover:underline"
                     >
                       {template.items_count} component{template.items_count !== 1 ? "s" : ""}
@@ -227,7 +227,7 @@ export function FeeTemplatesPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/finance/fee-templates/${template.id}/assign`}
+                        to={`/admin/finance/fee-templates/${template.id}/assign`}
                         className="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
                       >
                         <Link2 className="h-3 w-3" />
@@ -244,7 +244,7 @@ export function FeeTemplatesPage() {
                       ) : (
                         <>
                           <Link
-                            to={`/finance/fee-templates/${template.id}/edit`}
+                            to={`/admin/finance/fee-templates/${template.id}/edit`}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                           >
                             <Pencil className="h-3.5 w-3.5" />

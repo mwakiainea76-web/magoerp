@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,10 @@ class UpdatestaffsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('staff.update') ?? false;
+        $user = $this->user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        return $user->can('staff.update');
     }
 
     public function rules(): array

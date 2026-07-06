@@ -130,7 +130,7 @@ export function AllFeeAssignmentsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-slate-900">
-                        <Link to={`/finance/fee-templates/${assignment.fee_template_id}/assign`} className="hover:text-emerald-700">{assignment.fee_template_name || "Unknown Template"}</Link>
+                        <Link to={`/admin/finance/fee-templates/${assignment.fee_template_id}/assign`} className="hover:text-emerald-700">{assignment.fee_template_name || "Unknown Template"}</Link>
                         <span className="mx-1.5 text-slate-300">·</span>
                         {assignment.assignment_target_name}
                         <span className="mx-1.5 text-slate-300">·</span>
