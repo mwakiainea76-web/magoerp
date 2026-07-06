@@ -32,12 +32,14 @@ class CalendarService
     public function seedEventTypes(): void
     {
         $types = [
-            ['code' => 'holiday',       'label' => 'Public Holiday',        'color_hex' => '#ef4444'],
-            ['code' => 'weekend',       'label' => 'Weekend',               'color_hex' => '#94a3b8'],
-            ['code' => 'cat',           'label' => 'CAT Window',            'color_hex' => '#f59e0b'],
-            ['code' => 'end_term_exam', 'label' => 'End-Term Exam',         'color_hex' => '#8b5cf6'],
-            ['code' => 'national_exam', 'label' => 'National Exam',         'color_hex' => '#ec4899'],
-            ['code' => 'custom',        'label' => 'Custom Event',          'color_hex' => '#3b82f6'],
+            ['code' => 'holiday',        'label' => 'Public Holiday',        'color_hex' => '#ef4444'],
+            ['code' => 'weekend',        'label' => 'Weekend',               'color_hex' => '#94a3b8'],
+            ['code' => 'custom',         'label' => 'Custom Event',          'color_hex' => '#3b82f6'],
+            ['code' => 'exams',          'label' => 'Exams',                'color_hex' => '#8b5cf6'],
+            ['code' => 'graduation',     'label' => 'Graduation',           'color_hex' => '#f59e0b'],
+            ['code' => 'fee_collection', 'label' => 'Fee Collection',       'color_hex' => '#10b981'],
+            ['code' => 'session_break',  'label' => 'Session Break',        'color_hex' => '#6366f1'],
+            ['code' => 'others',         'label' => 'Others',               'color_hex' => '#3b82f6'],
         ];
 
         foreach ($types as $type) {
@@ -94,8 +96,8 @@ class CalendarService
     /**
      * Generate (regenerate) system events for a session.
      *
-     * This fetches holidays from the Nager.Date API and computes CAT windows
-     * and exam placeholders. Existing system events are replaced; manual events are preserved.
+     * Fetches holidays from the Nager.Date API. Existing system events are
+     * replaced; manual events are preserved.
      */
     public function generateCalendar(AcademicSession $session, ?string $userId = null): array
     {
@@ -118,14 +120,6 @@ class CalendarService
         $holidays = $this->syncHolidays($session, $userId);
         $events = $events->concat($holidays);
 
-        // 2. Compute and insert CAT windows
-        $catEvents = $this->computeCatWindows($session, $userId);
-        $events = $events->concat($catEvents);
-
-        // 3. Insert provisional exam placeholders
-        $examEvents = $this->createExamPlaceholders($session, $userId);
-        $events = $events->concat($examEvents);
-
         return $events->toArray();
     }
 
@@ -144,11 +138,10 @@ class CalendarService
         $created = collect();
 
         foreach ($years as $year) {
-            $log = HolidaySyncLog::create([
-                'year'         => $year,
-                'country_code' => 'KE',
-                'status'       => 'pending',
-            ]);
+            $log = HolidaySyncLog::firstOrCreate(
+                ['year' => $year, 'country_code' => 'KE'],
+                ['status' => 'pending'],
+            );
 
             try {
                 $response = Http::timeout(10)
@@ -208,95 +201,7 @@ class CalendarService
      * CAT 2: Weeks 4–5
      * CAT 3: Weeks 6–8
      */
-    public function computeCatWindows(AcademicSession $session, ?string $userId = null): Collection
-    {
-        $typeId = CalendarEventType::where('code', 'cat')->value('id');
-        $start  = $session->start_date;
-        $cats   = collect();
 
-        $windows = [
-            ['title' => 'CAT 1 Window', 'weekStart' => 0,  'weekEnd' => 3],
-            ['title' => 'CAT 2 Window', 'weekStart' => 3,  'weekEnd' => 5],
-            ['title' => 'CAT 3 Window', 'weekStart' => 5,  'weekEnd' => 8],
-        ];
-
-        foreach ($windows as $w) {
-            $catStart = $start->copy()->addWeeks($w['weekStart']);
-            $catEnd   = $start->copy()->addWeeks($w['weekEnd'])->subDay();
-
-            if ($catStart > $session->end_date) {
-                continue;
-            }
-            if ($catEnd > $session->end_date) {
-                $catEnd = $session->end_date;
-            }
-
-            $event = CalendarEvent::create([
-                'academic_session_id' => $session->id,
-                'event_type_id'       => $typeId,
-                'title'               => $w['title'],
-                'description'         => "Scheduled within weeks {$w['weekStart']}–{$w['weekEnd']} of the session.",
-                'start_date'          => $catStart,
-                'end_date'            => $catEnd,
-                'source'              => 'system_computed',
-                'created_by'          => $userId,
-            ]);
-
-            $cats->push($this->transformEvent($event));
-        }
-
-        return $cats;
-    }
-
-    /**
-     * Create provisional end-term and national exam placeholders.
-     */
-    public function createExamPlaceholders(AcademicSession $session, ?string $userId = null): Collection
-    {
-        $endTermTypeId = CalendarEventType::where('code', 'end_term_exam')->value('id');
-        $nationalTypeId = CalendarEventType::where('code', 'national_exam')->value('id');
-        $created = collect();
-
-        // Estimate end-term exam: last 2 weeks of the session
-        $examStart = $session->end_date->copy()->subWeeks(2);
-        if ($examStart < $session->start_date) {
-            $examStart = $session->start_date;
-        }
-
-        $endTerm = CalendarEvent::create([
-            'academic_session_id' => $session->id,
-            'event_type_id'       => $endTermTypeId,
-            'title'               => 'End-of-Term Examinations',
-            'description'         => 'Provisional — exact dates to be confirmed by the academic office.',
-            'start_date'          => $examStart,
-            'end_date'            => $session->end_date,
-            'source'              => 'system_computed',
-            'created_by'          => $userId,
-        ]);
-        $created->push($this->transformEvent($endTerm));
-
-        // National exam placeholder if the session spans Nov-Dec (typical KCSE/KCPE months)
-        if ($session->start_date->month >= 10 || $session->end_date->month >= 10) {
-            $nationalStart = $session->end_date->copy()->subWeeks(4);
-            if ($nationalStart < $session->start_date) {
-                $nationalStart = $session->start_date;
-            }
-
-            $national = CalendarEvent::create([
-                'academic_session_id' => $session->id,
-                'event_type_id'       => $nationalTypeId,
-                'title'               => 'National Examinations (Provisional)',
-                'description'         => 'Provisional — dates to be confirmed by KNEC.',
-                'start_date'          => $nationalStart,
-                'end_date'            => $session->end_date,
-                'source'              => 'system_computed',
-                'created_by'          => $userId,
-            ]);
-            $created->push($this->transformEvent($national));
-        }
-
-        return $created;
-    }
 
     /**
      * Create a manual calendar event.

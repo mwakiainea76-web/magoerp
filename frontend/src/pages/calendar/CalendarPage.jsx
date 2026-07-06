@@ -11,6 +11,17 @@ import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+const HARDCODED_EVENT_TYPES = [
+  { code: "exams",          label: "Exams",          color: "#8b5cf6" },
+  { code: "graduation",     label: "Graduation",     color: "#f59e0b" },
+  { code: "fee_collection", label: "Fee Collection", color: "#10b981" },
+  { code: "session_break",  label: "Session Break",  color: "#6366f1" },
+  { code: "holiday",        label: "Public Holiday", color: "#ef4444" },
+  { code: "others",         label: "Others",         color: "#3b82f6" },
+];
+
+
+
 function getMonthDays(year, month) {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
@@ -42,9 +53,9 @@ export function CalendarPage() {
   const [selectedYearId, setSelectedYearId] = useState("");
   const [calendar, setCalendar] = useState(null);
   const [yearCalendar, setYearCalendar] = useState(null);
-  const [eventTypes, setEventTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [codeToId, setCodeToId] = useState({});
 
   const [viewScope, setViewScope] = useState("calendar");
   const [navDate, setNavDate] = useState(() => new Date());
@@ -70,15 +81,19 @@ export function CalendarPage() {
       setIsLoading(true);
       setError("");
       try {
-        const [sessRes, typesRes, yearsRes] = await Promise.all([
-          sessionsApi.list({ per_page: 50 }),
-          calendarApi.eventTypes(),
-          yearsApi.list({ per_page: 50 }),
-        ]);
-        if (!mounted) return;
-        setSessions(sessRes.data ?? []);
-        setEventTypes(typesRes.data ?? []);
-        setYears(yearsRes.data ?? []);
+          const [sessRes, typesRes, yearsRes] = await Promise.all([
+            sessionsApi.list({ per_page: 50 }),
+            calendarApi.eventTypes(),
+            yearsApi.list({ per_page: 50 }),
+          ]);
+          if (!mounted) return;
+          setSessions(sessRes.data ?? []);
+          setYears(yearsRes.data ?? []);
+          const map = {};
+          for (const t of (typesRes.data ?? [])) {
+            map[t.code] = t.id;
+          }
+          setCodeToId(map);
         const yr = yearsRes.data?.[0];
         if (yr) {
           setSelectedYearId(yr.id);
@@ -268,12 +283,12 @@ export function CalendarPage() {
   }
 
   function getTypeColor(typeCode) {
-    const t = eventTypes.find((et) => et.code === typeCode);
+    const t = HARDCODED_EVENT_TYPES.find((et) => et.code === typeCode);
     return t?.color ?? "#3b82f6";
   }
 
   function getTypeLabel(typeCode) {
-    const t = eventTypes.find((et) => et.code === typeCode);
+    const t = HARDCODED_EVENT_TYPES.find((et) => et.code === typeCode);
     return t?.label ?? typeCode;
   }
 
@@ -300,10 +315,7 @@ export function CalendarPage() {
 
   // Filter events excluding weekends and holidays for the table
   const tableEvents = useMemo(() => {
-    return events.filter((e) => {
-      const code = e.event_type?.code;
-      return code !== "weekend" && code !== "holiday";
-    });
+    return events.filter((e) => !["weekend", "holiday"].includes(e.event_type?.code));
   }, [events]);
 
   // CRUD handlers
@@ -328,7 +340,7 @@ export function CalendarPage() {
     const d = date ?? new Date().toISOString().slice(0, 10);
     setQuickDate(d);
     setFormData({
-      event_type_id: eventTypes[0]?.id ?? "",
+      event_type_id: HARDCODED_EVENT_TYPES[0]?.code ?? "",
       title: "",
       description: "",
       start_date: d,
@@ -339,8 +351,11 @@ export function CalendarPage() {
 
   function openEdit(event) {
     setEditingEvent(event);
+    const typeCode = event.event_type?.code
+      ?? Object.entries(codeToId).find(([, id]) => id === event.event_type?.id)?.[0]
+      ?? "";
     setFormData({
-      event_type_id: event.event_type?.id ?? "",
+      event_type_id: typeCode,
       title: event.title,
       description: event.description ?? "",
       start_date: event.start_date,
@@ -353,13 +368,15 @@ export function CalendarPage() {
     e.preventDefault();
     const sessionId = selectedSessionId;
     if (!sessionId) return;
+    const realId = codeToId[formData.event_type_id] || formData.event_type_id;
+    const payload = { ...formData, event_type_id: realId };
     setIsLoading(true);
     try {
       if (editingEvent) {
-        await calendarApi.updateEvent(sessionId, editingEvent.id, formData);
+        await calendarApi.updateEvent(sessionId, editingEvent.id, payload);
         toast.success("Event updated.");
       } else {
-        await calendarApi.createEvent(sessionId, formData);
+        await calendarApi.createEvent(sessionId, payload);
         toast.success("Event created.");
       }
       setShowForm(false);
@@ -443,6 +460,7 @@ export function CalendarPage() {
             const inSess = isInSession(d);
             const weekend = isWeekend(d);
             const today = isToday(d);
+            const evtColor = dayEvts.length > 0 ? getTypeColor(dayEvts[0].event_type?.code) : null;
 
             return (
               <button
@@ -452,9 +470,10 @@ export function CalendarPage() {
                   const evts = dateEventMap[key] ?? [];
                   setSelectedDayEvents({ date: key, events: evts, numDate: d.getDate() });
                 }}
-                className={`group relative min-h-[100px] p-1.5 border-b border-r border-slate-100 text-left align-top transition-colors hover:bg-blue-50/40 ${
-                  !inSess ? "bg-slate-50/70" : weekend ? "bg-slate-50" : "bg-white"
+                className={`group relative min-h-[100px] p-1.5 border-r border-slate-100 text-left align-top transition-colors hover:bg-blue-50/40 ${
+                  !inSess ? "bg-slate-50/70 border-b border-slate-100" : weekend ? "bg-slate-50 border-b border-slate-100" : dayEvts.length > 0 ? "bg-white border-b-2" : "bg-white border-b border-slate-100"
                 }`}
+                style={inSess && dayEvts.length > 0 ? { borderBottomColor: evtColor } : undefined}
               >
                 <span
                   className={`inline-flex items-center justify-center rounded-full h-6 w-6 text-[12px] font-medium ${
@@ -464,17 +483,25 @@ export function CalendarPage() {
                   {d.getDate()}
                 </span>
                 {inSess && dayEvts.length > 0 && (
-                  <div className="mt-0.5 space-y-0.5">
+                  <div className="mt-1 space-y-1">
                     {dayEvts.slice(0, 3).map((evt) => {
                       const color = getTypeColor(evt.event_type?.code);
+                      const evtDate = new Date(evt.start_date + "T00:00:00");
+                      const dayNum = evtDate.getDate();
+                      const monthAbbr = evtDate.toLocaleDateString("en-KE", { month: "short" });
                       return (
                         <div
                           key={evt.id}
-                          className="truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight"
-                          style={{ backgroundColor: color + "20", color: color }}
+                          className="rounded px-1 py-0.5 text-[10px] leading-tight"
+                          style={{
+                            backgroundColor: color + "20",
+                            color: color,
+                            borderLeft: `3px solid ${color}`,
+                          }}
                           title={evt.title}
                         >
-                          {evt.title}
+                          <span className="font-bold">{dayNum} {monthAbbr}</span>
+                          <span className="ml-1">{evt.title}</span>
                         </div>
                       );
                     })}
@@ -606,18 +633,12 @@ export function CalendarPage() {
       {viewScope === "calendar" && (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            {eventTypes
-              .filter((t) => t.code !== "weekend")
-              .map((t) => (
-                <span key={t.id} className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
-                  {t.label}
-                </span>
-              ))}
-            <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-300" />
-              Weekend
-            </span>
+            {HARDCODED_EVENT_TYPES.map((t) => (
+              <span key={t.code} className="inline-flex items-center gap-1.5 text-[12px] text-slate-600">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                {t.label}
+              </span>
+            ))}
           </div>
 
           {currentMonthData && (
@@ -657,75 +678,77 @@ export function CalendarPage() {
         </>
       )}
 
-      {/* Events Table (shown in all views, excludes weekends and holidays) */}
-      <div className="rounded-xl border border-slate-200/80 bg-white">
-        <div className="border-b border-slate-200 px-5 py-3">
-          <h2 className="text-[15px] font-semibold text-slate-900">
-            {viewScope === "calendar" ? "All Events" : viewScope === "session" ? "Session Events" : "Year Events"}
-          </h2>
-          <p className="text-[12px] text-slate-500">Excludes weekends and public holidays</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50">
-                <th className="w-12 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">#</th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Event</th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Type</th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Start Date</th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">End Date</th>
-                <th className="w-24 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableEvents.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-slate-400">No events found.</td>
+      {/* Events Table (session and year views only) */}
+      {viewScope !== "calendar" && (
+        <div className="rounded-xl border border-slate-200/80 bg-white">
+          <div className="border-b border-slate-200 px-5 py-3">
+            <h2 className="text-[15px] font-semibold text-slate-900">
+              {viewScope === "session" ? "Session Events" : "Year Events"}
+            </h2>
+            <p className="text-[12px] text-slate-500">Excludes weekends</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/50">
+                  <th className="w-12 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">#</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Event</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Type</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Start Date</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">End Date</th>
+                  <th className="w-24 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                 </tr>
-              ) : (
-                tableEvents.map((evt, index) => {
-                  const color = getTypeColor(evt.event_type?.code);
-                  const isSystem = evt.source === "system_api" || evt.source === "system_computed";
-                  return (
-                    <tr key={evt.id} className="border-b border-slate-100 transition hover:bg-slate-50/50">
-                      <td className="px-4 py-2.5 text-slate-400">{index + 1}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                          <span className="font-medium text-slate-800">{evt.title}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-500">{getTypeLabel(evt.event_type?.code)}</td>
-                      <td className="px-4 py-2.5 text-slate-700">{evt.start_date}</td>
-                      <td className="px-4 py-2.5 text-slate-700">{evt.end_date}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(evt)}
-                            className="rounded px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50"
-                          >
-                            edit
-                          </button>
-                          {!isSystem && (
+              </thead>
+              <tbody>
+                {tableEvents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-slate-400">No events found.</td>
+                  </tr>
+                ) : (
+                  tableEvents.map((evt, index) => {
+                    const color = getTypeColor(evt.event_type?.code);
+                    const isSystem = evt.source === "system_api" || evt.source === "system_computed";
+                    return (
+                      <tr key={evt.id} className="border-b border-slate-100 transition hover:bg-slate-50/50">
+                        <td className="px-4 py-2.5 text-slate-400">{index + 1}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                            <span className="font-medium text-slate-800">{evt.title}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-500">{getTypeLabel(evt.event_type?.code)}</td>
+                        <td className="px-4 py-2.5 text-slate-700">{evt.start_date}</td>
+                        <td className="px-4 py-2.5 text-slate-700">{evt.end_date}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex justify-end gap-1">
                             <button
                               type="button"
-                              onClick={() => handleDelete(evt.id)}
-                              className="rounded px-2 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50"
+                              onClick={() => openEdit(evt)}
+                              className="rounded px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50"
                             >
-                              delete
+                              edit
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                            {!isSystem && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(evt.id)}
+                                className="rounded px-2 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50"
+                              >
+                                delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Day Events Popover */}
       {selectedDayEvents && (
@@ -836,16 +859,17 @@ export function CalendarPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-[13px] font-medium text-slate-700">Type</label>
-                  <select
-                    value={formData.event_type_id}
-                    onChange={(e) => setFormData({ ...formData, event_type_id: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-[13px]"
-                    required
-                  >
-                    {eventTypes.map((t) => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
-                    ))}
-                  </select>
+                      <select
+                        value={formData.event_type_id}
+                        onChange={(e) => setFormData({ ...formData, event_type_id: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-[13px]"
+                        required
+                      >
+                        <option value="">Select event type</option>
+                        {HARDCODED_EVENT_TYPES.filter((t) => t.code !== "holiday").map((t) => (
+                          <option key={t.code} value={t.code}>{t.label}</option>
+                        ))}
+                      </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-[13px] font-medium text-slate-700">Title</label>
