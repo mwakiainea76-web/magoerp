@@ -19,6 +19,7 @@ class StudentFeeAdjustment extends Model
 
     protected $fillable = [
         'invoice_id',
+        'academic_session_id',
         'type',
         'discount_type',
         'discount_percentage',
@@ -43,6 +44,11 @@ class StudentFeeAdjustment extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function academicSession(): BelongsTo
+    {
+        return $this->belongsTo(AcademicSession::class);
     }
 
     public function creator(): BelongsTo

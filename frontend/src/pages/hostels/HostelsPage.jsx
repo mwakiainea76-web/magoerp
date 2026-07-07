@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Pencil, Plus, Trash2, Eye, Building2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Eye, DoorOpen } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { bodyTextClassName, initialMeta } from "@/lib/styles";
@@ -82,8 +82,8 @@ export function HostelsPage() {
             <Thead>
               <tr>
                 <Th className="w-10 text-center">#</Th>
-                <Th>Name</Th>
                 <Th>Code</Th>
+                <Th>Name</Th>
                 <Th>Gender</Th>
                 <Th>Fee</Th>
                 <Th className="text-center">Rooms</Th>
@@ -97,11 +97,16 @@ export function HostelsPage() {
               {paginatedHostels.map((h, index) => (
                 <tr key={h.id}>
                   <Td className="w-10 text-center text-slate-400">{(page - 1) * perPage + index + 1}</Td>
-                  <Td className="font-medium text-slate-800">{h.name}</Td>
-                  <Td>{h.code}</Td>
+                  <Td className="font-medium text-slate-800">{h.code}</Td>
+                  <Td>{h.name}</Td>
                   <Td className="capitalize">{h.gender ?? "—"}</Td>
                   <Td>{Number(h.session_fee_amount).toLocaleString()}</Td>
-                  <Td className="text-center">{h.rooms_count}</Td>
+                  <Td className="text-center">
+                    <Link to={`/admin/hostels/rooms?hostelId=${h.id}`} className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 hover:underline">
+                      <DoorOpen className="h-3.5 w-3.5" />
+                      {h.rooms_count}
+                    </Link>
+                  </Td>
                   <Td className="text-center">{h.beds_count}</Td>
                   <Td className="text-center">{h.active_allocations_count}</Td>
                   <Td>

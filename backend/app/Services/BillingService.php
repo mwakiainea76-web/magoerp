@@ -88,15 +88,17 @@ class BillingService
                 ]);
             }
 
-            // 3. Confirm the student is registered for this session
-            //    (registration is the trigger for invoicing — not admission)
-            $enrolment = $this->resolveSessionEnrolment($student, $targetSession);
-
-            if (!$enrolment) {
-                throw ValidationException::withMessages([
-                    'session' => 'Student must be registered for the academic session before an invoice can be issued.',
-                ]);
-            }
+            // 3. Use the student's current academic progress when available.
+            //    Billing is allowed even when the student has not registered for
+            //    the running academic session; the invoice still belongs to it.
+            $enrolment = $this->resolveSessionEnrolment($student, $targetSession)
+                ?? AcademicSessionEnrolment::query()
+                    ->where('student_id', $student->id)
+                    ->latest('enrolled_at')
+                    ->latest('created_at')
+                    ->first();
+            $billingYearLevel = $enrolment?->year_of_study ?? 1;
+            $billingSessionNumber = $enrolment?->session_number ?? 1;
 
             // 4. Build the idempotency key and check for an existing invoice
             //    ONE check only — no duplicate check further down.
@@ -130,13 +132,13 @@ class BillingService
                     $query->where('academic_session_id', $targetSession->id)
                         ->orWhereNull('academic_session_id');
                 })
-                ->whereIn('year_level', [$enrolment->year_of_study, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
-                ->where('session_number', $enrolment->session_number)
+                ->whereIn('year_level', [$billingYearLevel, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
+                ->where('session_number', $billingSessionNumber)
                 ->where('is_approved', true)
                 ->where('dormant', false)
                 ->with(['feeTemplate.items' => fn ($q) => $q->where('is_active', true)->where('amount', '>', 0)])
                 ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])
-                ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$enrolment->year_of_study])
+                ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$billingYearLevel])
                 ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
                 ->first();
 
@@ -201,8 +203,8 @@ class BillingService
                         'annual_split_ratio' => $assignment->split_ratio,
                         'course_curriculum_id' => $courseCurriculumId,
                         'academic_session_id' => $targetSession->id,
-                        'year_level' => $enrolment->year_of_study,
-                        'session_number' => $enrolment->session_number,
+                        'year_level' => $billingYearLevel,
+                        'session_number' => $billingSessionNumber,
                         'snapshot_taken_at' => now()->toDateTimeString(),
                     ],
                 ]);
@@ -405,9 +407,18 @@ class BillingService
                 }
             }
 
+            $paymentSession = $this->currentActiveSession() ?? $invoice->academicSession;
+
+            if (!$paymentSession) {
+                throw ValidationException::withMessages([
+                    'session' => 'No active academic session found.',
+                ]);
+            }
+
             // 1. Record the payment
             $payment = Payment::create([
                 'student_id'      => $invoice->student_id,
+                'academic_session_id' => $paymentSession->id,
                 'amount'          => $amount,
                 'payment_date'    => $paymentDate ?? now()->toDateString(),
                 'method'          => $method,
@@ -427,6 +438,7 @@ class BillingService
                 InvoicePaymentAllocation::create([
                     'payment_id'   => $payment->id,
                     'invoice_id'   => $invoice->id,
+                    'academic_session_id' => $invoice->academic_session_id,
                     'amount'       => $allocationAmount,
                     'allocated_at' => $paymentDate ?? now()->toDateString(),
                 ]);
@@ -511,9 +523,18 @@ class BillingService
                 }
             }
 
+            $paymentSession = $this->currentActiveSession();
+
+            if (!$paymentSession) {
+                throw ValidationException::withMessages([
+                    'session' => 'No active academic session found.',
+                ]);
+            }
+
             // 1. Record the payment
             $payment = Payment::create([
                 'student_id'      => $student->id,
+                'academic_session_id' => $paymentSession->id,
                 'amount'          => $amount,
                 'payment_date'    => $paymentDate ?? now()->toDateString(),
                 'method'          => $method,
@@ -554,6 +575,7 @@ class BillingService
                 InvoicePaymentAllocation::create([
                     'payment_id'   => $payment->id,
                     'invoice_id'   => $invoice->id,
+                    'academic_session_id' => $invoice->academic_session_id,
                     'amount'       => $allocationAmount,
                     'allocated_at' => $paymentDate ?? now()->toDateString(),
                 ]);
@@ -585,11 +607,7 @@ class BillingService
             // Record any amount that could not be allocated as a real ledger
             // credit so it appears on statements and can fund a later invoice.
             if ($remaining > 0) {
-                $activeSessionId = AcademicSession::query()
-                    ->where('is_active', true)
-                ->whereHas('year', fn ($query) => $query->where('is_active', true))
-                    ->latest('start_date')
-                    ->value('id');
+                $activeSessionId = $paymentSession->id;
 
                 StudentLedgerEntry::create([
                     'student_id' => $student->id,
@@ -615,11 +633,7 @@ class BillingService
             if (empty($sessionsSynced)) {
                 // Payment recorded but no invoices to allocate against.
                 // Sync the current active session so the credit is visible.
-                $activeSession = AcademicSession::query()
-                    ->where('is_active', true)
-                ->whereHas('year', fn ($query) => $query->where('is_active', true))
-                    ->latest('start_date')
-                    ->value('id');
+                $activeSession = $paymentSession->id;
 
                 if ($activeSession) {
                     $this->syncAccountBalance($student->id, $activeSession);
@@ -722,6 +736,7 @@ class BillingService
             // 1. Create adjustment record (ledger_posted starts false)
             $adjustment = StudentFeeAdjustment::create([
                 'invoice_id'          => $invoice->id,
+                'academic_session_id' => $invoice->academic_session_id,
                 'type'                => $type,
                 'discount_type'       => $storeDiscountType,
                 'discount_percentage' => $storeDiscountPct,
@@ -807,8 +822,7 @@ class BillingService
                 }
             }
 
-            $targetSession = $invoice?->academicSession
-                ?? AcademicSession::query()->where('is_active', true)->latest('start_date')->first();
+            $targetSession = $invoice?->academicSession ?? $this->currentActiveSession();
 
             if (!$targetSession) {
                 throw ValidationException::withMessages([
@@ -847,6 +861,7 @@ class BillingService
             $refund = Refund::create([
                 'student_id'    => $student->id,
                 'invoice_id'    => $invoice?->id,
+                'academic_session_id' => $targetSession->id,
                 'amount'        => $amount,
                 'reason'        => $reason,
                 'status'        => 'processed',
@@ -912,6 +927,15 @@ class BillingService
     // =========================================================================
     // PRIVATE HELPERS
     // =========================================================================
+
+    private function currentActiveSession(): ?AcademicSession
+    {
+        return AcademicSession::query()
+            ->where('is_active', true)
+            ->whereHas('year', fn ($query) => $query->where('is_active', true))
+            ->latest('start_date')
+            ->first();
+    }
 
     /**
      * Resolve the student's AcademicSessionEnrolment for the given session.
@@ -983,6 +1007,7 @@ class BillingService
             InvoicePaymentAllocation::create([
                 'payment_id'   => $payment->id,
                 'invoice_id'   => $invoice->id,
+                'academic_session_id' => $invoice->academic_session_id,
                 'amount'       => $allocationAmount,
                 'allocated_at' => now()->toDateString(),
             ]);

@@ -11,6 +11,42 @@ use App\Http\Controllers\Api\Traits\PaginationMeta;
 class CourseCurriculaController extends Controller
 {
     use PaginationMeta;
+
+    public function search(Request $request): JsonResponse
+    {
+        $search = trim((string) $request->string('q', ''));
+
+        $results = CourseCurriculum::query()
+            ->where('is_active', true)
+            ->whereHas('course', function ($query) use ($search) {
+                $query->where('is_active', true)
+                    ->where(function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%")
+                            ->orWhere('initials', 'like', "%{$search}%");
+                    });
+            })
+            ->with([
+                'course.authority',
+                'course.level',
+                'curriculum',
+            ])
+            ->get()
+            ->map(fn (CourseCurriculum $cc) => [
+                'id' => $cc->id,
+                'course_id' => $cc->course_id,
+                'course_name' => $cc->course->name,
+                'course_code' => $cc->course->code,
+                'course_initials' => $cc->course->initials,
+                'authority' => $cc->course->authority?->name,
+                'authority_code' => $cc->course->authority?->code,
+                'level' => $cc->course->level?->name,
+                'curriculum' => $cc->curriculum?->name,
+            ]);
+
+        return response()->json(['data' => $results]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can('institution.view'), 403);

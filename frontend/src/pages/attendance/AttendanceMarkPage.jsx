@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -6,6 +6,7 @@ import { bodyTextClassName, inputClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useAttendanceApi } from "@/hooks/useAttendanceApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
+import { useAuthStore } from "@/store/authStore";
 
 const STATUS_OPTIONS = [
   { value: "present", label: "Present" },
@@ -22,6 +23,8 @@ function formatDate(dateStr) {
 
 export function AttendanceMarkPage() {
   const attendanceApi = useAttendanceApi();
+  const role = useAuthStore((state) => state.user?.role);
+  const attendanceBasePath = role === "trainer" ? "/trainer/attendance" : "/admin/attendance";
   const [searchParams] = useSearchParams();
   const unitId = searchParams.get("unit_id") ?? "";
   const sessionDate = searchParams.get("session_date") ?? "";
@@ -120,7 +123,7 @@ export function AttendanceMarkPage() {
     return (
       <section className="space-y-5">
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
-          Missing required parameters. <Link to="/admin/attendance" className="font-medium text-emerald-600 underline">Go back</Link>
+          Missing required parameters. <Link to={attendanceBasePath} className="font-medium text-emerald-600 underline">Go back</Link>
         </div>
       </section>
     );
@@ -132,10 +135,10 @@ export function AttendanceMarkPage() {
         <div>
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Mark Attendance</h1>
           <p className="text-[13px] text-slate-500">
-            {formatDate(sessionDate)} — {startTime}
+            {formatDate(sessionDate)} - {startTime}
           </p>
         </div>
-        <Link to="/admin/attendance" className="rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50">
+        <Link to={attendanceBasePath} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50">
           Back
         </Link>
       </div>

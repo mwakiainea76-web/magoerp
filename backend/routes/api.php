@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\CurriculaController;
 use App\Http\Controllers\Api\DepartmentsController;
 use App\Http\Controllers\Api\CurriculumFeeAssignmentsController;
 use App\Http\Controllers\Api\HostelsController;
+use App\Http\Controllers\Api\HostelRoomsController;
 use App\Http\Controllers\Api\LectureRoomsController;
 use App\Http\Controllers\Api\FeeTemplateItemsController;
 use App\Http\Controllers\Api\FeeTemplatesController;
@@ -182,8 +183,8 @@ Route::middleware([
 
         Route::apiResource('hostels', HostelsController::class)
             ->parameters(['hostels' => 'hostel']);
-        Route::post('/hostel-rooms', [HostelsController::class, 'storeRoom']);
-        Route::put('/hostel-rooms/{hostel_room}', [HostelsController::class, 'updateRoom']);
+        Route::apiResource('hostel-rooms', HostelRoomsController::class)
+            ->parameters(['hostel-rooms' => 'hostel_room']);
         Route::get('/hostels/{hostel}/rooms', [HostelsController::class, 'roomsByHostel']);
         Route::get('/hostel-rooms/{hostel_room}/beds', [HostelsController::class, 'bedsByRoom']);
         Route::get('/hostel-allocations', [HostelsController::class, 'allocations']);
@@ -209,6 +210,8 @@ Route::middleware([
         Route::post('/course-change/transfer', [CourseChangeController::class, 'store']);
         Route::post('/course-change/history', [CourseChangeController::class, 'history']);
         Route::get('/course-change/transfers', [CourseChangeController::class, 'allTransfers']);
+
+        Route::get('/course-curricula/search', [CourseCurriculaController::class, 'search']);
 
         Route::apiResource('course-curricula', CourseCurriculaController::class)
             ->parameters(['course-curricula' => 'course_curriculum'])
@@ -296,6 +299,11 @@ Route::middleware([
     Route::get('/my/session-enrolments', [StudentMarksController::class, 'sessionEnrolments']);
 
     Route::get('/my/timetable', [AcademicTimetablesController::class, 'myTimetable']);
+
+    Route::get('/my/hostel-allocation', [HostelsController::class, 'myAllocation']);
+    Route::get('/my/available-hostels', [HostelsController::class, 'availableHostels']);
+    Route::get('/my/hostel-booking/eligibility', [HostelsController::class, 'bookingEligibility']);
+    Route::post('/my/hostel-booking', [HostelsController::class, 'selfBook']);
 
     Route::get('/my/support-requests', [SupportRequestsController::class, 'myRequests']);
     Route::post('/support-requests', [SupportRequestsController::class, 'store']);

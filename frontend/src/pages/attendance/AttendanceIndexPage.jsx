@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useAttendanceApi } from "@/hooks/useAttendanceApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
+import { useAuthStore } from "@/store/authStore";
 
 export function AttendanceIndexPage() {
   const attendanceApi = useAttendanceApi();
   const navigate = useNavigate();
+  const role = useAuthStore((state) => state.user?.role);
+  const attendanceBasePath = role === "trainer" ? "/trainer/attendance" : "/admin/attendance";
 
   const [units, setUnits] = useState([]);
   const [selectedUnitId, setSelectedUnitId] = useState("");
@@ -41,7 +44,7 @@ export function AttendanceIndexPage() {
       session_date: sessionDate,
       start_time: startTime,
     });
-    navigate(`/attendance/mark?${params.toString()}`);
+    navigate(`${attendanceBasePath}/mark?${params.toString()}`);
   }
 
   return (

@@ -10,6 +10,7 @@ use App\Models\HostelAllocation;
 use App\Models\HostelBed;
 use App\Models\HostelRoom;
 use App\Models\Invoice;
+use App\Models\CourseEnrolment;
 use App\Models\StudentLedgerEntry;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
@@ -85,51 +86,6 @@ class HostelsController extends Controller
         });
 
         return response()->json([ 'message' => 'Hostel deleted.']);
-    }
-
-    // --- Room Management ---
-
-    public function storeRoom(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'hostel_id' => 'required|string|exists:hostels,id',
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:100|unique:hostel_rooms,code',
-            'floor' => 'nullable|string|max:100',
-            'bed_count' => 'required|integer|min:1',
-        ]);
-
-        $room = DB::transaction(function () use ($validated) {
-            $room = HostelRoom::create($validated);
-            $this->syncBeds($room, $validated['bed_count']);
-            return $room;
-        });
-
-        $room->load('beds');
-
-        return response()->json([ 'data' => $room], 201);
-    }
-
-    public function updateRoom(Request $request, HostelRoom $hostelRoom): JsonResponse
-    {
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'code' => 'sometimes|string|max:100|unique:hostel_rooms,code,' . $hostelRoom->id,
-            'floor' => 'nullable|string|max:100',
-            'bed_count' => 'sometimes|integer|min:1',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        DB::transaction(function () use ($hostelRoom, $validated) {
-            $hostelRoom->update($validated);
-            if (isset($validated['bed_count'])) {
-                $this->syncBeds($hostelRoom, $validated['bed_count']);
-            }
-        });
-
-        $hostelRoom->load('beds');
-
-        return response()->json([ 'data' => $hostelRoom]);
     }
 
     public function roomsByHostel(Hostel $hostel): JsonResponse
@@ -280,7 +236,95 @@ class HostelsController extends Controller
             ->latest()
             ->first();
 
-        return response()->json([ 'data' => $allocation ? $this->transformAllocation($allocation) : null]);
+        $activeSession = AcademicSession::where('is_active', true)->latest('start_date')->first();
+        $enrolment = $activeSession
+            ? AcademicSessionEnrolment::where('student_id', $student->id)
+                ->where('academic_session_id', $activeSession->id)
+                ->first()
+            : null;
+
+        $canBook = false;
+        $availableHostels = collect();
+        $accountBalance = 0;
+        $minFee = 0;
+        $hasSufficientBalance = false;
+        $reason = null;
+
+        if ($allocation) {
+            $reason = 'already_allocated';
+        } elseif (!$activeSession) {
+            $reason = 'no_active_session';
+        } elseif (!$enrolment) {
+            $reason = 'not_enrolled_in_session';
+        } else {
+            $courseName = CourseEnrolment::query()
+                ->where('student_id', $student->id)
+                ->where('status', 'enrolled')
+                ->with('courseCurriculum.course:id,name')
+                ->latest()
+                ->first()
+                ?->courseCurriculum?->course?->name;
+
+            $allHostels = Hostel::where('is_active', true)->get();
+            $genderBlocked = $allHostels->filter(fn ($h) =>
+                $h->gender !== null && $h->gender !== 'mixed' && $h->gender !== $user?->gender
+            )->values();
+            $genderOk = $allHostels->filter(fn ($h) =>
+                $h->gender === null || $h->gender === 'mixed' || $h->gender === $user?->gender
+            );
+
+            $hostels = $genderOk->map(function ($hostel) use ($activeSession) {
+                $activeBeds = HostelBed::whereHas('room', fn ($q) => $q->where('hostel_id', $hostel->id)->where('is_active', true))
+                    ->where('is_active', true)->count();
+                $occupiedBeds = HostelAllocation::whereHas('room', fn ($q) => $q->where('hostel_id', $hostel->id))
+                    ->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $activeSession->id))
+                    ->where('status', 'active')->distinct('hostel_bed_id')->count('hostel_bed_id');
+
+                return [
+                    'id' => $hostel->id,
+                    'name' => $hostel->name,
+                    'code' => $hostel->code,
+                    'gender' => $hostel->gender,
+                    'location' => $hostel->location,
+                    'session_fee_amount' => (float) $hostel->session_fee_amount,
+                    'active_beds' => $activeBeds,
+                    'occupied_beds' => $occupiedBeds,
+                    'available_beds' => max(0, $activeBeds - $occupiedBeds),
+                ];
+            })->values();
+
+            $withBeds = $hostels->filter(fn ($h) => $h['available_beds'] > 0)->values();
+
+            $availableHostels = $withBeds;
+            $canBook = $withBeds->isNotEmpty();
+            $minFee = $withBeds->min('session_fee_amount') ?? 0;
+
+            if ($allHostels->isEmpty()) {
+                $reason = 'no_active_hostels';
+            } elseif ($genderBlocked->isNotEmpty() && $genderOk->isEmpty()) {
+                $reason = 'gender_mismatch';
+            } elseif ($hostels->isNotEmpty() && $withBeds->isEmpty()) {
+                $reason = 'all_hostels_full';
+            }
+
+            $accountBalance = (float) StudentLedgerEntry::where('student_id', $student->id)
+                ->selectRaw('COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')
+                ->value('balance');
+
+            $hasSufficientBalance = $accountBalance >= $minFee;
+        }
+
+        return response()->json([
+            'data' => [
+                'allocation' => $allocation ? $this->transformAllocation($allocation) : null,
+                'can_book' => $canBook,
+                'available_hostels' => $availableHostels,
+                'account_balance' => $accountBalance,
+                'minimum_fee' => $minFee,
+                'has_sufficient_balance' => $hasSufficientBalance,
+                'reason' => $reason,
+            ],
+        ]);
     }
 
     public function availableHostels(Request $request): JsonResponse
@@ -323,10 +367,10 @@ class HostelsController extends Controller
             ?->courseCurriculum?->course?->name;
 
         $hostels = Hostel::where('is_active', true)
-            ->where(function ($q) use ($courseName) {
+            ->where(function ($q) use ($user) {
                 $q->whereNull('gender')
                     ->orWhere('gender', 'mixed')
-                    ->orWhere('gender', $courseName);
+                    ->orWhere('gender', $user?->gender);
             })
             ->get()
             ->map(function ($hostel) use ($activeSession) {

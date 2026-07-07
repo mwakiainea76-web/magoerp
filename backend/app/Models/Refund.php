@@ -19,6 +19,7 @@ class Refund extends Model
     protected $fillable = [
         'student_id',
         'invoice_id',
+        'academic_session_id',
         'amount',
         'reason',
         'status',
@@ -43,6 +44,11 @@ class Refund extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function academicSession(): BelongsTo
+    {
+        return $this->belongsTo(AcademicSession::class);
     }
 
     public function processedBy(): BelongsTo

@@ -10,7 +10,6 @@ const MyUnitsPage = lazy(() => import("@/pages/units/MyUnitsPage").then((module)
 const CreateSupportRequestPage = lazy(() => import("@/pages/support-requests/CreateSupportRequestPage").then((module) => ({ default: module.CreateSupportRequestPage })));
 const MySupportRequestsPage = lazy(() => import("@/pages/support-requests/MySupportRequestsPage").then((module) => ({ default: module.MySupportRequestsPage })));
 const MyHostelPage = lazy(() => import("@/pages/hostels/MyHostelPage").then((module) => ({ default: module.MyHostelPage })));
-const StudentHostelBookingPage = lazy(() => import("@/pages/hostels/StudentHostelBookingPage").then((module) => ({ default: module.StudentHostelBookingPage })));
 const StudentFeeStatementPage = lazy(() => import("@/pages/finance/StudentFeeStatementPage").then((module) => ({ default: module.StudentFeeStatementPage })));
 
 export const StudentRoutes = (
@@ -25,7 +24,6 @@ export const StudentRoutes = (
     <Route path="/student/support-requests" element={<MySupportRequestsPage />} />
     <Route path="/student/support-requests/create" element={<CreateSupportRequestPage />} />
     <Route path="/student/hostel" element={<MyHostelPage />} />
-    <Route path="/student/hostel-book" element={<StudentHostelBookingPage />} />
     <Route path="/student/finance/statements" element={<StudentFeeStatementPage role="student" />} />
     <Route path="/student/finance/statement" element={<StudentFeeStatementPage role="student" />} />
   </>

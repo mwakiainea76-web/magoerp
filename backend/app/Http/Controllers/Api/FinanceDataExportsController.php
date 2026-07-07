@@ -55,25 +55,26 @@ class FinanceDataExportsController extends Controller
     {
         $this->authorizeFinance($request);
         $query = Payment::query()
-            ->with(['student.user', 'allocations.invoice'])
+            ->with(['student.user', 'academicSession', 'allocations.invoice'])
             ->when($request->string('status', 'all')->toString() !== 'all', fn (Builder $q) => $q->where('status', $request->string('status')))
             ->when($request->filled('admission_number'), fn (Builder $q) => $q->whereHas('student', fn (Builder $student) => $student->where('admission_number', 'like', '%' . $request->string('admission_number') . '%')))
             ->when($request->filled('department_id'), fn (Builder $q) => $q->whereHas('allocations.invoice', fn (Builder $invoice) => $invoice->where('department_id', $request->string('department_id'))))
             ->when($request->filled('course_id'), fn (Builder $q) => $q->whereHas('allocations.invoice', fn (Builder $invoice) => $invoice->where('course_id', $request->string('course_id'))))
-            ->when($request->filled('academic_session_id'), fn (Builder $q) => $q->whereHas('allocations.invoice', fn (Builder $invoice) => $invoice->where('academic_session_id', $request->string('academic_session_id'))))
-            ->when($request->filled('academic_year_id') && ! $request->filled('academic_session_id'), fn (Builder $q) => $q->whereHas('allocations.invoice.academicSession', fn (Builder $session) => $session->where('academic_year_id', $request->string('academic_year_id'))))
+            ->when($request->filled('academic_session_id'), fn (Builder $q) => $q->where('academic_session_id', $request->string('academic_session_id')))
+            ->when($request->filled('academic_year_id') && ! $request->filled('academic_session_id'), fn (Builder $q) => $q->whereHas('academicSession', fn (Builder $session) => $session->where('academic_year_id', $request->string('academic_year_id'))))
             ->when($request->filled('date_from'), fn (Builder $q) => $q->whereDate('payment_date', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn (Builder $q) => $q->whereDate('payment_date', '<=', $request->date('date_to')))
             ->orderByDesc('payment_date');
 
         return $this->csv('payments', [
-            'Date', 'Student', 'Admission No.', 'Reference', 'Method', 'Amount', 'Allocated', 'Unallocated', 'Status',
+            'Date', 'Student', 'Admission No.', 'Session', 'Reference', 'Method', 'Amount', 'Allocated', 'Unallocated', 'Status',
         ], $query->cursor()->map(function (Payment $payment) {
             $allocated = (float) $payment->allocations->sum('amount');
             return [
                 $payment->payment_date?->format('Y-m-d'),
                 $payment->student?->full_name,
                 $payment->student?->admission_number,
+                $payment->academicSession?->name,
                 $payment->reference,
                 $payment->method,
                 (float) $payment->amount,

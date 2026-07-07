@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useFieldArray, useForm } from "react-hook-form";
-import { useParams, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import * as yup from "yup";
 
 import { bodyTextClassName, labelClassName, selectClassName, textAreaClassName } from "@/lib/styles";
@@ -11,15 +11,6 @@ import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { useHostelsApi } from "@/hooks/useHostelsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
-
-const roomSchema = yup.object({
-  _id: yup.string().nullable(),
-  code: yup.string().required("Room code is required"),
-  name: yup.string().required("Room name is required"),
-  floor: yup.string().nullable(),
-  bed_count: yup.number().min(1, "At least 1 bed").default(1),
-  is_active: yup.boolean(),
-});
 
 const hostelSchema = yup.object({
   name: yup.string().required("Name is required"),
@@ -29,7 +20,6 @@ const hostelSchema = yup.object({
   location: yup.string().nullable(),
   description: yup.string().nullable(),
   is_active: yup.boolean(),
-  rooms: yup.array().of(roomSchema),
 });
 
 export function HostelFormPage() {
@@ -43,7 +33,6 @@ export function HostelFormPage() {
   const {
     register,
     handleSubmit,
-    control,
     reset,
     setError,
     formState: { errors, isSubmitting },
@@ -57,11 +46,8 @@ export function HostelFormPage() {
       location: "",
       description: "",
       is_active: true,
-      rooms: [],
     },
   });
-
-  const { fields, append, remove } = useFieldArray({ control, name: "rooms" });
 
   useEffect(() => {
     if (!hostelId) return;
@@ -80,14 +66,6 @@ export function HostelFormPage() {
             location: h.location ?? "",
             description: h.description ?? "",
             is_active: h.is_active ?? true,
-            rooms: (h.rooms ?? []).map((r) => ({
-              _id: r.id,
-              code: r.code ?? "",
-              name: r.name ?? "",
-              floor: r.floor ?? "",
-              bed_count: r.bed_count ?? 1,
-              is_active: r.is_active ?? true,
-            })),
           });
         }
       } catch (e) {
@@ -98,23 +76,18 @@ export function HostelFormPage() {
     }
     load();
     return () => { mounted = false; };
-  }, [hostelId]);
+  }, [hostelId, api, reset]);
 
   async function onSubmit(data) {
     try {
       const payload = {
-        ...data,
+        name: data.name.trim(),
+        code: data.code.trim(),
         session_fee_amount: Number(data.session_fee_amount) || 0,
         gender: data.gender || null,
-        location: data.location || null,
-        description: data.description || null,
-        rooms: (data.rooms ?? []).map((r) => ({
-          id: r._id,
-          code: r.code,
-          name: r.name,
-          floor: r.floor || null,
-          bed_count: Number(r.bed_count) || 1,
-        })),
+        location: data.location?.trim() || null,
+        description: data.description?.trim() || null,
+        is_active: data.is_active,
       };
 
       if (isEditing) {
@@ -143,9 +116,15 @@ export function HostelFormPage() {
 
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">{isEditing ? "Edit Hostel" : "Add Hostel"}</h1>
-        <p className="text-[13px] text-slate-500">{isEditing ? "Update hostel details" : "Register a new hostel facility"}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">{isEditing ? "Edit Hostel" : "Add Hostel"}</h1>
+          <p className="text-[13px] text-slate-500">{isEditing ? "Update hostel details" : "Register a new hostel facility"}</p>
+        </div>
+        <Link to="/admin/hostels" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900">
+          <ArrowLeft className="h-4 w-4" />
+          Back to hostels
+        </Link>
       </div>
 
       {serverError ? (
@@ -155,8 +134,8 @@ export function HostelFormPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <FormInput id="name" label="Name" placeholder="e.g. Main Hostel A" required error={errors.name?.message} {...register("name")} />
             <FormInput id="code" label="Code" placeholder="e.g. MH-A" required error={errors.code?.message} {...register("code")} />
+            <FormInput id="name" label="Name" placeholder="e.g. Main Hostel A" required error={errors.name?.message} {...register("name")} />
             <FormInput id="session_fee_amount" label="Session Fee" type="number" step="0.01" min="0" placeholder="e.g. 15000" error={errors.session_fee_amount?.message} {...register("session_fee_amount")} />
             <div>
               <label htmlFor="gender" className={labelClassName}>Gender Restriction</label>
@@ -179,67 +158,6 @@ export function HostelFormPage() {
               <textarea id="description" className={textAreaClassName} placeholder="Optional description of the hostel" {...register("description")} />
             </div>
           </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[15px] font-semibold text-slate-900">Rooms</h2>
-            <FormButton type="button" variant="secondary" onClick={() => append({ _id: null, code: "", name: "", floor: "", bed_count: 1, is_active: true })}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Room
-            </FormButton>
-          </div>
-
-          {fields.length === 0 ? (
-            <p className={`text-slate-500 ${bodyTextClassName}`}>No rooms added yet. Click "Add Room" to create rooms with beds.</p>
-          ) : (
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div key={field.id} className="flex items-end gap-3 rounded-lg border border-slate-100 p-3">
-                  <div className="flex-1">
-                    <FormInput
-                      id={`rooms.${index}.code`}
-                      label="Code"
-                      placeholder="e.g. R-101"
-                      error={errors.rooms?.[index]?.code?.message}
-                      {...register(`rooms.${index}.code`)}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <FormInput
-                      id={`rooms.${index}.name`}
-                      label="Name"
-                      placeholder="e.g. Room 101"
-                      error={errors.rooms?.[index]?.name?.message}
-                      {...register(`rooms.${index}.name`)}
-                    />
-                  </div>
-                  <div className="w-20">
-                    <FormInput
-                      id={`rooms.${index}.floor`}
-                      label="Floor"
-                      placeholder="e.g. 1"
-                      error={errors.rooms?.[index]?.floor?.message}
-                      {...register(`rooms.${index}.floor`)}
-                    />
-                  </div>
-                  <div className="w-24">
-                    <FormInput
-                      id={`rooms.${index}.bed_count`}
-                      label="Beds"
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 2"
-                      error={errors.rooms?.[index]?.bed_count?.message}
-                      {...register(`rooms.${index}.bed_count`)}
-                    />
-                  </div>
-                  <button type="button" onClick={() => remove(index)} className="mb-px flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="flex justify-end gap-3">

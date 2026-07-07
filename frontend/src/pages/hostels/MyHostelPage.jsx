@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Building2, Bed, DoorOpen, ArrowRight } from "lucide-react";
+import { Building2, Bed, DoorOpen, ArrowRight, Wallet } from "lucide-react";
 
 import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
@@ -12,8 +12,24 @@ export function MyHostelPage() {
   const api = useHostelsApi();
 
   const [allocation, setAllocation] = useState(null);
+  const [canBook, setCanBook] = useState(false);
+  const [availableHostels, setAvailableHostels] = useState([]);
+  const [accountBalance, setAccountBalance] = useState(0);
+  const [minimumFee, setMinimumFee] = useState(0);
+  const [hasSufficientBalance, setHasSufficientBalance] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBooking, setIsBooking] = useState(false);
+  const [reason, setReason] = useState(null);
   const [error, setError] = useState("");
+
+  const reasonLabels = {
+    already_allocated: "You already have an active hostel allocation.",
+    no_active_session: "There is no active academic session set up. An admin needs to activate a session.",
+    not_enrolled_in_session: "You are not enrolled in the current active academic session.",
+    no_active_hostels: "No hostels have been created or activated by the administration.",
+    gender_mismatch: "All available hostels have gender restrictions that do not match your profile.",
+    all_hostels_full: "All hostel beds are currently occupied. No vacancies available.",
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -22,7 +38,15 @@ export function MyHostelPage() {
       setError("");
       try {
         const res = await api.myAllocation();
-        if (mounted) setAllocation(res.data ?? null);
+        if (mounted && res?.data) {
+          setAllocation(res.data.allocation ?? null);
+          setCanBook(res.data.can_book ?? false);
+          setAvailableHostels(res.data.available_hostels ?? []);
+          setAccountBalance(res.data.account_balance ?? 0);
+          setMinimumFee(res.data.minimum_fee ?? 0);
+          setHasSufficientBalance(res.data.has_sufficient_balance ?? false);
+          setReason(res.data.reason ?? null);
+        }
       } catch (e) {
         if (mounted) setError(getApiErrorMessage(e, "Failed to load allocation."));
       } finally {
@@ -31,7 +55,22 @@ export function MyHostelPage() {
     }
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [api]);
+
+  const handleBook = useCallback(async (hostelId) => {
+    setIsBooking(true);
+    try {
+      const res = await api.selfBook({ hostel_id: hostelId });
+      toast.success("Hostel booked successfully!");
+      setAllocation(res?.data?.allocation ?? null);
+      setCanBook(false);
+      setAvailableHostels([]);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Failed to book hostel."));
+    } finally {
+      setIsBooking(false);
+    }
+  }, [api]);
 
   if (isLoading) {
     return (
@@ -95,17 +134,51 @@ export function MyHostelPage() {
             Allocated on: {allocation.allocated_on} | Session: {allocation.session_name}
           </div>
         </div>
+      ) : canBook ? (
+        <div className="space-y-4">
+          <div className={`rounded-xl border border-slate-200/80 bg-white p-5 ${bodyTextClassName}`}>
+            <div className="mb-4 flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-slate-400" />
+              <span className="text-slate-600">Account Balance: <strong className="text-slate-900">{Number(accountBalance).toLocaleString()}</strong></span>
+              {hasSufficientBalance ? (
+                <span className="ml-2 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">Sufficient</span>
+              ) : (
+                <span className="ml-2 rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-medium text-red-600">Insufficient (min. {Number(minimumFee).toLocaleString()})</span>
+              )}
+            </div>
+
+            <p className="text-slate-600">Available hostels with vacancies:</p>
+          </div>
+
+          {availableHostels.map((hostel) => (
+            <div key={hostel.id} className="rounded-xl border border-slate-200/80 bg-white p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-[15px] font-semibold text-slate-900">{hostel.name}</h3>
+                  <p className="text-[12px] text-slate-500">{hostel.code}{hostel.location ? ` \u2022 ${hostel.location}` : ""}</p>
+                  <p className="mt-1 text-[12px] text-slate-500">{hostel.available_beds} bed{hostel.available_beds !== 1 ? "s" : ""} available</p>
+                  <p className="mt-1 text-[13px] font-medium text-slate-700">{Number(hostel.session_fee_amount).toLocaleString()} KES</p>
+                </div>
+                <FormButton
+                  onClick={() => handleBook(hostel.id)}
+                  disabled={isBooking || !hasSufficientBalance}
+                >
+                  {isBooking ? "Booking..." : "Book"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </FormButton>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center ${bodyTextClassName}`}>
           <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
           <p className="text-slate-500">You do not have a hostel allocation yet.</p>
-          <p className="mt-1 text-[12px] text-slate-400">Check available hostels and book online.</p>
-          <Link to="/student/hostel-book" className="mt-5 inline-block">
-            <FormButton>
-              Book a Hostel
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </FormButton>
-          </Link>
+          {reason && reasonLabels[reason] ? (
+            <p className="mt-2 text-[13px] font-medium text-amber-600">{reasonLabels[reason]}</p>
+          ) : (
+            <p className="mt-1 text-[12px] text-slate-400">No hostels are currently available for booking.</p>
+          )}
         </div>
       )}
     </section>

@@ -37,7 +37,7 @@ class PaymentsController extends Controller
         $dateTo = (string) $request->string('date_to', '');
 
         $payments = Payment::query()
-            ->with(['student.user', 'allocations'])
+            ->with(['student.user', 'academicSession', 'allocations'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->whereHas('student', function ($sq) use ($search) {
@@ -53,8 +53,8 @@ class PaymentsController extends Controller
             ->when($admissionNumber !== '', fn ($q) => $q->whereHas('student', fn ($sq) => $sq->where('admission_number', 'like', "%{$admissionNumber}%")))
             ->when($departmentId !== '', fn ($q) => $q->whereHas('allocations.invoice', fn ($invoice) => $invoice->where('department_id', $departmentId)))
             ->when($courseId !== '', fn ($q) => $q->whereHas('allocations.invoice', fn ($invoice) => $invoice->where('course_id', $courseId)))
-            ->when($academicSessionId !== '', fn ($q) => $q->whereHas('allocations.invoice', fn ($iq) => $iq->where('academic_session_id', $academicSessionId)))
-            ->when($academicYearId !== '' && $academicSessionId === '', fn ($q) => $q->whereHas('allocations.invoice.academicSession', fn ($sq) => $sq->where('academic_year_id', $academicYearId)))
+            ->when($academicSessionId !== '', fn ($q) => $q->where('academic_session_id', $academicSessionId))
+            ->when($academicYearId !== '' && $academicSessionId === '', fn ($q) => $q->whereHas('academicSession', fn ($sq) => $sq->where('academic_year_id', $academicYearId)))
             ->when($dateFrom !== '', fn ($q) => $q->whereDate('payment_date', '>=', $dateFrom))
             ->when($dateTo !== '', fn ($q) => $q->whereDate('payment_date', '<=', $dateTo))
             ->latest()
@@ -103,7 +103,7 @@ class PaymentsController extends Controller
             ], 422);
         }
 
-        $payment->load(['student.user']);
+        $payment->load(['student.user', 'academicSession', 'allocations']);
 
         return response()->json([
             'status_code' => 201,
@@ -118,6 +118,8 @@ class PaymentsController extends Controller
         return [
             'id' => $payment->id,
             'student_id' => $payment->student_id,
+            'academic_session_id' => $payment->academic_session_id,
+            'academic_session_name' => $payment->academicSession?->name,
             'student_name' => $this->studentName($payment->student),
             'admission_number' => $payment->student?->admission_number,
             'amount' => (float) $payment->amount,

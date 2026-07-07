@@ -87,8 +87,8 @@ class FinanceDashboardController extends Controller
             ->whereIn('type', ['discount', 'waiver', 'bursary', 'helb', 'reversal'])
             ->whereHas('invoice', fn ($iq) => $iq->where('status', '!=', 'cancelled'))
             ->when($studentIds !== null, fn ($q) => $q->whereHas('invoice', fn ($iq) => $iq->whereIn('student_id', $studentIds)))
-            ->when($sessionId, fn ($q, $v) => $q->whereHas('invoice', fn ($iq) => $iq->where('academic_session_id', $v)))
-            ->when($yearId && !$sessionId, fn ($q, $v) => $q->whereHas('invoice.academicSession', fn ($sq) => $sq->where('academic_year_id', $v)))
+            ->when($sessionId, fn ($q, $v) => $q->where('academic_session_id', $v))
+            ->when($yearId && !$sessionId, fn ($q, $v) => $q->whereHas('academicSession', fn ($sq) => $sq->where('academic_year_id', $v)))
             ->sum('amount');
 
         $totalRefunds = (float) StudentLedgerEntry::query()
@@ -116,6 +116,8 @@ class FinanceDashboardController extends Controller
             ->where('status', 'completed')
             ->where('payment_date', '>=', $now->copy()->subMonths(11)->startOfMonth())
             ->when($studentIds !== null, fn ($q) => $q->whereIn('student_id', $studentIds))
+            ->when($sessionId, fn ($q, $v) => $q->where('academic_session_id', $v))
+            ->when($yearId && !$sessionId, fn ($q, $v) => $q->whereHas('academicSession', fn ($sq) => $sq->where('academic_year_id', $v)))
             ->selectRaw((DB::getDriverName() === 'sqlite'
                 ? "strftime('%Y-%m', payment_date)"
                 : "DATE_FORMAT(payment_date, '%Y-%m')") . ' as month')
@@ -140,8 +142,10 @@ class FinanceDashboardController extends Controller
 
         $recentPayments = Payment::query()
             ->where('status', 'completed')
-            ->with('student.user')
+            ->with(['student.user', 'academicSession'])
             ->when($studentIds !== null, fn ($q) => $q->whereIn('student_id', $studentIds))
+            ->when($sessionId, fn ($q, $v) => $q->where('academic_session_id', $v))
+            ->when($yearId && !$sessionId, fn ($q, $v) => $q->whereHas('academicSession', fn ($sq) => $sq->where('academic_year_id', $v)))
             ->latest('payment_date')
             ->limit(10)
             ->get()
@@ -153,6 +157,8 @@ class FinanceDashboardController extends Controller
                 'method' => $p->method,
                 'reference' => $p->reference,
                 'payment_date' => $p->payment_date?->format('Y-m-d'),
+                'academic_session_id' => $p->academic_session_id,
+                'academic_session_name' => $p->academicSession?->name,
             ]);
 
         // --- Top Defaulters ---

@@ -19,6 +19,7 @@ class Payment extends Model
 
     protected $fillable = [
         'student_id',
+        'academic_session_id',
         'amount',
         'payment_date',
         'method',
@@ -41,6 +42,11 @@ class Payment extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function academicSession(): BelongsTo
+    {
+        return $this->belongsTo(AcademicSession::class);
     }
 
     public function allocations(): HasMany

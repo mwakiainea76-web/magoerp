@@ -46,6 +46,7 @@ const AdminSupportRequestDetailPage = lazy(() => import("@/pages/support-request
 const AdminSupportRequestsPage = lazy(() => import("@/pages/support-requests/AdminSupportRequestsPage").then((module) => ({ default: module.AdminSupportRequestsPage })));
 const HostelAllocationsPage = lazy(() => import("@/pages/hostels/HostelAllocationsPage").then((module) => ({ default: module.HostelAllocationsPage })));
 const HostelFormPage = lazy(() => import("@/pages/hostels/HostelFormPage").then((module) => ({ default: module.HostelFormPage })));
+const HostelRoomsPage = lazy(() => import("@/pages/hostels/HostelRoomsPage").then((module) => ({ default: module.HostelRoomsPage })));
 const HostelsPage = lazy(() => import("@/pages/hostels/HostelsPage").then((module) => ({ default: module.HostelsPage })));
 const AddMarksPage = lazy(() => import("@/pages/grades/AddMarksPage").then((module) => ({ default: module.AddMarksPage })));
 const TranscriptPage = lazy(() => import("@/pages/grades/TranscriptPage").then((module) => ({ default: module.TranscriptPage })));
@@ -143,6 +144,7 @@ export const AdminRoutes = (
     <Route path="/admin/support-requests/:supportRequestId" element={<AdminSupportRequestDetailPage />} />
     <Route path="/admin/hostels" element={<HostelsPage />} />
     <Route path="/admin/hostels/create" element={<HostelFormPage />} />
+    <Route path="/admin/hostels/rooms" element={<HostelRoomsPage />} />
     <Route path="/admin/hostels/:hostelId/edit" element={<HostelFormPage />} />
     <Route path="/admin/hostel-allocations" element={<HostelAllocationsPage />} />
     <Route path="/admin/system-configurations" element={<SystemConfigurationsPage />} />

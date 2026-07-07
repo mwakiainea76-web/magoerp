@@ -4,6 +4,10 @@ import { authClient } from "@/lib/api/authClient";
 export function useCourseCurriculaApi() {
   return useMemo(
     () => ({
+      search: async (params = {}) => {
+        const response = await authClient.get("/course-curricula/search", { params });
+        return response.data;
+      },
       list: async (params = {}) => {
         const response = await authClient.get("/course-curricula", { params });
         return response.data;

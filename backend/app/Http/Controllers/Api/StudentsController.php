@@ -12,7 +12,6 @@ use App\Models\AcademicYear;
 use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
-use App\Models\Curriculum;
 use App\Models\Student;
 use App\Models\User;
 use App\Queries\StudentQuery;
@@ -68,25 +67,18 @@ class StudentsController extends Controller
     public function store(StoreStudentRequest $request): JsonResponse
     {
         $student = DB::transaction(function () use ($request) {
-            $course = Course::query()
-                ->lockForUpdate()
-                ->findOrFail($request->course_id);
-
-            $curriculum = Curriculum::query()
-                ->lockForUpdate()
-                ->findOrFail($request->curriculum_id);
-
             $courseCurriculum = CourseCurriculum::query()
-                ->where('course_id', $course->id)
-                ->where('curriculum_id', $curriculum->id)
-                ->where('is_active', true)
-                ->first();
+                ->with('course')
+                ->lockForUpdate()
+                ->findOrFail($request->course_curriculum_id);
 
-            if (! $courseCurriculum) {
+            if (! $courseCurriculum->is_active) {
                 throw ValidationException::withMessages([
-                    'course_curriculum' => 'No active course-curriculum mapping found for the selected course and curriculum.',
+                    'course_curriculum' => 'The selected course curriculum is no longer active.',
                 ]);
             }
+
+            $course = $courseCurriculum->course;
 
             $admissionNumber = $this->nextAdmissionNumber($course);
 
@@ -131,7 +123,7 @@ class StudentsController extends Controller
                 'updated_by' => $request->user()->id,
             ]);
 
-            CourseEnrolmentsController::createForStudent($student, $request->user()->id, $course->id, $courseCurriculum->id);
+            CourseEnrolmentsController::createForStudent($student, $request->user()->id, courseCurriculumId: $courseCurriculum->id);
 
             $student->load(['user', 'activeEnrolment.courseCurriculum.course.authority', 'activeEnrolment.courseCurriculum.course.level', 'activeEnrolment.courseCurriculum.curriculum']);
 
@@ -334,6 +326,7 @@ class StudentsController extends Controller
             'exam_body_name' => $course?->authority?->name,
             'level_id' => $course?->certification_level_id,
             'level_name' => $course?->level?->name,
+            'course_curriculum_id' => $activeEnrolment?->course_curriculum_id,
             'curriculum_id' => $curriculum?->id,
             'curriculum_name' => $curriculum?->name,
 

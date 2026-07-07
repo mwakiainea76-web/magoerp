@@ -125,6 +125,7 @@ return new class extends Migration
         Schema::create('payments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->nullable()->constrained('students')->nullOnDelete();
+            $table->foreignUuid('academic_session_id')->nullable()->after('student_id')->constrained('academic_sessions')->nullOnDelete();
             $table->decimal('amount', 10, 2);
             $table->date('payment_date');
             $table->string('method', 50)->nullable();
@@ -137,6 +138,7 @@ return new class extends Migration
 
             $table->index('payment_date');
             $table->index('status');
+            $table->index(['academic_session_id', 'status', 'payment_date'], 'payments_session_status_date_idx');
             $table->index(['student_id', 'status', 'payment_date'], 'payments_student_status_date_idx');
             $table->index(['status', 'payment_date'], 'payments_status_date_idx');
         });
@@ -145,12 +147,14 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('payment_id')->constrained('payments')->cascadeOnDelete();
             $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
+            $table->foreignUuid('academic_session_id')->nullable()->after('invoice_id')->constrained('academic_sessions')->nullOnDelete();
             $table->decimal('amount', 10, 2);
             $table->date('allocated_at')->nullable();
             $table->timestamps();
 
             $table->index(['payment_id', 'invoice_id']);
             $table->index(['invoice_id', 'payment_id']);
+            $table->index(['academic_session_id', 'allocated_at'], 'allocations_session_date_idx');
         });
 
         if (DB::getDriverName() !== 'sqlite') {
@@ -160,6 +164,7 @@ return new class extends Migration
         Schema::create('student_fee_adjustments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
+            $table->foreignUuid('academic_session_id')->nullable()->after('invoice_id')->constrained('academic_sessions')->nullOnDelete();
             $table->string('type', 50);
             $table->string('discount_type', 20)->nullable();
             $table->decimal('discount_percentage', 5, 2)->nullable();
@@ -173,8 +178,29 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index('type');
+            $table->index(['academic_session_id', 'type', 'applied_at'], 'fee_adjustments_session_type_date_idx');
             $table->index(['invoice_id', 'deleted_at', 'type'], 'fee_adjustments_invoice_active_type_idx');
             $table->index(['type', 'applied_at', 'deleted_at'], 'fee_adjustments_type_date_idx');
+        });
+
+        Schema::create('refunds', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('student_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('invoice_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignUuid('academic_session_id')->nullable()->after('invoice_id')->constrained('academic_sessions')->nullOnDelete();
+            $table->decimal('amount', 10, 2);
+            $table->string('reason', 500)->nullable();
+            $table->string('idempotency_key', 150)->nullable()->after('reason');
+            $table->string('status', 20)->default('processed');
+            $table->foreignUuid('processed_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('processed_at')->nullable();
+            $table->timestamps();
+
+            $table->index(['academic_session_id', 'status', 'processed_at'], 'refunds_session_status_date_idx');
+            $table->index(['student_id', 'status', 'processed_at'], 'refunds_student_status_date_idx');
+            $table->index(['invoice_id', 'status'], 'refunds_invoice_status_idx');
+            $table->index(['status', 'processed_at'], 'refunds_status_date_idx');
+            $table->unique('idempotency_key', 'refund_idempotency_key_unique');
         });
 
         Schema::create('student_ledger_entries', function (Blueprint $table) {
@@ -189,6 +215,7 @@ return new class extends Migration
             $table->decimal('credit', 12, 2)->default(0);
             $table->string('reference', 100)->nullable();
             $table->text('description')->nullable();
+            $table->string('idempotency_key', 150)->nullable()->after('description');
             $table->date('transaction_date');
             $table->uuid('created_by')->nullable();
             $table->timestamps();
@@ -197,6 +224,7 @@ return new class extends Migration
             $table->index(['student_id', 'academic_session_id', 'transaction_date'], 'ledger_student_session_date_idx');
             $table->index(['payment_id', 'type', 'created_at'], 'ledger_payment_type_date_idx');
             $table->index('type');
+            $table->unique('idempotency_key', 'ledger_idempotency_key_unique');
         });
 
         Schema::create('student_account_balances', function (Blueprint $table) {
@@ -222,6 +250,7 @@ return new class extends Migration
         Schema::dropIfExists('student_ledger_entries');
         Schema::dropIfExists('student_fee_adjustments');
         Schema::dropIfExists('invoice_payment_allocations');
+        Schema::dropIfExists('refunds');
         Schema::dropIfExists('payments');
         Schema::dropIfExists('invoice_line_items');
         Schema::dropIfExists('invoices');

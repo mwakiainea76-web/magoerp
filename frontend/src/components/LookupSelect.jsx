@@ -156,7 +156,12 @@ export function LookupSelect({
                           : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                       )}
                     >
-                      <span className="truncate">{option.label}</span>
+                      <div className="flex flex-col gap-0.5 overflow-hidden">
+                        <span className="truncate">{option.label}</span>
+                        {option.subtitle ? (
+                          <span className="truncate text-xs text-slate-400">{option.subtitle}</span>
+                        ) : null}
+                      </div>
                       {isSelected ? (
                         <Check className="h-4 w-4 shrink-0 text-emerald-600" />
                       ) : null}

@@ -103,10 +103,10 @@ export function StudentsPage() {
     },
     {
       key: "exam_body_id",
-      label: "Exam body",
+      label: "Certification Authority",
       type: "search",
       fetchOptions: fetchExamBodies,
-      placeholder: "All exam bodies",
+      placeholder: "All certification authorities",
       className: "xl:col-span-4",
     },
     {

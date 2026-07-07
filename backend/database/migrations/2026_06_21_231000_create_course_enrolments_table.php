@@ -21,7 +21,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['student_id', 'status']);
+            $table->unique(['student_id', 'course_curriculum_id'], 'course_enrolments_student_curriculum_unique');
+            $table->index(['status', 'deleted_at', 'created_at'], 'course_enrolments_status_created_idx');
             $table->index(['course_curriculum_id', 'status'], 'course_enrolments_curriculum_status_idx');
             $table->index(['academic_session_id', 'status'], 'course_enrolments_session_status_idx');
         });

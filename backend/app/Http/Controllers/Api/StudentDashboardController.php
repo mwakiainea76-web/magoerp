@@ -66,6 +66,7 @@ class StudentDashboardController extends Controller
         $displaySessionEnrolment = $currentSessionEnrolment ?? $lastSessionEnrolment;
         $needsSessionEnrolment = $currentSession ? !$currentSessionEnrolment : false;
 
+        $courseCurriculumId = null;
         $courseInvoiceTemplate = null;
         $invoiceTemplateItems = [];
         $totalFee = 0;

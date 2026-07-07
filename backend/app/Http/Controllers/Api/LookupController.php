@@ -177,11 +177,16 @@ class LookupController extends Controller
     {
         abort_unless($request->user()?->can('institution.view'), 403);
 
+        $authorityId = (string) $request->string('authority_id', '');
+        $levelId = (string) $request->string('level_id', '');
+
         $items = CourseCurriculum::query()
             ->with('course.authority', 'course.level', 'curriculum', 'course.department')
             ->where('is_active', true)
             ->whereHas('course', fn ($q) => $q->where('is_active', true))
             ->whereHas('curriculum', fn ($q) => $q->where('is_active', true))
+            ->when($authorityId !== '', fn ($q) => $q->whereHas('course', fn ($cq) => $cq->where('certification_authority_id', $authorityId)))
+            ->when($levelId !== '', fn ($q) => $q->whereHas('course', fn ($cq) => $cq->where('certification_level_id', $levelId)))
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner

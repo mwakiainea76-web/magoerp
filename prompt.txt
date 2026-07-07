@@ -1,61 +1,144 @@
-Refactor my sidebar navigation config from one large object into per-role
-files, so adding/editing a role's nav doesn't require touching a giant
-shared file.
+A Course can only have one active Course Curriculum at any given time.
 
-CONTEXT:
-- Current file: src/support/sidebarNavigationByRole.js (or wherever it
-  lives) exports a single object `sidebarNavigationByRole` with keys
-  admin, trainer, student — each an array of nav items (some with
-  `children`, some flat with `to`).
-- It also exports `getSidebarLinks(role)` which reads from that object
-  with a fallback to `student`.
-- Icons come from lucide-react. Dashboard paths come from
-  `dashboardPathByRole` in "@/support/dashboardPaths".
+Older curricula remain in the system for historical records, but only one is available for new admissions.
 
-WHAT TO DO:
+Here's a refined implementation prompt.
 
-1. Create a new folder: src/support/navigation/
-   Split the object into one file per role, preserving every existing
-   label, `to` path, icon, and `children` structure EXACTLY as-is (no
-   renaming labels, no changing paths, no reordering items unless it's
-   clearly grouping-related):
-   - src/support/navigation/admin.nav.js   -> export const adminNav = [...]
-   - src/support/navigation/trainer.nav.js -> export const trainerNav = [...]
-   - src/support/navigation/student.nav.js -> export const studentNav = [...]
+Admission Form Redesign
 
-2. Each file must:
-   - Import only the lucide-react icons it actually uses (no unused
-     imports, no missing imports)
-   - Import `dashboardPathByRole` only if that role's file references it
-     for its Dashboard link
-   - Export a single named array constant matching the pattern above
+The current admission form requires users to select:
 
-3. Create src/support/navigation/index.js that:
-   - Imports adminNav, trainerNav, studentNav from the files above
-   - Exports `sidebarNavigationByRole = { admin: adminNav, trainer:
-     trainerNav, student: studentNav }`
-   - Exports `getSidebarLinks(role)` with the same fallback-to-student
-     behavior as the original
+Exam Body
+Level
+Course
+Curriculum
 
-4. Update any file currently importing `sidebarNavigationByRole` or
-   `getSidebarLinks` from the old location to import from
-   `@/support/navigation` instead (search the codebase for both names
-   first to find every usage).
+using dependent dropdowns. This creates unnecessary friction and exposes the underlying database relationships to users.
 
-5. Delete the old file once nothing else imports it.
+Business Rule
 
-6. Keep this extensible: adding a future role (e.g. "parent") should only
-   require creating src/support/navigation/parent.nav.js and adding one
-   line `parent: parentNav` inside index.js — no other files should need
-   changes.
+Admissions are made against a Course Curriculum.
 
-CONSTRAINTS:
-- Do not change any `to` path strings.
-- Do not change any label text or icon assignment.
-- Do not change the shape of nav item objects (keep `children`,
-  `defaultOpen`, etc. exactly as structured now).
-- Do not introduce a new nav data format — keep the same array-of-objects
-  shape already in use by whatever component renders the sidebar.
-- After the refactor, list every file you created/modified/deleted so I
-  can review the diff.
+A Course may have many Course Curricula over time, but only one Course Curriculum can be active at any given time.
 
+Historical curricula remain in the database for existing students and reporting, but they are not selectable for new admissions.
+
+This means that once a course is selected, there is exactly one active Course Curriculum.
+
+New User Experience
+
+Replace the four dependent dropdowns with a single searchable Course field.
+
+Admission Information
+
+Course *
+🔍 Search by course name, code or initials...
+
+Examples:
+
+Electrical Installation
+CDACC • Level 5
+
+Hair Dressing
+NITA • Grade III
+
+ICT Technician
+TVETA • Diploma
+
+When a course is selected:
+
+Automatically resolve its active Course Curriculum.
+Store the course_curricula.id.
+Populate the following read-only fields:
+Exam Body
+CDACC
+
+Level
+Level 5
+
+Curriculum
+CBC Curriculum 2024
+
+The user should never need to manually select:
+
+Exam Body
+Level
+Curriculum
+
+These are derived from the selected Course Curriculum.
+
+Backend
+
+Create a search endpoint:
+
+GET /api/course-curricula/search?q=
+
+The endpoint should:
+
+Search active courses by:
+name
+code
+initials
+Only return courses that have an active Course Curriculum.
+Eager load:
+course
+certification authority
+certification level
+active curriculum
+
+Example query:
+
+CourseCurriculum::query()
+    ->where('is_active', true)
+    ->whereHas('course', function ($query) use ($search) {
+        $query->where('is_active', true)
+              ->where(function ($q) use ($search) {
+                  $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('initials', 'like', "%{$search}%");
+              });
+    })
+    ->with([
+        'course.certificationAuthority',
+        'course.certificationLevel',
+        'curriculum',
+    ]);
+Response
+[
+  {
+    "id": "course_curriculum_uuid",
+    "course_name": "Electrical Installation",
+    "course_code": "EI001",
+    "course_initials": "EI",
+    "authority": "CDACC",
+    "level": "Level 5",
+    "curriculum": "CBC Curriculum 2024"
+  }
+]
+Selection
+
+When the user selects a course:
+
+Save the selected course_curricula.id.
+Display:
+Course
+Electrical Installation
+
+Exam Body
+CDACC
+
+Level
+Level 5
+
+Curriculum
+CBC Curriculum 2024
+
+The admission record should reference the selected Course Curriculum, not the Course directly.
+
+UX Goals
+One searchable field instead of four dependent dropdowns.
+Fast autocomplete with debounced search.
+Search by course name, code, or initials.
+No disabled dropdowns or "Select level first" messages.
+Automatically derive Authority, Level, and Curriculum from the selected Course Curriculum.
+Reduce the admission workflow to a single search and selection while keeping the existing database structure unchanged.

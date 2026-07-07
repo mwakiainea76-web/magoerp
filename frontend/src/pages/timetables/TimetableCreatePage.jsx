@@ -104,8 +104,9 @@ export function TimetableCreatePage() {
     const res = await timetableApi.staffList();
     const items = res.data ?? [];
     if (!query) return items.map((s) => ({ id: s.id, label: `${s.name} (${s.employee_number})` }));
+    const q = query.toLowerCase();
     return items
-      .filter((s) => s.name.toLowerCase().includes(query.toLowerCase()))
+      .filter((s) => s.name.toLowerCase().includes(q) || s.employee_number.toLowerCase().includes(q))
       .map((s) => ({ id: s.id, label: `${s.name} (${s.employee_number})` }));
   }, [timetableApi]);
 

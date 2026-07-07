@@ -10,7 +10,7 @@ import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { useStudentsApi } from "@/hooks/useStudentsApi";
-import { useLookupApi } from "@/hooks/useLookupApi";
+import { useCourseCurriculaApi } from "@/hooks/useCourseCurriculaApi";
 import { bodyTextClassName, textAreaClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -34,25 +34,10 @@ const studentSchema = yup.object({
 
   county: yup.string().required("County is required").max(255),
 
-  exam_body_id: yup
-    .string()
-    .required("Exam body is required")
-    .matches(uuidPattern, "Select a valid exam body"),
-
-  level_id: yup
-    .string()
-    .required("Level is required")
-    .matches(uuidPattern, "Select a valid level"),
-
-  course_id: yup
+  course_curriculum_id: yup
     .string()
     .required("Course is required")
     .matches(uuidPattern, "Select a valid course"),
-
-  curriculum_id: yup
-    .string()
-    .required("Curriculum is required")
-    .matches(uuidPattern, "Select a valid curriculum"),
 
   is_pwd: yup.boolean().required(),
   disability_type: yup.string().when("is_pwd", {
@@ -91,8 +76,7 @@ function normalizePayload(values) {
     phone_number: values.phone_number.trim(),
     alternative_phone_number: values.alternative_phone_number.trim(),
     county: values.county.trim(),
-    course_id: values.course_id || null,
-    curriculum_id: values.curriculum_id || null,
+    course_curriculum_id: values.course_curriculum_id || null,
 
     is_pwd: values.is_pwd,
     disability_type: values.is_pwd ? values.disability_type.trim() : null,
@@ -112,13 +96,11 @@ export function StudentFormPage() {
   const { studentId } = useParams();
   const navigate = useNavigate();
   const studentsApi = useStudentsApi();
-  const lookupApi = useLookupApi();
+  const courseCurriculaApi = useCourseCurriculaApi();
   const isEdit = Boolean(studentId);
 
-  const [selectedExamBodyOption, setSelectedExamBodyOption] = useState(null);
-  const [selectedLevelOption, setSelectedLevelOption] = useState(null);
   const [selectedCourseOption, setSelectedCourseOption] = useState(null);
-  const [selectedCurriculumOption, setSelectedCurriculumOption] = useState(null);
+  const [selectedCourseData, setSelectedCourseData] = useState(null);
   const [admissionNumber, setAdmissionNumber] = useState("");
   const [pageError, setPageError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -155,10 +137,7 @@ export function StudentFormPage() {
       phone_number: "",
       alternative_phone_number: "",
       county: "",
-      exam_body_id: "",
-      level_id: "",
-      course_id: "",
-      curriculum_id: "",
+      course_curriculum_id: "",
       is_pwd: false,
       disability_type: "",
       disability_description: "",
@@ -173,9 +152,7 @@ export function StudentFormPage() {
   });
 
   const watchedIsPwd = watch("is_pwd");
-  const watchedExamBodyId = watch("exam_body_id");
-  const watchedLevelId = watch("level_id");
-  const watchedCourseId = watch("course_id");
+  const watchedCourseCurriculumId = watch("course_curriculum_id");
 
   useEffect(() => {
     let isMounted = true;
@@ -193,6 +170,22 @@ export function StudentFormPage() {
           if (response?.data) {
             const s = response.data;
             setAdmissionNumber(s.admission_number ?? "");
+
+            if (s.course_curriculum_id) {
+              setSelectedCourseOption({
+                id: s.course_curriculum_id,
+                label: s.course_name ?? "",
+                subtitle: "",
+              });
+              setSelectedCourseData({
+                course_id: s.course_id,
+                course_name: s.course_name,
+                authority: s.exam_body_name,
+                level: s.level_name,
+                curriculum: s.curriculum_name,
+              });
+            }
+
             reset({
               email: s.email ?? "",
               first_name: s.first_name ?? "",
@@ -207,10 +200,7 @@ export function StudentFormPage() {
               phone_number: s.phone_number ?? "",
               alternative_phone_number: s.alternative_phone_number ?? "",
               county: s.county ?? "",
-              exam_body_id: s.exam_body_id ?? "",
-              level_id: s.level_id ?? "",
-              course_id: s.course_id ?? "",
-              curriculum_id: s.curriculum_id ?? "",
+              course_curriculum_id: s.course_curriculum_id ?? "",
               is_pwd: s.is_pwd ?? false,
               disability_type: s.disability_type ?? "",
               disability_description: s.disability_description ?? "",
@@ -222,31 +212,6 @@ export function StudentFormPage() {
               next_of_kin_relationship: s.next_of_kin_relationship ?? "",
               status: s.status ?? "active",
             });
-
-            if (s.exam_body_id) {
-              setSelectedExamBodyOption({
-                id: s.exam_body_id,
-                label: s.exam_body_name ?? "",
-              });
-            }
-            if (s.level_id) {
-              setSelectedLevelOption({
-                id: s.level_id,
-                label: s.level_name ?? "",
-              });
-            }
-            if (s.course_id) {
-              setSelectedCourseOption({
-                id: s.course_id,
-                label: `${s.course_code} ${s.course_name}`,
-              });
-            }
-            if (s.curriculum_id) {
-              setSelectedCurriculumOption({
-                id: s.curriculum_id,
-                label: s.curriculum_name ?? "",
-              });
-            }
           }
         } else if (isMounted) {
           setAdmissionNumber("Select a course");
@@ -270,7 +235,7 @@ export function StudentFormPage() {
   }, [studentId, studentsApi, isEdit, reset]);
 
   useEffect(() => {
-    if (isEdit || !watchedCourseId || !watchedExamBodyId) {
+    if (isEdit || !watchedCourseCurriculumId) {
       if (!isEdit) {
         setAdmissionNumber("Select a course");
       }
@@ -280,10 +245,15 @@ export function StudentFormPage() {
     let isMounted = true;
     setAdmissionNumber("Generating...");
 
+    const courseId = selectedCourseData?.course_id;
+
+    if (!courseId) {
+      setAdmissionNumber("Unavailable");
+      return undefined;
+    }
+
     studentsApi
-      .meta({
-        course_id: watchedCourseId,
-      })
+      .meta({ course_id: courseId })
       .then((response) => {
         if (isMounted) {
           setAdmissionNumber(response?.next_admission_number ?? "Unavailable");
@@ -298,37 +268,17 @@ export function StudentFormPage() {
     return () => {
       isMounted = false;
     };
-  }, [isEdit, studentsApi, watchedCourseId, watchedExamBodyId]);
-
-  const fetchExamBodies = useCallback(async (query) => {
-    const response = await lookupApi.search("certification-authorities", { query, limit: 10 });
-    return response.data ?? [];
-  }, [lookupApi]);
-
-  const watchedExamBodyIdForLevels = watchedExamBodyId;
-
-  const fetchLevels = useCallback(async (query) => {
-    if (!watchedExamBodyIdForLevels) return [];
-    const response = await lookupApi.search("certification-levels", { query, limit: 10, authority_id: watchedExamBodyIdForLevels });
-    return response.data ?? [];
-  }, [lookupApi, watchedExamBodyIdForLevels]);
-
-  const watchedExamBodyIdForCourses = watchedExamBodyId;
-  const watchedLevelIdForCourses = watchedLevelId;
+  }, [isEdit, studentsApi, watchedCourseCurriculumId, selectedCourseData]);
 
   const fetchCourses = useCallback(async (query) => {
-    if (!watchedExamBodyIdForCourses || !watchedLevelIdForCourses) return [];
-    const response = await lookupApi.search("courses", { query, limit: 10, authority_id: watchedExamBodyIdForCourses, level_id: watchedLevelIdForCourses });
-    return response.data ?? [];
-  }, [lookupApi, watchedExamBodyIdForCourses, watchedLevelIdForCourses]);
-
-  const watchedExamBodyIdForCurricula = watchedExamBodyId;
-
-  const fetchCurricula = useCallback(async (query) => {
-    if (!watchedExamBodyIdForCurricula) return [];
-    const response = await lookupApi.search("curricula", { query, limit: 10, authority_id: watchedExamBodyIdForCurricula });
-    return response.data ?? [];
-  }, [lookupApi, watchedExamBodyIdForCurricula]);
+    const response = await courseCurriculaApi.search({ q: query });
+    return (response?.data ?? []).map((item) => ({
+      id: item.id,
+      label: item.course_name,
+      subtitle: item.authority_code && item.level ? `${item.authority_code} \u2022 ${item.level}` : "",
+      _data: item,
+    }));
+  }, [courseCurriculaApi]);
 
   async function onSubmit(data) {
     setIsSaving(true);
@@ -408,95 +358,9 @@ export function StudentFormPage() {
               disabled={isEdit}
             />
 
-            <div>
+            <div className="md:col-span-2 lg:col-span-2">
               <Controller
-                name="exam_body_id"
-                control={control}
-                render={({ field }) => (
-                  <LookupSelect
-                    label="Exam Body"
-                    required
-                    value={field.value}
-                    selectedOption={selectedExamBodyOption}
-                    disabled={isEdit}
-                    onChange={(nextValue, option) => {
-                      field.onChange(nextValue);
-                      setSelectedExamBodyOption(option);
-                      clearErrors("exam_body_id");
-                      if (option?.id !== selectedExamBodyOption?.id) {
-                        setSelectedLevelOption(null);
-                        setSelectedCourseOption(null);
-                        setSelectedCurriculumOption(null);
-                        setValue("level_id", "");
-                        setValue("course_id", "");
-                        setValue("curriculum_id", "");
-                      }
-                    }}
-                    fetchOptions={fetchExamBodies}
-                    error={errors.exam_body_id?.message}
-                    placeholder="Search exam body"
-                    emptyMessage="No exam bodies found"
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
-                name="curriculum_id"
-                control={control}
-                render={({ field }) => (
-                  <LookupSelect
-                    label="Curriculum"
-                    required
-                    value={field.value}
-                    selectedOption={selectedCurriculumOption}
-                    disabled={isEdit || !watchedExamBodyId}
-                    onChange={(nextValue, option) => {
-                      field.onChange(nextValue);
-                      setSelectedCurriculumOption(option);
-                      clearErrors("curriculum_id");
-                    }}
-                    fetchOptions={fetchCurricula}
-                    error={errors.curriculum_id?.message}
-                    placeholder={watchedExamBodyId ? "Search curriculum" : "Select exam body first"}
-                    emptyMessage="No curricula found"
-                  />
-                )}
-              />
-            </div>
-            <div>
-              <Controller
-                name="level_id"
-                control={control}
-                render={({ field }) => (
-                  <LookupSelect
-                    label="Level"
-                    required
-                    value={field.value}
-                    selectedOption={selectedLevelOption}
-                    disabled={isEdit || !watchedExamBodyId}
-                    onChange={(nextValue, option) => {
-                      field.onChange(nextValue);
-                      setSelectedLevelOption(option);
-                      clearErrors("level_id");
-                      if (option?.id !== selectedLevelOption?.id) {
-                        setSelectedCourseOption(null);
-                        setValue("course_id", "");
-                      }
-                    }}
-                    fetchOptions={fetchLevels}
-                    error={errors.level_id?.message}
-                    placeholder={watchedExamBodyId ? "Search level" : "Select exam body first"}
-                    emptyMessage="No levels found"
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
-                name="course_id"
+                name="course_curriculum_id"
                 control={control}
                 render={({ field }) => (
                   <LookupSelect
@@ -504,21 +368,56 @@ export function StudentFormPage() {
                     required
                     value={field.value}
                     selectedOption={selectedCourseOption}
-                    disabled={isEdit || !watchedLevelId}
+                    disabled={isEdit}
                     onChange={(nextValue, option) => {
                       field.onChange(nextValue);
-                      setSelectedCourseOption(option);
-                      clearErrors("course_id");
+                      clearErrors("course_curriculum_id");
+                      if (option?._data) {
+                        setSelectedCourseOption({
+                          id: option._data.id,
+                          label: option._data.course_name,
+                          subtitle: option._data.authority_code && option._data.level ? `${option._data.authority_code} \u2022 ${option._data.level}` : "",
+                        });
+                        setSelectedCourseData({
+                          course_id: option._data.course_id,
+                          course_name: option._data.course_name,
+                          authority: option._data.authority,
+                          level: option._data.level,
+                          curriculum: option._data.curriculum,
+                        });
+                      } else {
+                        setSelectedCourseOption(null);
+                        setSelectedCourseData(null);
+                      }
                     }}
                     fetchOptions={fetchCourses}
-                    error={errors.course_id?.message}
-                    placeholder={watchedLevelId ? "Search course" : "Select level first"}
+                    error={errors.course_curriculum_id?.message}
+                    placeholder="Search by course name, code or initials..."
                     emptyMessage="No courses found"
                   />
                 )}
               />
             </div>
 
+            {selectedCourseData ? (
+              <>
+                <FormInput
+                  label="Certification Authority"
+                  value={selectedCourseData.authority ?? ""}
+                  disabled
+                />
+                <FormInput
+                  label="Level"
+                  value={selectedCourseData.level ?? ""}
+                  disabled
+                />
+                <FormInput
+                  label="Curriculum"
+                  value={selectedCourseData.curriculum ?? ""}
+                  disabled
+                />
+              </>
+            ) : null}
           </div>
         </div>
 

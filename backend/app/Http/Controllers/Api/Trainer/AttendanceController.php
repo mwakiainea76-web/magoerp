@@ -23,6 +23,23 @@ class AttendanceController extends Controller
         $user = $request->user();
         $staff = $user->staff;
 
+        if ($this->canManageAnyAttendance($user)) {
+            $units = AcademicTimetable::query()
+                ->with('unit:id,code,name')
+                ->get()
+                ->pluck('unit')
+                ->filter()
+                ->unique('id')
+                ->values()
+                ->map(fn ($u) => [
+                    'id' => $u->id,
+                    'code' => $u->code,
+                    'name' => $u->name,
+                ]);
+
+            return response()->json(['data' => $units]);
+        }
+
         if (!$staff) {
             return response()->json(['data' => []]);
         }
@@ -57,12 +74,8 @@ class AttendanceController extends Controller
         $user = $request->user();
         $staff = $user->staff;
 
-        abort_unless($staff, 403, 'Only trainers can mark attendance.');
-        abort_unless(
-            AcademicTimetable::where('trainer_staff_id', $staff->id)->where('unit_id', $validated['unit_id'])->exists(),
-            403,
-            'You are not assigned to teach this unit.'
-        );
+        $this->authorizeAttendanceAccess($user, $staff, $validated['unit_id']);
+
 
         $roster = $this->attendanceService->getEligibleRoster(
             $validated['unit_id'],
@@ -92,12 +105,8 @@ class AttendanceController extends Controller
         $staff = $user->staff;
         $validated = $request->validated();
 
-        abort_unless($staff, 403, 'Only trainers can mark attendance.');
-        abort_unless(
-            AcademicTimetable::where('trainer_staff_id', $staff->id)->where('unit_id', $validated['unit_id'])->exists(),
-            403,
-            'You are not assigned to teach this unit.'
-        );
+        $this->authorizeAttendanceAccess($user, $staff, $validated['unit_id']);
+
 
         $this->attendanceService->markAttendance(
             $validated['unit_id'],
@@ -115,5 +124,30 @@ class AttendanceController extends Controller
                 $validated['start_time'],
             ),
         ]);
+    }
+
+    private function authorizeAttendanceAccess($user, $staff, string $unitId): void
+    {
+        if ($this->canManageAnyAttendance($user)) {
+            abort_unless(
+                AcademicTimetable::where('unit_id', $unitId)->exists(),
+                403,
+                'No timetable exists for this unit.'
+            );
+
+            return;
+        }
+
+        abort_unless($staff, 403, 'Only trainers can mark attendance.');
+        abort_unless(
+            AcademicTimetable::where('trainer_staff_id', $staff->id)->where('unit_id', $unitId)->exists(),
+            403,
+            'You are not assigned to teach this unit.'
+        );
+    }
+
+    private function canManageAnyAttendance($user): bool
+    {
+        return (bool) ($user?->hasRole('admin') || $user?->role === 'admin');
     }
 }
