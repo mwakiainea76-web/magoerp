@@ -130,12 +130,13 @@ class BillingService
                 })
                 ->where(function ($query) use ($targetSession) {
                     $query->where('academic_session_id', $targetSession->id)
-                        ->orWhereNull('academic_session_id');
+                        ->orWhereNull('academic_session_id')
+                        ->orWhereHas('academicSession', fn ($sessionQuery) => $sessionQuery
+                            ->where('academic_year_id', $targetSession->academic_year_id));
                 })
                 ->whereIn('year_level', [$billingYearLevel, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
                 ->where('session_number', $billingSessionNumber)
                 ->where('is_approved', true)
-                ->where('dormant', false)
                 ->with(['feeTemplate.items' => fn ($q) => $q->where('is_active', true)->where('amount', '>', 0)])
                 ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])
                 ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$billingYearLevel])

@@ -12,6 +12,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\StudentLedgerEntry;
+use App\Models\SystemConfiguration;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
 use Illuminate\Http\JsonResponse;
@@ -66,14 +67,18 @@ class StudentDashboardController extends Controller
         $displaySessionEnrolment = $currentSessionEnrolment ?? $lastSessionEnrolment;
         $needsSessionEnrolment = $currentSession ? !$currentSessionEnrolment : false;
 
-        $courseCurriculumId = null;
+        $courseCurriculumId = $courseEnrolment?->course_curriculum_id;
+        $priorSessionCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_academic_year', config('academic.sessions_per_academic_year', 3));
+        $nextModule = $priorSessionCount + 1;
+        $nextYearLevel = (int) floor(($nextModule - 1) / $sessionsPerYear) + 1;
+        $nextSessionNumber = (($nextModule - 1) % $sessionsPerYear) + 1;
+        $pendingFeeAssignment = null;
         $courseInvoiceTemplate = null;
         $invoiceTemplateItems = [];
         $totalFee = 0;
 
         if ($course && $currentSession && $currentSessionEnrolment) {
-            $courseCurriculumId = $courseEnrolment?->course_curriculum_id;
-
             $courseInvoiceTemplate = $courseCurriculumId
                 ? CurriculumFeeAssignment::query()
                     ->where(function ($query) use ($courseCurriculumId, $course) {
@@ -90,7 +95,9 @@ class StudentDashboardController extends Controller
                     ->where('session_number', $currentSessionEnrolment->session_number)
                     ->where(function ($query) use ($currentSession) {
                         $query->where('academic_session_id', $currentSession->id)
-                            ->orWhereNull('academic_session_id');
+                            ->orWhereNull('academic_session_id')
+                            ->orWhereHas('academicSession', fn ($sessionQuery) => $sessionQuery
+                                ->where('academic_year_id', $currentSession->academic_year_id));
                     })
                     ->with(['feeTemplate.items' => fn ($query) => $query->where('is_active', true)])
                     ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])
@@ -109,6 +116,33 @@ class StudentDashboardController extends Controller
 
                 $totalFee = $courseInvoiceTemplate->feeTemplate->items->sum('amount');
             }
+        }
+
+        if ($user->can('finance.view') && $courseCurriculumId && $course && $currentSession && !$currentSessionEnrolment) {
+            $pendingFeeAssignment = CurriculumFeeAssignment::query()
+                ->where(function ($query) use ($courseCurriculumId, $course) {
+                    $query->where('course_curriculum_id', $courseCurriculumId);
+                    if ($course?->department_id) {
+                        $query->orWhere(function ($departmentQuery) use ($course) {
+                            $departmentQuery->where('department_id', $course->department_id)
+                                ->whereNull('course_curriculum_id');
+                        });
+                    }
+                })
+                ->where(function ($query) use ($currentSession) {
+                    $query->where('academic_session_id', $currentSession->id)
+                        ->orWhereNull('academic_session_id')
+                        ->orWhereHas('academicSession', fn ($sessionQuery) => $sessionQuery
+                            ->where('academic_year_id', $currentSession->academic_year_id));
+                })
+                ->whereIn('year_level', [$nextYearLevel, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
+                ->where('session_number', $nextSessionNumber)
+                ->where('is_approved', false)
+                ->with(['feeTemplate:id,code,name', 'department:id,name', 'courseCurriculum.course:id,name'])
+                ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])
+                ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$nextYearLevel])
+                ->orderByRaw('academic_session_id = ? desc', [$currentSession->id])
+                ->first();
         }
 
         $invoiceBaseQuery = Invoice::query()
@@ -157,19 +191,7 @@ class StudentDashboardController extends Controller
             ->where('due_date', '<', now()->toDateString())
             ->sum('balance_due');
 
-        $dormantFeesCount = $courseCurriculumId && $currentSession?->academic_year_id
-            ? CurriculumFeeAssignment::query()
-                ->where(function ($query) use ($courseCurriculumId, $course) {
-                    $query->where('course_curriculum_id', $courseCurriculumId);
-                    if ($course?->department_id) {
-                        $query->orWhere(fn ($q) => $q->where('department_id', $course->department_id)->whereNull('course_curriculum_id'));
-                    }
-                })
-                ->where('is_approved', true)
-                ->where('dormant', true)
-                ->whereHas('academicSession', fn ($q) => $q->where('academic_year_id', $currentSession->academic_year_id))
-                ->count()
-            : 0;
+        $dormantFeesCount = 0;
 
         $availableUnits = collect();
         $registeredUnitIds = collect();
@@ -280,6 +302,15 @@ class StudentDashboardController extends Controller
                     'is_approved' => $courseInvoiceTemplate->is_approved,
                     'items' => $invoiceTemplateItems,
                     'total_amount' => $totalFee,
+                ] : null,
+                'pending_fee_assignment' => $pendingFeeAssignment ? [
+                    'id' => $pendingFeeAssignment->id,
+                    'fee_template_id' => $pendingFeeAssignment->fee_template_id,
+                    'fee_template_name' => $pendingFeeAssignment->feeTemplate?->name,
+                    'assignment_target_name' => $pendingFeeAssignment->department?->name ?? $pendingFeeAssignment->courseCurriculum?->course?->name,
+                    'year_level' => $pendingFeeAssignment->year_level,
+                    'session_number' => $pendingFeeAssignment->session_number,
+                    'can_activate' => $user->can('finance.update'),
                 ] : null,
             ],
         ]);

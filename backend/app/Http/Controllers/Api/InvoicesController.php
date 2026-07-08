@@ -531,9 +531,11 @@ class InvoicesController extends Controller
             'ledger_balance' => (float) ($transactions->last()['balance'] ?? 0),
         ];
 
+        $institutionData = $this->loadInstitution();
+
         return [
-            'institution_name' => config('institution.name'),
-            'institution' => config('institution'),
+            'institution_name' => $institutionData['name'] ?? null,
+            'institution' => $institutionData,
             'statement_mode' => [
                 'scope' => $scope,
                 'include_dormant' => $includeDormant,

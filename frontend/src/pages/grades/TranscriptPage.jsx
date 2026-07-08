@@ -133,12 +133,20 @@ export function TranscriptPage({ role = "admin" }) {
     name: transcriptData?.institution_name,
   };
   const gradeLegend = transcriptData?.grade_legend ?? [];
-  const generatedOn = new Date().toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-  const transcriptReference = [
+  const generatedOn = transcriptData?.generated_at
+    ? new Date(transcriptData.generated_at).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+  const transcriptReference = transcriptData?.transcript_reference || [
     "TR",
     (student?.admission_number || "NA").replace(/[^A-Za-z0-9]/g, ""),
     selectedEnrolmentId ? selectedEnrolmentId.slice(0, 8) : "NA",
@@ -434,11 +442,12 @@ export function TranscriptPage({ role = "admin" }) {
                     </tr>
                     <tr className="border-b border-slate-300">
                       <td className="px-1.5 py-1.5 font-bold text-slate-700">
-                        Department:
+                        School:
                       </td>
                       <td className="px-2 py-1.5 text-black">
                         {valueOrDash(
-                          transcriptCourse?.department ||
+                          transcriptCourse?.school ||
+                            transcriptCourse?.department ||
                             transcriptCourse?.certification_authority,
                         )}
                       </td>

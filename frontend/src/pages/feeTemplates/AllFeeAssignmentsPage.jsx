@@ -21,6 +21,7 @@ export function AllFeeAssignmentsPage() {
   const [sessions, setSessions] = useState([]);
   const [academicYearId, setAcademicYearId] = useState("");
   const [academicSessionId, setAcademicSessionId] = useState("");
+  const [activationId, setActivationId] = useState(null);
 
   useEffect(() => {
     sessionsApi.list({ per_page: 100, status: "all", sort_by: "start_date", sort_direction: "asc" }).then((res) => {
@@ -85,6 +86,18 @@ export function AllFeeAssignmentsPage() {
     load(search, newPage, { academic_year_id: academicYearId, academic_session_id: academicSessionId });
   }
 
+  async function activateAssignment(assignment) {
+    setActivationId(assignment.id);
+    try {
+      await api.update(assignment.fee_template_id, assignment.id, { is_approved: true });
+      toast.success("Fee assignment activated.");
+      await load(search, page, { academic_year_id: academicYearId, academic_session_id: academicSessionId });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to activate fee assignment."));
+    } finally {
+      setActivationId(null);
+    }
+  }
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -141,9 +154,20 @@ export function AllFeeAssignmentsPage() {
                         {assignment.split_amount ? <> · {money(assignment.split_amount)}</> : null}
                       </p>
                     </div>
-                    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${assignment.is_approved ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                      {assignment.is_approved ? <><BadgeCheck className="size-3" />Approved</> : "Pending"}
-                    </span>
+                    {assignment.is_approved ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        <BadgeCheck className="size-3" />Active
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => activateAssignment(assignment)}
+                        disabled={activationId === assignment.id}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {activationId === assignment.id ? "Activating..." : "Activate fee"}
+                      </button>
+                    )}
                   </div>
                   {(assignment.child_assignments ?? []).length > 0 ? (
                     <div className="mt-4 grid gap-3 md:grid-cols-3">

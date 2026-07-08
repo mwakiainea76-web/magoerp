@@ -867,6 +867,7 @@ class StudentMarksController extends Controller
 
     private function buildMyTranscriptData(Student $student, array $validated): array
     {
+        $institutionData = $this->loadInstitution();
         $sessionEnrolmentId = $validated['session_enrolment_id'] ?? null;
         $transcriptType = $validated['transcript_type'] ?? 'progress';
         $selectedModule = $validated['module'] ?? null;
@@ -916,8 +917,8 @@ class StudentMarksController extends Controller
                     'department' => $course?->department?->name, 'school' => $course?->department?->name ?: $authority?->name,
                     'certification_authority' => $authority?->name, 'certification_level' => $course?->level?->name,
                 ],
-                'institution_name' => config('institution.name'),
-                'institution' => config('institution'),
+                'institution_name' => $institutionData['name'] ?? null,
+                'institution' => $institutionData,
                 'student_meta' => [
                     'admission_year' => $firstSessionEnrolment?->enrolled_at?->format('Y'),
                     'class_name' => null, 'session_number' => null, 'year_of_study_label' => null,

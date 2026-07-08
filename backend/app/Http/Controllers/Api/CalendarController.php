@@ -141,7 +141,7 @@ class CalendarController extends Controller
             ->values()
             ->toArray();
 
-        $institution = config('institution');
+        $institution = $this->loadInstitution();
 
         $data = [
             'institution'  => $institution,
@@ -175,7 +175,7 @@ class CalendarController extends Controller
             ->values()
             ->toArray();
 
-        $institution = config('institution');
+        $institution = $this->loadInstitution();
 
         $data = [
             'institution'  => $institution,

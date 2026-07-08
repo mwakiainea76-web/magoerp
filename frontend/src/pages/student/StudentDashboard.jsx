@@ -15,6 +15,7 @@ import {
 import toast from "react-hot-toast";
 
 import { useStudentDashboardApi } from "@/hooks/useStudentDashboardApi";
+import { useCurriculumFeeAssignmentsApi } from "@/hooks/useCurriculumFeeAssignmentsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const currency = (amount) => {
@@ -30,12 +31,14 @@ const currency = (amount) => {
 
 export function StudentDashboard() {
   const { dashboard, registerSession, registerUnits } = useStudentDashboardApi();
+  const feeAssignmentsApi = useCurriculumFeeAssignmentsApi();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [registeringUnits, setRegisteringUnits] = useState(false);
+  const [activatingFee, setActivatingFee] = useState(false);
   const [selectedUnitIds, setSelectedUnitIds] = useState([]);
   const [registerErrors, setRegisterErrors] = useState(null);
   const cancelledRef = useRef(false);
@@ -56,11 +59,14 @@ export function StudentDashboard() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDashboard();
     return () => { cancelledRef.current = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedUnitIds(data?.registered_unit_ids ?? []);
   }, [data?.registered_unit_ids]);
 
@@ -86,6 +92,22 @@ export function StudentDashboard() {
     }
   }
 
+  async function handleActivateFeeAssignment() {
+    const assignment = data?.pending_fee_assignment;
+    if (!assignment?.can_activate) return;
+
+    setActivatingFee(true);
+    try {
+      await feeAssignmentsApi.update(assignment.fee_template_id, assignment.id, { is_approved: true });
+      toast.success("Fee assignment activated. You can register the session now.");
+      setRegisterErrors(null);
+      await loadDashboard();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Failed to activate fee assignment."));
+    } finally {
+      setActivatingFee(false);
+    }
+  }
   function handleUnitToggle(unitId) {
     setSelectedUnitIds((current) =>
       current.includes(unitId)
@@ -566,7 +588,24 @@ export function StudentDashboard() {
               </div>
 
               {registerErrors?.session_registration ? (
-                <p className="text-sm text-red-600">{registerErrors.session_registration}</p>
+                <div className="space-y-3">
+                  <p className="text-sm text-red-600">{registerErrors.session_registration}</p>
+                  {data?.pending_fee_assignment?.can_activate ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                      <p className="text-sm font-medium text-amber-900">
+                        {data.pending_fee_assignment.fee_template_name ?? "Fee assignment"} is assigned but not active.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleActivateFeeAssignment}
+                        disabled={activatingFee}
+                        className="mt-3 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {activatingFee ? "Activating..." : "Activate fee"}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
 
               <div className="flex justify-end gap-3 pt-2">
@@ -579,7 +618,7 @@ export function StudentDashboard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={registering || !current_session}
+                  disabled={registering || activatingFee || !current_session}
                   className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {registering ? "Registering..." : "Register Session"}

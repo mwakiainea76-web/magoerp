@@ -125,7 +125,7 @@ class CurriculumFeeAssignmentsController extends Controller
         }
 
         $amount = (float) $template->items()->where('is_active', true)->sum('amount');
-        $approved = $request->boolean('is_approved');
+        $approved = $request->boolean('is_approved', true);
         $session = !empty($validated['academic_session_id'])
             ? AcademicSession::find($validated['academic_session_id'])
             : null;
@@ -136,7 +136,7 @@ class CurriculumFeeAssignmentsController extends Controller
             'academic_session_id' => $session?->id,
             'issuance_type' => 'per_session',
             'parent_assignment_id' => null,
-            'dormant' => $session ? !$session->is_active : false,
+            'dormant' => false,
             'split_amount' => $amount > 0 ? $amount : null,
             'split_ratio' => 100,
             'year_level' => $validated['year_level'],
@@ -195,7 +195,7 @@ class CurriculumFeeAssignmentsController extends Controller
             ], 422);
         }
 
-        $approved = $request->boolean('is_approved');
+        $approved = $request->boolean('is_approved', true);
         $parent = DB::transaction(function () use ($request, $template, $validated, $sessions, $ratios, $totalAmount, $approved, $hasCustomRatios) {
             $parent = CurriculumFeeAssignment::create([
                 'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
@@ -204,7 +204,7 @@ class CurriculumFeeAssignmentsController extends Controller
                 'academic_session_id' => null,
                 'issuance_type' => 'per_year',
                 'parent_assignment_id' => null,
-                'dormant' => true,
+                'dormant' => false,
                 'split_amount' => $totalAmount,
                 'split_ratio' => 100,
                 'year_level' => $validated['year_level'],
@@ -235,7 +235,7 @@ class CurriculumFeeAssignmentsController extends Controller
                     'academic_session_id' => $session->id,
                     'issuance_type' => 'per_year',
                     'parent_assignment_id' => $parent->id,
-                    'dormant' => !$session->is_active,
+                    'dormant' => false,
                     'split_amount' => $amount > 0 ? $amount : null,
                     'split_ratio' => $ratio,
                     'year_level' => $validated['year_level'],
@@ -455,7 +455,7 @@ class CurriculumFeeAssignmentsController extends Controller
             'course_level_name' => $mapping?->course?->level?->name,
             'issuance_type' => $assignment->issuance_type,
             'parent_assignment_id' => $assignment->parent_assignment_id,
-            'dormant' => (bool) $assignment->dormant,
+            'dormant' => false,
             'split_amount' => $assignment->split_amount !== null ? (float) $assignment->split_amount : null,
             'split_ratio' => $assignment->split_ratio !== null ? (float) $assignment->split_ratio : null,
             'year_level' => $assignment->year_level,
@@ -469,7 +469,7 @@ class CurriculumFeeAssignmentsController extends Controller
                     'academic_session_name' => $child->academicSession?->name,
                     'academic_session_code' => $child->academicSession?->code,
                     'session_number' => $child->session_number,
-                    'dormant' => (bool) $child->dormant,
+                    'dormant' => false,
                     'split_amount' => (float) $child->split_amount,
                     'split_ratio' => (float) $child->split_ratio,
                     'is_approved' => (bool) $child->is_approved,
