@@ -21,24 +21,26 @@ export function BillingRefundForm({ action, form, onSubmit, onCancel, isSaving, 
       submitDisabled={!isGraduated || creditBalance <= 0}
     >
       <form id="refund-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <LookupSelect
-          label="Student"
-          placeholder="Search graduated student by admission number or name"
-          required
-          value={form.watch("refund_student_id")}
-          selectedOption={selectedStudent}
-          onChange={(id, option) => {
-            form.setValue("refund_student_id", id, { shouldValidate: true });
-            setSelectedStudent(option ?? null);
-            if (option?.status === "graduated") {
-              fetchStudentCredit(id);
-            } else {
-              setCreditBalance(0);
-            }
-          }}
-          fetchOptions={fetchGraduatedStudents}
-          error={form.formState.errors.refund_student_id?.message}
-        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <LookupSelect
+            label="Student"
+            placeholder="Search graduated student by admission number or name"
+            required
+            value={form.watch("refund_student_id")}
+            selectedOption={selectedStudent}
+            onChange={(id, option) => {
+              form.setValue("refund_student_id", id, { shouldValidate: true });
+              setSelectedStudent(option ?? null);
+              if (option?.status === "graduated") {
+                fetchStudentCredit(id);
+              } else {
+                setCreditBalance(0);
+              }
+            }}
+            fetchOptions={fetchGraduatedStudents}
+            error={form.formState.errors.refund_student_id?.message}
+          />
+        </div>
         {isGraduated ? (
           <>
             <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
@@ -47,19 +49,21 @@ export function BillingRefundForm({ action, form, onSubmit, onCancel, isSaving, 
               </p>
               {creditBalance <= 0 && !isFetchingCredit ? <p className="mt-1 text-[12px] text-sky-600">This student has no available credit to refund.</p> : null}
             </div>
-            <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">Refund Amount</label>
-              <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-                {isFetchingCredit ? "Calculating..." : creditBalance > 0 ? formatCurrency(creditBalance) : "No credit available"}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[13px] font-medium text-slate-600">Refund Amount</label>
+                <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+                  {isFetchingCredit ? "Calculating..." : creditBalance > 0 ? formatCurrency(creditBalance) : "No credit available"}
+                </div>
               </div>
+              <FormInput
+                id="refund-invoice"
+                label="Invoice (optional)"
+                placeholder="Leave blank for general refund"
+                error={form.formState.errors.refund_invoice_id?.message}
+                {...form.register("refund_invoice_id")}
+              />
             </div>
-            <FormInput
-              id="refund-invoice"
-              label="Invoice (optional)"
-              placeholder="Leave blank for general refund"
-              error={form.formState.errors.refund_invoice_id?.message}
-              {...form.register("refund_invoice_id")}
-            />
             <div>
               <label className="mb-1 block text-[13px] font-medium text-slate-600">Reason</label>
               <textarea className={textareaClassName} placeholder="Reason for refund..." {...form.register("refund_reason")} />

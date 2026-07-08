@@ -18,27 +18,29 @@ export function BillingPenaltyForm({ action, form, onSubmit, onCancel, isSaving,
       error={formError}
     >
       <form id="penalty-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <LookupSelect
-          label="Student"
-          placeholder="Search by admission number or name"
-          required
-          value={form.watch("penalty_student_id")}
-          selectedOption={selectedStudent}
-          onChange={onStudentChange}
-          fetchOptions={fetchStudents}
-          error={form.formState.errors.penalty_student_id?.message}
-        />
-        <FormInput
-          id="penalty-amount"
-          label="Penalty Amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          required
-          placeholder="0.00"
-          error={form.formState.errors.penalty_amount?.message}
-          {...form.register("penalty_amount")}
-        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <LookupSelect
+            label="Student"
+            placeholder="Search by admission number or name"
+            required
+            value={form.watch("penalty_student_id")}
+            selectedOption={selectedStudent}
+            onChange={onStudentChange}
+            fetchOptions={fetchStudents}
+            error={form.formState.errors.penalty_student_id?.message}
+          />
+          <FormInput
+            id="penalty-amount"
+            label="Penalty Amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            required
+            placeholder="0.00"
+            error={form.formState.errors.penalty_amount?.message}
+            {...form.register("penalty_amount")}
+          />
+        </div>
         <div>
           <label className="mb-1 block text-[13px] font-medium text-slate-600">Description</label>
           <textarea className={textareaClassName} placeholder="Reason for penalty..." {...form.register("penalty_description")} />

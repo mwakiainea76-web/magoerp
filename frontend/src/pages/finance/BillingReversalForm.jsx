@@ -18,40 +18,44 @@ export function BillingReversalForm({ action, form, onSubmit, onCancel, isSaving
       error={formError}
     >
       <form id="rev-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <LookupSelect
-          label="Student"
-          placeholder="Search by admission number or name"
-          required
-          value={form.watch("rev_student_id")}
-          selectedOption={selectedStudent}
-          onChange={onStudentChange}
-          fetchOptions={fetchStudents}
-          error={form.formState.errors.rev_student_id?.message}
-        />
-        <div>
-          <label className="mb-1 block text-[13px] font-medium text-slate-600">
-            Invoice <span className="text-red-400">*</span>
-          </label>
-          <select className={selectClassName} value={form.watch("rev_invoice_id")} onChange={(event) => onInvoiceChange(event.target.value)} disabled={isFetchingInvoices || invoices.length === 0}>
-            <option value="">
-              {isFetchingInvoices
-                ? "Loading invoices..."
-                : invoices.length === 0 && form.watch("rev_student_id")
-                  ? "No invoices found"
-                  : "Select an invoice"}
-            </option>
-            {invoices.map((invoice) => (
-              <option key={invoice.id} value={invoice.id}>
-                {invoice.invoice_number} - {formatCurrency(invoice.balance_due)} outstanding
+        <div className="grid gap-4 md:grid-cols-2">
+          <LookupSelect
+            label="Student"
+            placeholder="Search by admission number or name"
+            required
+            value={form.watch("rev_student_id")}
+            selectedOption={selectedStudent}
+            onChange={onStudentChange}
+            fetchOptions={fetchStudents}
+            error={form.formState.errors.rev_student_id?.message}
+          />
+          <div>
+            <label className="mb-1 block text-[13px] font-medium text-slate-600">
+              Invoice <span className="text-red-400">*</span>
+            </label>
+            <select className={selectClassName} value={form.watch("rev_invoice_id")} onChange={(event) => onInvoiceChange(event.target.value)} disabled={isFetchingInvoices || invoices.length === 0}>
+              <option value="">
+                {isFetchingInvoices
+                  ? "Loading invoices..."
+                  : invoices.length === 0 && form.watch("rev_student_id")
+                    ? "No invoices found"
+                    : "Select an invoice"}
               </option>
-            ))}
-          </select>
-          {form.formState.errors.rev_invoice_id?.message ? <p className="mt-1 text-sm text-red-600">{form.formState.errors.rev_invoice_id.message}</p> : null}
+              {invoices.map((invoice) => (
+                <option key={invoice.id} value={invoice.id}>
+                  {invoice.invoice_number} - {formatCurrency(invoice.balance_due)} outstanding
+                </option>
+              ))}
+            </select>
+            {form.formState.errors.rev_invoice_id?.message ? <p className="mt-1 text-sm text-red-600">{form.formState.errors.rev_invoice_id.message}</p> : null}
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block text-[13px] font-medium text-slate-600">Reversal Amount</label>
-          <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            {selectedBalance > 0 ? formatCurrency(selectedBalance) : "Select an invoice"}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[13px] font-medium text-slate-600">Reversal Amount</label>
+            <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+              {selectedBalance > 0 ? formatCurrency(selectedBalance) : "Select an invoice"}
+            </div>
           </div>
         </div>
         <div>

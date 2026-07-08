@@ -19,17 +19,17 @@ export function BillingCreditAdjustmentForm({ action, form, onSubmit, onCancel, 
       error={formError}
     >
       <form id="ca-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <LookupSelect
-          label="Student"
-          placeholder="Search by admission number or name"
-          required
-          value={form.watch("ca_student_id")}
-          selectedOption={selectedStudent}
-          onChange={onStudentChange}
-          fetchOptions={fetchStudents}
-          error={form.formState.errors.ca_student_id?.message}
-        />
-        <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <LookupSelect
+            label="Student"
+            placeholder="Search by admission number or name"
+            required
+            value={form.watch("ca_student_id")}
+            selectedOption={selectedStudent}
+            onChange={onStudentChange}
+            fetchOptions={fetchStudents}
+            error={form.formState.errors.ca_student_id?.message}
+          />
           <div>
             <label className="mb-1 block text-[13px] font-medium text-slate-600">
               Type <span className="text-red-400">*</span>
@@ -39,6 +39,8 @@ export function BillingCreditAdjustmentForm({ action, form, onSubmit, onCancel, 
               <option value="waiver">Waiver</option>
             </select>
           </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-[13px] font-medium text-slate-600">
               Invoice <span className="text-red-400">*</span>
@@ -59,18 +61,18 @@ export function BillingCreditAdjustmentForm({ action, form, onSubmit, onCancel, 
             </select>
             {form.formState.errors.ca_invoice_id?.message ? <p className="mt-1 text-sm text-red-600">{form.formState.errors.ca_invoice_id.message}</p> : null}
           </div>
+          <FormInput
+            id="ca-amount"
+            label="Amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            required
+            placeholder="0.00"
+            error={form.formState.errors.ca_amount?.message}
+            {...form.register("ca_amount")}
+          />
         </div>
-        <FormInput
-          id="ca-amount"
-          label="Amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          required
-          placeholder="0.00"
-          error={form.formState.errors.ca_amount?.message}
-          {...form.register("ca_amount")}
-        />
         <div>
           <label className="mb-1 block text-[13px] font-medium text-slate-600">Description</label>
           <textarea className={textareaClassName} placeholder="Reason for this adjustment..." {...form.register("ca_description")} />

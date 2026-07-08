@@ -21,36 +21,40 @@ export function BillingFeeForm({ action, form, onSubmit, onCancel, isSaving, for
       error={formError}
     >
       <form id="fee-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <LookupSelect
-          label="Student"
-          placeholder="Search by admission number or name"
-          required
-          value={form.watch("fee_student_id")}
-          selectedOption={selectedStudent}
-          onChange={(id, option) => {
-            form.setValue("fee_student_id", id, { shouldValidate: true });
-            setSelectedStudent(option ?? null);
-          }}
-          fetchOptions={fetchStudents}
-          error={form.formState.errors.fee_student_id?.message}
-        />
-        <div>
-          <label className="mb-1 block text-[13px] font-medium text-slate-600">
-            Fee Template <span className="text-red-400">*</span>
-          </label>
-          <SearchSelect
-            options={feeTemplates.map((template) => ({ ...template, label: `${template.code} - ${template.name}` }))}
-            value={selectedTemplateId}
-            onChange={(id) => form.setValue("fee_template_id", id, { shouldValidate: true })}
-            placeholder={isLoadingTemplates ? "Loading..." : "Search fee template"}
-            emptyMessage="No fee templates found"
+        <div className="grid gap-4 md:grid-cols-2">
+          <LookupSelect
+            label="Student"
+            placeholder="Search by admission number or name"
+            required
+            value={form.watch("fee_student_id")}
+            selectedOption={selectedStudent}
+            onChange={(id, option) => {
+              form.setValue("fee_student_id", id, { shouldValidate: true });
+              setSelectedStudent(option ?? null);
+            }}
+            fetchOptions={fetchStudents}
+            error={form.formState.errors.fee_student_id?.message}
           />
-          {form.formState.errors.fee_template_id?.message ? <p className="mt-1 text-sm text-red-600">{form.formState.errors.fee_template_id.message}</p> : null}
+          <div>
+            <label className="mb-1 block text-[13px] font-medium text-slate-600">
+              Fee Template <span className="text-red-400">*</span>
+            </label>
+            <SearchSelect
+              options={feeTemplates.map((template) => ({ ...template, label: `${template.code} - ${template.name}` }))}
+              value={selectedTemplateId}
+              onChange={(id) => form.setValue("fee_template_id", id, { shouldValidate: true })}
+              placeholder={isLoadingTemplates ? "Loading..." : "Search fee template"}
+              emptyMessage="No fee templates found"
+            />
+            {form.formState.errors.fee_template_id?.message ? <p className="mt-1 text-sm text-red-600">{form.formState.errors.fee_template_id.message}</p> : null}
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block text-[13px] font-medium text-slate-600">Amount</label>
-          <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            {selectedTemplate ? formatCurrency(selectedTemplate.total_amount) : "Select a fee template"}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[13px] font-medium text-slate-600">Amount</label>
+            <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+              {selectedTemplate ? formatCurrency(selectedTemplate.total_amount) : "Select a fee template"}
+            </div>
           </div>
         </div>
         <div>

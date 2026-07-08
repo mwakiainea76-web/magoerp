@@ -27,7 +27,7 @@ export function BillingPaymentForm({ action, form, onSubmit, onCancel, isSaving,
       error={formError}
     >
       <form id="payment-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <LookupSelect
             label="Student"
             placeholder="Search by admission number or name"
@@ -53,7 +53,7 @@ export function BillingPaymentForm({ action, form, onSubmit, onCancel, isSaving,
             {...form.register("amount")}
           />
         </div>
-        <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-[13px] font-medium text-slate-600">
               Payment Method <span className="text-red-400">*</span>
@@ -74,6 +74,8 @@ export function BillingPaymentForm({ action, form, onSubmit, onCancel, isSaving,
             error={form.formState.errors.reference?.message}
             {...form.register("reference")}
           />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
           <FormInput
             id="payment-date"
             label="Payment Date"
