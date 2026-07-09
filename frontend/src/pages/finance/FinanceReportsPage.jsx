@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Filter, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Download, Filter, Search, X, ChevronDown } from "lucide-react";
 
 import { LookupSelect } from "@/components/LookupSelect";
 import { PaginationFooter } from "@/components/PaginationFooter";
@@ -9,19 +9,21 @@ import { useAcademicYearsApi } from "@/hooks/useAcademicYearsApi";
 import { useFinanceReportsApi } from "@/hooks/useFinanceReportsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 
-const reportTypes = [
-  ["debtors", "Outstanding debtors"],
-  ["credits", "Student credit balances"],
-  ["aging", "Receivables aging"],
-  ["collections", "Collections by fee type"],
-  ["adjustments", "Discounts, waivers and adjustments"],
-  ["penalties", "Penalty invoices"],
-  ["refunds", "Refunds"],
-  ["assignment_audits", "Dormant fee edit audit"],
+const primaryReports = [
+  ["debtors", "Fee Balance"],
+  ["collections", "Payments"],
+  ["credits", "Credit Balances"],
 ];
+
+const secondaryReports = [
+  ["penalties", "Penalties"],
+  ["refunds", "Refunds"],
+  ["hostel", "Hostel"],
+];
+
 const moneyKeys = new Set([
   "total_invoiced", "balance", "credit", "signed_balance", "invoiced", "collected",
-  "outstanding", "amount", "old_amount", "new_amount",
+  "outstanding", "amount",
 ]);
 const money = (value) => `Ksh ${Number(value || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -42,7 +44,7 @@ export function FinanceReportsPage() {
   const yearsApi = useAcademicYearsApi();
   const sessionsApi = useAcademicSessionsApi();
   const [reportType, setReportType] = useState("debtors");
-  const [pending, setPending] = useState({ q: "", department_id: "", course_id: "", academic_year_id: "", academic_session_id: "", date_from: "", date_to: "", adjustment_type: "" });
+  const [pending, setPending] = useState({ q: "", department_id: "", course_id: "", academic_year_id: "", academic_session_id: "", date_from: "", date_to: "" });
   const [filters, setFilters] = useState({});
   const [years, setYears] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -54,6 +56,9 @@ export function FinanceReportsPage() {
   const [perPage, setPerPage] = useState(25);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef(null);
 
   useEffect(() => {
     Promise.all([
@@ -64,6 +69,16 @@ export function FinanceReportsPage() {
       setSessions(sessionResponse.data ?? []);
     }).catch(() => {});
   }, [sessionsApi, yearsApi]);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (moreRef.current && !moreRef.current.contains(e.target)) {
+        setMoreOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const params = useMemo(() => ({
     report_type: reportType,
@@ -116,12 +131,14 @@ export function FinanceReportsPage() {
     event.preventDefault();
     setFilters(Object.fromEntries(Object.entries(pending).filter(([, value]) => value)));
     setPage(1);
+    setShowFilters(false);
   }
   function clearFilters() {
-    const clean = { q: "", department_id: "", course_id: "", academic_year_id: "", academic_session_id: "", date_from: "", date_to: "", adjustment_type: "" };
+    const clean = { q: "", department_id: "", course_id: "", academic_year_id: "", academic_session_id: "", date_from: "", date_to: "" };
     setPending(clean);
     setFilters({});
     setPage(1);
+    setShowFilters(false);
   }
   async function exportCsv() {
     setExporting(true);
@@ -139,42 +156,196 @@ export function FinanceReportsPage() {
     return String(value);
   }
 
+  function selectReport(value) {
+    setReportType(value);
+    setPage(1);
+    setMoreOpen(false);
+  }
+
   const visibleSessions = pending.academic_year_id
     ? sessions.filter((session) => session.academic_year_id === pending.academic_year_id)
     : sessions;
 
-  return <section className="space-y-5">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h1 className="text-xl font-semibold text-slate-950">Fee Reports</h1><p className="mt-1 text-sm text-slate-500">Operational, management, credit, aging, adjustment and audit reports.</p></div>
-      <button type="button" onClick={exportCsv} disabled={exporting || loading} className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60"><Download className="size-4" />{exporting ? "Exporting..." : "Export CSV"}</button>
-    </div>
+  const activeFilterCount = Object.keys(filters).filter(k => k !== "q" && filters[k]).length;
 
-    <div className="flex gap-2 overflow-x-auto pb-1">
-      {reportTypes.map(([value, label]) => <button key={value} type="button" onClick={() => { setReportType(value); setPage(1); }} className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm ${reportType === value ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}>{label}</button>)}
-    </div>
+  const labelLookup = Object.fromEntries([...primaryReports, ...secondaryReports]);
 
-    <form onSubmit={applyFilters} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-600"><Filter className="size-4" />Report filters</div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <label className="text-xs font-medium text-slate-600">Search<div className="relative mt-1"><Search className="absolute left-3 top-2.5 size-4 text-slate-400" /><input value={pending.q} onChange={(event) => update("q", event.target.value)} placeholder="Student, admission or invoice" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm" /></div></label>
-        <LookupSelect label="Department" placeholder="All departments" value={pending.department_id} onChange={(id) => update("department_id", id ?? "")} fetchOptions={fetchDepartments} />
-        <LookupSelect label="Course" placeholder={pending.department_id ? "All courses" : "Select department first"} value={pending.course_id} onChange={(id) => update("course_id", id ?? "")} fetchOptions={fetchCourses} disabled={!pending.department_id} />
-        <label className="text-xs font-medium text-slate-600">Academic year<select value={pending.academic_year_id} onChange={(event) => update("academic_year_id", event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">All years</option>{years.map((year) => <option key={year.id} value={year.id}>{year.name ?? year.code}</option>)}</select></label>
-        <label className="text-xs font-medium text-slate-600">Academic session<select value={pending.academic_session_id} onChange={(event) => update("academic_session_id", event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">All sessions</option>{visibleSessions.map((session) => <option key={session.id} value={session.id}>{session.name}</option>)}</select></label>
-        <label className="text-xs font-medium text-slate-600">From date<input type="date" value={pending.date_from} onChange={(event) => update("date_from", event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
-        <label className="text-xs font-medium text-slate-600">To date<input type="date" value={pending.date_to} onChange={(event) => update("date_to", event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
-        {reportType === "adjustments" && <label className="text-xs font-medium text-slate-600">Adjustment type<select value={pending.adjustment_type} onChange={(event) => update("adjustment_type", event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">All adjustments</option>{["discount", "waiver", "bursary", "helb", "reversal", "penalty"].map((type) => <option key={type} value={type}>{type}</option>)}</select></label>}
+  return (
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-950">Fee Reports</h1>
+          <p className="mt-1 text-sm text-slate-500">Operational, management, credit, penalty, refund and hostel reports.</p>
+        </div>
+        <button type="button" onClick={exportCsv} disabled={exporting || loading}
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60">
+          <Download className="size-4" />{exporting ? "Exporting..." : "Export CSV"}
+        </button>
       </div>
-      <div className="mt-4 flex gap-2"><button className="h-9 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white">Apply filters</button>{Object.keys(filters).length > 0 && <button type="button" onClick={clearFilters} className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm text-slate-600"><X className="size-4" />Clear</button>}</div>
-    </form>
 
-    {Object.keys(summary).length > 0 && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(summary).map(([key, value]) => <div key={key} className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs capitalize text-slate-500">{key.replaceAll("_", " ")}</p><p className="mt-1 text-lg font-semibold text-slate-950">{typeof value === "number" ? (key.includes("rate") || key === "changes" ? value : money(value)) : String(value)}</p></div>)}</div>}
+      {/* Tabs */}
+      <div className="flex gap-0 border-b border-slate-200">
+        {primaryReports.map(([value, label]) => (
+          <button key={value} type="button" onClick={() => selectReport(value)}
+            className={`relative px-4 py-2.5 text-sm font-medium transition ${
+              reportType === value
+                ? "text-emerald-700 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-600"
+                : "text-slate-500 hover:text-slate-700"
+            }`}>
+            {label}
+          </button>
+        ))}
+        <div ref={moreRef} className="relative">
+          <button type="button" onClick={() => setMoreOpen(!moreOpen)}
+            className={`flex items-center gap-1 px-4 py-2.5 text-sm font-medium transition ${
+              secondaryReports.some(r => r[0] === reportType)
+                ? "text-emerald-700 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-emerald-600"
+                : "text-slate-500 hover:text-slate-700"
+            }`}>
+            More reports <ChevronDown className="size-3.5" />
+          </button>
+          {moreOpen && (
+            <div className="absolute right-0 z-20 mt-1 min-w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+              {secondaryReports.map(([value, label]) => (
+                <button key={value} type="button" onClick={() => selectReport(value)}
+                  className={`flex w-full px-4 py-2 text-left text-sm transition ${
+                    reportType === value ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-600 hover:bg-slate-50"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50"><tr>{Object.entries(columns).map(([key, label]) => <th key={key} className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={Math.max(1, Object.keys(columns).length)} className="px-4 py-12 text-center text-slate-500">Loading report...</td></tr> : rows.length === 0 ? <tr><td colSpan={Math.max(1, Object.keys(columns).length)} className="px-4 py-12 text-center text-slate-500">No records match these filters.</td></tr> : rows.map((row, index) => <tr key={row.id ?? `${reportType}-${index}`} className="border-t border-slate-100">{Object.keys(columns).map((key) => <td key={key} className="whitespace-nowrap px-4 py-3 text-slate-700">{renderValue(key, row[key])}</td>)}</tr>)}</tbody></table></div>
-      {!loading && meta.total > 0 && <div className="border-t border-slate-100 px-4 py-3"><PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} /></div>}
-    </div>
-  </section>;
+      {/* Filter bar */}
+      <form onSubmit={applyFilters} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 p-3">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input value={pending.q} onChange={(e) => update("q", e.target.value)}
+              placeholder="Student, admission or invoice"
+              className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-emerald-500" />
+          </div>
+          <button type="button" onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition ${
+              showFilters || activeFilterCount > 0
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}>
+            <Filter className="size-4" />
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </button>
+          <button className="h-10 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700">
+            Apply
+          </button>
+          {Object.keys(filters).length > 0 && (
+            <button type="button" onClick={clearFilters}
+              className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50">
+              <X className="size-4" />Clear
+            </button>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="border-t border-slate-100 px-3 pb-4 pt-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <LookupSelect label="Department" placeholder="All departments" value={pending.department_id} onChange={(id) => update("department_id", id ?? "")} fetchOptions={fetchDepartments} />
+              <LookupSelect label="Course" placeholder={pending.department_id ? "All courses" : "Select department first"} value={pending.course_id} onChange={(id) => update("course_id", id ?? "")} fetchOptions={fetchCourses} disabled={!pending.department_id} />
+              <label className="text-xs font-medium text-slate-600">Academic year
+                <select value={pending.academic_year_id} onChange={(e) => update("academic_year_id", e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500">
+                  <option value="">All years</option>
+                  {years.map((year) => <option key={year.id} value={year.id}>{year.name ?? year.code}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-medium text-slate-600">Academic session
+                <select value={pending.academic_session_id} onChange={(e) => update("academic_session_id", e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500">
+                  <option value="">All sessions</option>
+                  {visibleSessions.map((session) => <option key={session.id} value={session.id}>{session.name}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-medium text-slate-600">From date
+                <input type="date" value={pending.date_from} onChange={(e) => update("date_from", e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500" />
+              </label>
+              <label className="text-xs font-medium text-slate-600">To date
+                <input type="date" value={pending.date_to} onChange={(e) => update("date_to", e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500" />
+              </label>
+            </div>
+          </div>
+        )}
+      </form>
+
+      {/* Table */}
+      <div>
+        {/* Table header row with report title + summary */}
+        <div className="flex items-baseline justify-between px-1 pb-2">
+          <h2 className="text-sm font-semibold text-slate-900">
+            {labelLookup[reportType] || reportType}
+          </h2>
+          {Object.keys(summary).length > 0 && (
+            <div className="flex gap-4">
+              {Object.entries(summary).map(([key, value]) => (
+                <span key={key} className="text-sm text-slate-700">
+                  <span className="text-xs text-slate-400">{key.replaceAll("_", " ")}: </span>
+                  <span className="font-semibold">
+                    {typeof value === "number" ? (key.includes("rate") || key === "changes" ? value : money(value)) : String(value)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {Object.entries(columns).map(([key, label]) => (
+                  <th key={key} className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={Math.max(1, Object.keys(columns).length)} className="px-4 py-12 text-center text-slate-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                      Loading report...
+                    </div>
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={Math.max(1, Object.keys(columns).length)} className="px-4 py-12 text-center text-slate-500">
+                    No records match these filters.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row, index) => (
+                  <tr key={row.id ?? `${reportType}-${index}`} className="border-b border-slate-100 last:border-b-0">
+                    {Object.keys(columns).map((key) => (
+                      <td key={key} className="whitespace-nowrap px-4 py-3 text-slate-700">{renderValue(key, row[key])}</td>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          {!loading && meta.total > 0 && (
+            <div className="border-t border-slate-100 px-4 py-2">
+              <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default FinanceReportsPage;

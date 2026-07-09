@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AcademicSessionsController;
 use App\Http\Controllers\Api\AcademicTimetablesController;
 use App\Http\Controllers\Api\AcademicYearsController;
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminPasswordResetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\TrainerDashboardController;
@@ -23,13 +24,16 @@ use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\CurriculaController;
 use App\Http\Controllers\Api\DepartmentsController;
 use App\Http\Controllers\Api\CurriculumFeeAssignmentsController;
+use App\Http\Controllers\Api\FeeStructureController;
+use App\Http\Controllers\Api\StudentAccountController;
+use App\Http\Controllers\Api\CohortBillingController;
+use App\Http\Controllers\Api\FinanceHealthController;
 use App\Http\Controllers\Api\HostelsController;
 use App\Http\Controllers\Api\HostelRoomsController;
 use App\Http\Controllers\Api\LectureRoomsController;
 use App\Http\Controllers\Api\FeeTemplateItemsController;
 use App\Http\Controllers\Api\FeeTemplatesController;
-use App\Http\Controllers\Api\StudentFeeAdjustmentsController;
-use App\Http\Controllers\Api\InvoiceAdjustmentsController;
+
 use App\Http\Controllers\Api\InvoicesController;
 use App\Http\Controllers\Api\StudentLedgerController;
 use App\Http\Controllers\Api\FinanceReportsDashboardController;
@@ -138,17 +142,40 @@ Route::middleware([
         Route::post('/invoices', [InvoicesController::class, 'store']);
         Route::get('/invoices', [InvoicesController::class, 'index']);
         Route::post('/finance/reconcile', [InvoicesController::class, 'reconcile']);
+        Route::get('/finance/students-not-invoiced', [InvoicesController::class, 'studentsNotInvoiced']);
         Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
         Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
         Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
         Route::get('/students/{student}/financial-statement', [InvoicesController::class, 'studentStatement']);
         Route::post('/payments', [PaymentsController::class, 'store']);
         Route::get('/payments', [PaymentsController::class, 'index']);
+        Route::get('/payments/{payment}/reversal-preview', [PaymentsController::class, 'reversalPreview']);
+        Route::post('/payments/{payment}/reverse', [PaymentsController::class, 'reverse']);
+        Route::post('/students/{student}/payment-preview', [PaymentsController::class, 'fifoPreview']);
         Route::post('/refunds', [RefundsController::class, 'store']);
-        Route::post('/invoice-adjustments', [InvoiceAdjustmentsController::class, 'store']);
-        Route::post('/invoice-charges', [InvoiceAdjustmentsController::class, 'storeCharge']);
-        Route::post('/invoices/{invoice}/adjustments', [StudentFeeAdjustmentsController::class, 'store']);
+        Route::post('/invoice-charges', [InvoicesController::class, 'storeCharge']);
         Route::get('/ledger', [StudentLedgerController::class, 'index']);
+
+        // Fee Structure Wizard
+        Route::get('/fee-structures', [FeeStructureController::class, 'index']);
+        Route::post('/fee-structures', [FeeStructureController::class, 'store']);
+        Route::get('/fee-structures/{fee_template}', [FeeStructureController::class, 'show']);
+        Route::post('/fee-structures/clone', [FeeStructureController::class, 'clone']);
+        Route::post('/fee-structures/{fee_template}/publish', [FeeStructureController::class, 'publish']);
+        Route::post('/fee-structures/{fee_template}/archive', [FeeStructureController::class, 'archive']);
+        Route::post('/fee-structures/preview', [FeeStructureController::class, 'preview']);
+
+        // Student Accounts
+        Route::get('/student-accounts/search', [StudentAccountController::class, 'searchStudent']);
+        Route::get('/student-accounts/{student}', [StudentAccountController::class, 'overview']);
+
+        // Cohort Billing
+        Route::post('/cohort-billing/preview', [CohortBillingController::class, 'preview']);
+        Route::post('/cohort-billing/generate', [CohortBillingController::class, 'generate']);
+
+        // Finance Health
+        Route::get('/finance/health', FinanceHealthController::class);
+        Route::get('/finance/readiness', [FinanceHealthController::class, 'readiness']);
 
         Route::get('/timetables', [AcademicTimetablesController::class, 'index']);
         Route::get('/timetables/week-grid', [AcademicTimetablesController::class, 'weekGrid']);
@@ -194,6 +221,7 @@ Route::middleware([
         Route::get('/staffs/meta', [StaffsController::class, 'meta'])
             ->middleware('permission:staff.create');
         Route::get('/staffs/export', [StaffsController::class, 'export']);
+        Route::get('/staff-status-logs', [StaffsController::class, 'statusLogs']);
         Route::apiResource('staffs', StaffsController::class)
             ->parameters(['staffs' => 'staff']);
 
@@ -238,6 +266,9 @@ Route::middleware([
             ->middleware('permission:institution.update');
 
         Route::get('/admin/dashboard', AdminDashboardController::class);
+
+        Route::post('/admin/reset-staff-password', [AdminPasswordResetController::class, 'resetStaffPassword']);
+        Route::post('/admin/reset-student-password', [AdminPasswordResetController::class, 'resetStudentPassword']);
     });
 
     Route::middleware('role:admin|trainer')->group(function () {

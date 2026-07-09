@@ -16,6 +16,10 @@ export function useInvoicesApi() {
         const response = await authClient.post("/invoices", payload);
         return response.data;
       },
+      createCharge: async (payload) => {
+        const response = await authClient.post("/invoice-charges", payload);
+        return response.data;
+      },
       availableTemplates: async (studentId) => {
         const response = await authClient.get(`/students/${studentId}/fee-templates`);
         return response.data;

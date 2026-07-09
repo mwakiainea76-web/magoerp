@@ -2,21 +2,17 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
-import { AlertTriangle, Eye, Gift, Receipt, RotateCcw, Undo2, Wallet } from "lucide-react";
+import { AlertTriangle, Eye, Receipt, RotateCcw, Wallet } from "lucide-react";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
 import { BillingActionTabs } from "./BillingActionTabs";
-import { BillingCreditAdjustmentForm } from "./BillingCreditAdjustmentForm";
 import { BillingFeeForm } from "./BillingFeeForm";
 import { BillingPaymentForm } from "./BillingPaymentForm";
 import { BillingPenaltyForm } from "./BillingPenaltyForm";
 import { BillingRefundForm } from "./BillingRefundForm";
-import { BillingReversalForm } from "./BillingReversalForm";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
 import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
-import { useInvoiceAdjustmentsApi } from "@/hooks/useInvoiceAdjustmentsApi";
-import { useAdjustmentsApi } from "@/hooks/useAdjustmentsApi";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { useRefundsApi } from "@/hooks/useRefundsApi";
@@ -43,20 +39,6 @@ const billingActions = [
     icon: AlertTriangle,
     title: "Issue Penalty",
     description: "Create a separate penalty or late-fee invoice for the student.",
-  },
-  {
-    id: "adjustment",
-    group: "Credit",
-    icon: Gift,
-    title: "Discount / Waiver",
-    description: "Apply a discount or waiver to reduce what a student owes on an invoice.",
-  },
-  {
-    id: "reversal",
-    group: "Credit",
-    icon: Undo2,
-    title: "Invoice Reversal",
-    description: "Reverse a wrong invoice. Removes the outstanding balance from the student account.",
   },
   {
     id: "refund",
@@ -88,20 +70,6 @@ const penaltySchema = yup.object({
   penalty_description: yup.string().nullable(),
 });
 
-const creditAdjustmentSchema = yup.object({
-  ca_student_id: yup.string().required("Select a student"),
-  ca_type: yup.string().oneOf(["discount", "waiver"]).required("Select type"),
-  ca_invoice_id: yup.string().required("Select an invoice"),
-  ca_amount: yup.number().typeError("Amount is required").positive("Must be positive").required("Amount is required"),
-  ca_description: yup.string().nullable(),
-});
-
-const reversalSchema = yup.object({
-  rev_student_id: yup.string().required("Select a student"),
-  rev_invoice_id: yup.string().required("Select an invoice"),
-  rev_reason: yup.string().required("Reason is required"),
-});
-
 const refundSchema = yup.object({
   refund_student_id: yup.string().required("Select a student"),
   refund_reason: yup.string().nullable(),
@@ -125,8 +93,6 @@ export function BillingPage() {
   const paymentsApi = usePaymentsApi();
   const refundsApi = useRefundsApi();
   const lookupApi = useLookupApi();
-  const invoiceAdjustmentsApi = useInvoiceAdjustmentsApi();
-  const adjustmentsApi = useAdjustmentsApi();
   const feeTemplatesApi = useFeeTemplatesApi();
 
   const [activeAction, setActiveAction] = useState("payment");
@@ -136,19 +102,12 @@ export function BillingPage() {
   const [selectedPaymentStudent, setSelectedPaymentStudent] = useState(null);
   const [selectedFeeStudent, setSelectedFeeStudent] = useState(null);
   const [selectedPenaltyStudent, setSelectedPenaltyStudent] = useState(null);
-  const [selectedCaStudent, setSelectedCaStudent] = useState(null);
-  const [selectedRevStudent, setSelectedRevStudent] = useState(null);
   const [selectedRefundStudent, setSelectedRefundStudent] = useState(null);
 
   const [refundCreditBalance, setRefundCreditBalance] = useState(0);
   const [isFetchingCredit, setIsFetchingCredit] = useState(false);
   const [feeTemplates, setFeeTemplates] = useState([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
-  const [caInvoices, setCaInvoices] = useState([]);
-  const [revInvoices, setRevInvoices] = useState([]);
-  const [revSelectedBalance, setRevSelectedBalance] = useState(0);
-  const [isFetchingCaInvoices, setIsFetchingCaInvoices] = useState(false);
-  const [isFetchingRevInvoices, setIsFetchingRevInvoices] = useState(false);
 
   const paymentForm = useForm({
     resolver: yupResolver(paymentSchema),
@@ -161,14 +120,6 @@ export function BillingPage() {
   const penaltyForm = useForm({
     resolver: yupResolver(penaltySchema),
     defaultValues: { penalty_student_id: "", penalty_amount: "", penalty_description: "" },
-  });
-  const caForm = useForm({
-    resolver: yupResolver(creditAdjustmentSchema),
-    defaultValues: { ca_student_id: "", ca_type: "discount", ca_invoice_id: "", ca_amount: "", ca_description: "" },
-  });
-  const revForm = useForm({
-    resolver: yupResolver(reversalSchema),
-    defaultValues: { rev_student_id: "", rev_invoice_id: "", rev_reason: "" },
   });
   const refundForm = useForm({
     resolver: yupResolver(refundSchema),
@@ -241,21 +192,6 @@ export function BillingPage() {
     setFormError("");
   }
 
-  function resetCaForm() {
-    caForm.reset({ ca_student_id: "", ca_type: "discount", ca_invoice_id: "", ca_amount: "", ca_description: "" });
-    setSelectedCaStudent(null);
-    setCaInvoices([]);
-    setFormError("");
-  }
-
-  function resetRevForm() {
-    revForm.reset({ rev_student_id: "", rev_invoice_id: "", rev_reason: "" });
-    setSelectedRevStudent(null);
-    setRevInvoices([]);
-    setRevSelectedBalance(0);
-    setFormError("");
-  }
-
   function resetRefundForm() {
     refundForm.reset({ refund_student_id: "", refund_reason: "", refund_invoice_id: "" });
     setSelectedRefundStudent(null);
@@ -268,8 +204,6 @@ export function BillingPage() {
       payment: resetPaymentForm,
       fee: resetFeeForm,
       penalty: resetPenaltyForm,
-      adjustment: resetCaForm,
-      reversal: resetRevForm,
       refund: resetRefundForm,
     };
     resetters[actionId]?.();
@@ -315,10 +249,9 @@ export function BillingPage() {
     setIsSaving(true);
     setFormError("");
     try {
-      await invoiceAdjustmentsApi.store({
+      await invoicesApi.store({
         student_id: data.fee_student_id,
         fee_template_id: data.fee_template_id,
-        description: data.fee_description || null,
       });
       toast.success("Invoice created successfully.");
       closeActiveForm();
@@ -338,7 +271,8 @@ export function BillingPage() {
     setIsSaving(true);
     setFormError("");
     try {
-      await invoiceAdjustmentsApi.storeCharge({
+      const { default: authClient } = await import("@/lib/api/authClient");
+      await authClient.post("/invoice-charges", {
         student_id: data.penalty_student_id,
         charge_type: "penalty",
         amount: data.penalty_amount,
@@ -348,76 +282,6 @@ export function BillingPage() {
       closeActiveForm();
     } catch (err) {
       setFormError(getApiErrorMessage(err, "Failed to create penalty invoice."));
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function onCaStudentChange(id, option) {
-    caForm.setValue("ca_student_id", id, { shouldValidate: true });
-    caForm.setValue("ca_invoice_id", "");
-    setSelectedCaStudent(option ?? null);
-    if (id) {
-      setIsFetchingCaInvoices(true);
-      const list = await fetchStudentInvoices(id);
-      setCaInvoices(list.filter((invoice) => invoice.status === "issued" || invoice.status === "partial"));
-      setIsFetchingCaInvoices(false);
-    } else {
-      setCaInvoices([]);
-    }
-  }
-
-  async function onSubmitCa(data) {
-    setIsSaving(true);
-    setFormError("");
-    try {
-      await adjustmentsApi.store(data.ca_invoice_id, {
-        type: data.ca_type,
-        amount: data.ca_amount,
-        description: data.ca_description || null,
-      });
-      toast.success(`${data.ca_type === "discount" ? "Discount" : "Waiver"} applied successfully.`);
-      closeActiveForm();
-    } catch (err) {
-      setFormError(getApiErrorMessage(err, "Failed to apply adjustment."));
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function onRevStudentChange(id, option) {
-    revForm.setValue("rev_student_id", id, { shouldValidate: true });
-    revForm.setValue("rev_invoice_id", "");
-    setSelectedRevStudent(option ?? null);
-    if (id) {
-      setIsFetchingRevInvoices(true);
-      const list = await fetchStudentInvoices(id);
-      setRevInvoices(list.filter((invoice) => invoice.status === "issued" || invoice.status === "partial"));
-      setIsFetchingRevInvoices(false);
-    } else {
-      setRevInvoices([]);
-    }
-  }
-
-  function onRevInvoiceChange(invoiceId) {
-    revForm.setValue("rev_invoice_id", invoiceId, { shouldValidate: true });
-    const invoice = revInvoices.find((item) => item.id === invoiceId);
-    setRevSelectedBalance(invoice ? invoice.balance_due ?? invoice.amount_due : 0);
-  }
-
-  async function onSubmitRev(data) {
-    setIsSaving(true);
-    setFormError("");
-    try {
-      await adjustmentsApi.store(data.rev_invoice_id, {
-        type: "reversal",
-        amount: revSelectedBalance > 0 ? revSelectedBalance : undefined,
-        description: data.rev_reason || null,
-      });
-      toast.success("Invoice reversed successfully.");
-      closeActiveForm();
-    } catch (err) {
-      setFormError(getApiErrorMessage(err, "Failed to reverse invoice."));
     } finally {
       setIsSaving(false);
     }
@@ -499,42 +363,6 @@ export function BillingPage() {
             fetchStudents={fetchStudents}
           />
         );
-      case "adjustment":
-        return (
-          <BillingCreditAdjustmentForm
-            action={activeActionConfig}
-            form={caForm}
-            onSubmit={onSubmitCa}
-            onCancel={closeActiveForm}
-            isSaving={isSaving}
-            formError={formError}
-            selectedStudent={selectedCaStudent}
-            onStudentChange={onCaStudentChange}
-            fetchStudents={fetchStudents}
-            invoices={caInvoices}
-            isFetchingInvoices={isFetchingCaInvoices}
-            formatCurrency={formatCurrency}
-          />
-        );
-      case "reversal":
-        return (
-          <BillingReversalForm
-            action={activeActionConfig}
-            form={revForm}
-            onSubmit={onSubmitRev}
-            onCancel={closeActiveForm}
-            isSaving={isSaving}
-            formError={formError}
-            selectedStudent={selectedRevStudent}
-            onStudentChange={onRevStudentChange}
-            fetchStudents={fetchStudents}
-            invoices={revInvoices}
-            selectedBalance={revSelectedBalance}
-            isFetchingInvoices={isFetchingRevInvoices}
-            onInvoiceChange={onRevInvoiceChange}
-            formatCurrency={formatCurrency}
-          />
-        );
       case "refund":
         return (
           <BillingRefundForm
@@ -564,7 +392,7 @@ export function BillingPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Billing</h1>
-          <p className="mt-1 text-[14px] text-slate-500">Manage student fees, payments, adjustments, and refunds.</p>
+          <p className="mt-1 text-[14px] text-slate-500">Manage student fees, payments, penalties, and refunds.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -592,7 +420,3 @@ export function BillingPage() {
     </section>
   );
 }
-
-
-
-

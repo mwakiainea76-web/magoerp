@@ -235,7 +235,7 @@ class CurriculumFeeAssignmentsController extends Controller
                     'academic_session_id' => $session->id,
                     'issuance_type' => 'per_year',
                     'parent_assignment_id' => $parent->id,
-                    'dormant' => false,
+                    'dormant' => !$session->is_active,
                     'split_amount' => $amount > 0 ? $amount : null,
                     'split_ratio' => $ratio,
                     'year_level' => $validated['year_level'],

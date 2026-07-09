@@ -9,7 +9,7 @@ import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
-import { useAdjustmentsApi } from "@/hooks/useAdjustmentsApi";
+
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const PAYMENT_METHODS = [
@@ -18,14 +18,6 @@ const PAYMENT_METHODS = [
   { value: "bank_transfer", label: "Bank Transfer" },
   { value: "cheque", label: "Cheque" },
   { value: "mobile_banking", label: "Mobile Banking" },
-];
-
-const ADJUSTMENT_TYPES = [
-  { value: "discount", label: "Discount" },
-  { value: "waiver", label: "Waiver" },
-  { value: "bursary", label: "Bursary" },
-  { value: "helb", label: "HELB" },
-  { value: "reversal", label: "Reversal" },
 ];
 
 function formatCurrency(amount) {
@@ -39,7 +31,7 @@ export function FeesPage() {
   const lookupApi = useLookupApi();
   const paymentsApi = usePaymentsApi();
   const invoicesApi = useInvoicesApi();
-  const adjustmentsApi = useAdjustmentsApi();
+
 
   const [activeModal, setActiveModal] = useState(null);
 
@@ -67,12 +59,6 @@ export function FeesPage() {
           description="Generate a new fee invoice for a student"
           onClick={() => setActiveModal("invoice")}
         />
-        <ActionCard
-          icon={Percent}
-          title="Fee Subsidies"
-          description="Apply discounts, waivers, bursaries, or reversals"
-          onClick={() => setActiveModal("subsidy")}
-        />
       </div>
 
       <RecordPaymentModal
@@ -90,13 +76,6 @@ export function FeesPage() {
         invoicesApi={invoicesApi}
       />
 
-      <FeeSubsidyModal
-        open={activeModal === "subsidy"}
-        onClose={closeModal}
-        lookupApi={lookupApi}
-        invoicesApi={invoicesApi}
-        adjustmentsApi={adjustmentsApi}
-      />
     </section>
   );
 }
@@ -477,224 +456,6 @@ function IssueInvoiceModal({ open, onClose, lookupApi, invoicesApi }) {
           </FormButton>
         </ModalFooter>
       ) : null}
-    </Modal>
-  );
-}
-
-function FeeSubsidyModal({ open, onClose, lookupApi, invoicesApi, adjustmentsApi }) {
-  const [studentValue, setStudentValue] = useState("");
-  const [studentOption, setStudentOption] = useState(null);
-  const [invoices, setInvoices] = useState([]);
-  const [loadingInvoices, setLoadingInvoices] = useState(false);
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
-  const [adjustmentType, setAdjustmentType] = useState("discount");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!studentOption?.id) {
-      setInvoices([]);
-      setSelectedInvoiceId("");
-      return;
-    }
-
-    let mounted = true;
-    setLoadingInvoices(true);
-
-    async function loadInvoices() {
-      try {
-        const response = await invoicesApi.list({
-          q: studentOption.admission_number || studentOption.name,
-          status: "all",
-          per_page: 50,
-        });
-        if (mounted) {
-          const active = (response.data ?? []).filter(
-            (inv) => inv.status === "issued" || inv.status === "partial",
-          );
-          setInvoices(active);
-          if (active.length > 0 && !selectedInvoiceId) {
-            setSelectedInvoiceId(active[0].id);
-          }
-        }
-      } catch {
-        if (mounted) setInvoices([]);
-      } finally {
-        if (mounted) setLoadingInvoices(false);
-      }
-    }
-
-    loadInvoices();
-
-    return () => { mounted = false; };
-  }, [studentOption?.id, invoicesApi]);
-
-  async function fetchStudentOptions(query) {
-    const response = await lookupApi.search("students", { query, limit: 10 });
-    return (response.data ?? []).map((s) => ({
-      id: s.id,
-      label: `${s.first_name} ${s.middle_name ? s.middle_name + " " : ""}${s.last_name} (${s.admission_number})`,
-      admission_number: s.admission_number,
-      name: `${s.first_name} ${s.middle_name ? s.middle_name + " " : ""}${s.last_name}`,
-    }));
-  }
-
-  function resetForm() {
-    setStudentValue("");
-    setStudentOption(null);
-    setInvoices([]);
-    setSelectedInvoiceId("");
-    setAdjustmentType("discount");
-    setAmount("");
-    setDescription("");
-    setError("");
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (!selectedInvoiceId) {
-      setError("Select an invoice.");
-      return;
-    }
-    if (!amount || Number(amount) <= 0) {
-      setError("Enter a valid amount.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
-    try {
-      await adjustmentsApi.store(selectedInvoiceId, {
-        type: adjustmentType,
-        amount: Number(amount),
-        description: description.trim() || null,
-      });
-      toast.success("Adjustment applied successfully.");
-      resetForm();
-      onClose();
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to apply adjustment."));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} title="Fee Subsidies" size="lg">
-      <ModalBody>
-        <form id="fee-subsidy-form" onSubmit={handleSubmit} className="space-y-4">
-          {error ? (
-            <div className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>
-              {error}
-            </div>
-          ) : null}
-
-          <LookupSelect
-            label="Student"
-            value={studentValue}
-            selectedOption={studentOption}
-            onChange={(nextValue, option) => {
-              setStudentValue(nextValue);
-              setStudentOption(option);
-            }}
-            fetchOptions={fetchStudentOptions}
-            placeholder="Search student by name or admission"
-            emptyMessage="No students found"
-            required
-          />
-
-          {studentOption ? (
-            <div>
-              <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                Invoice *
-              </label>
-              {loadingInvoices ? (
-                <p className={`text-slate-400 ${bodyTextClassName}`}>Loading invoices...</p>
-              ) : invoices.length === 0 ? (
-                <p className={`text-slate-500 ${bodyTextClassName}`}>No invoices found for this student.</p>
-              ) : (
-                <select
-                  value={selectedInvoiceId}
-                  onChange={(e) => setSelectedInvoiceId(e.target.value)}
-                  className={`${selectClassName} w-full`}
-                  required
-                >
-                  {invoices.map((inv) => (
-                    <option key={inv.id} value={inv.id}>
-                      {inv.invoice_number} — {formatCurrency(inv.amount_due)} ({inv.status})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          ) : null}
-
-          {invoices.length > 0 ? (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                    Adjustment Type *
-                  </label>
-                  <select
-                    value={adjustmentType}
-                    onChange={(e) => setAdjustmentType(e.target.value)}
-                    className={`${selectClassName} w-full`}
-                    required
-                  >
-                    {ADJUSTMENT_TYPES.map((at) => (
-                      <option key={at.value} value={at.value}>{at.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                    Amount *
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className={inputClassName}
-                    placeholder="e.g. 2000"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className={inputClassName}
-                  placeholder="Reason for the adjustment"
-                />
-              </div>
-            </>
-          ) : null}
-        </form>
-      </ModalBody>
-      <ModalFooter>
-        <FormButton type="button" variant="secondary" onClick={onClose} disabled={saving}>
-          Cancel
-        </FormButton>
-        <FormButton
-          type="submit"
-          form="fee-subsidy-form"
-          disabled={saving || invoices.length === 0}
-        >
-          {saving ? "Applying..." : "Apply Adjustment"}
-        </FormButton>
-      </ModalFooter>
     </Modal>
   );
 }

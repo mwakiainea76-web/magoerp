@@ -11,7 +11,6 @@ use App\Models\Invoice;
 use App\Models\InvoicePaymentAllocation;
 use App\Models\Payment;
 use App\Models\Student;
-use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,14 +81,6 @@ class FinanceDashboardController extends Controller
             ->whereIn('status', ['issued', 'partial'])
             ->selectRaw("COALESCE(SUM({$this->balanceExpression()}), 0) as balance")
             ->value('balance');
-
-        $totalAdjustments = (float) StudentFeeAdjustment::query()
-            ->whereIn('type', ['discount', 'waiver', 'bursary', 'helb', 'reversal'])
-            ->whereHas('invoice', fn ($iq) => $iq->where('status', '!=', 'cancelled'))
-            ->when($studentIds !== null, fn ($q) => $q->whereHas('invoice', fn ($iq) => $iq->whereIn('student_id', $studentIds)))
-            ->when($sessionId, fn ($q, $v) => $q->where('academic_session_id', $v))
-            ->when($yearId && !$sessionId, fn ($q, $v) => $q->whereHas('academicSession', fn ($sq) => $sq->where('academic_year_id', $v)))
-            ->sum('amount');
 
         $totalRefunds = (float) StudentLedgerEntry::query()
             ->where('type', 'refund')
@@ -179,7 +170,6 @@ class FinanceDashboardController extends Controller
             ->selectRaw($studentNameExpression . ' as student_name')
             ->selectRaw("COALESCE((SELECT SUM(amount_due) FROM invoices WHERE student_id = students.id AND status != 'cancelled'), 0) as total_invoiced")
             ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations ipa JOIN invoices i2 ON ipa.invoice_id = i2.id WHERE i2.student_id = students.id), 0) as total_paid')
-            ->selectRaw("COALESCE((SELECT SUM(CASE WHEN sfa.type IN ('discount','waiver','bursary','helb','reversal') THEN sfa.amount ELSE -sfa.amount END) FROM student_fee_adjustments sfa JOIN invoices i3 ON sfa.invoice_id = i3.id WHERE i3.student_id = students.id AND sfa.deleted_at IS NULL), 0) as total_adjustment_credits")
             ->orderByDesc('total_invoiced')
             ->limit(10);
 
@@ -187,8 +177,7 @@ class FinanceDashboardController extends Controller
             ->map(function ($s) {
                 $invoiced = (float) $s->total_invoiced;
                 $paid = (float) ($s->total_paid ?? 0);
-                $credit = (float) ($s->total_adjustment_credits ?? 0);
-                $balance = max(0, $invoiced - $paid - $credit);
+                $balance = max(0, $invoiced - $paid);
                 return [
                     'id' => $s->id,
                     'student_name' => $s->student_name ?: '-',
@@ -235,7 +224,6 @@ class FinanceDashboardController extends Controller
                     'total_invoiced' => $totalInvoiced,
                     'total_collected' => $totalCollected,
                     'outstanding_balance' => $outstandingBalance,
-                    'total_adjustments' => $totalAdjustments,
                     'total_refunds' => $totalRefunds,
                     'collection_rate' => $collectionRate,
                     'invoice_counts' => $invoiceCounts,

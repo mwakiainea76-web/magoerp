@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Award, BookOpen, Building2, CalendarClock, ClipboardCheck, GraduationCap, Landmark, LayoutDashboard, Settings2, ShieldCheck, Users } from "lucide-react";
+import { ArrowRightLeft, Award, BookOpen, Building2, CalendarClock, ClipboardCheck, GraduationCap, KeyRound, Landmark, LayoutDashboard, Settings2, ShieldCheck, Users } from "lucide-react";
 import { dashboardPathByRole } from "@/support/dashboardPaths";
 
 export const adminNav = [
@@ -13,6 +13,8 @@ export const adminNav = [
     children: [
       { label: "Staff Directory", to: "/admin/staffs" },
       { label: "Add Staff", to: "/admin/staffs/create" },
+      { label: "Reset Password", to: "/admin/staffs/reset-password" },
+      { label: "Status Logs", to: "/admin/staffs/status-logs" },
     ],
   },
   {
@@ -49,6 +51,8 @@ export const adminNav = [
       { label: "All Courses", to: "/admin/courses" },
       { label: "Course Enrolments", to: "/admin/courses/enrolments" },
       { label: "Add Course", to: "/admin/courses/create" },
+      { label: "Course Change", to: "/admin/courses/course-change" },
+      { label: "Transfer History", to: "/admin/courses/transfers" },
     ],
   },
   {
@@ -97,23 +101,24 @@ export const adminNav = [
     children: [
       { label: "Student Registry", to: "/admin/students" },
       { label: "Admissions", to: "/admin/students/create" },
-      { label: "Course Change", to: "/admin/students/course-change" },
-      { label: "Transfer History", to: "/admin/students/transfers" },
+      { label: "Reset Password", to: "/admin/students/reset-password" },
+      { label: "Status Logs", to: "/admin/students/status-logs" },
     ],
   },
   {
     label: "Finance",
     icon: Landmark,
     children: [
-      { label: "Dashboard", to: "/admin/finance/dashboard" },
-      { label: "Fee Reports", to: "/admin/finance/reports" },
-      { label: "Billing", to: "/admin/finance/billing" },
-      { label: "Invoices", to: "/admin/finance/invoices" },
+      { label: "Overview", to: "/admin/finance/overview" },
+      { label: "Fee Structures", to: "/admin/finance/fee-structures" },
+      { label: "Student Accounts", to: "/admin/finance/student-accounts" },
+      { label: "Not Invoiced", to: "/admin/finance/students-not-invoiced" },
+      { label: "Actions", to: "/admin/finance/actions" },
       { label: "Payments", to: "/admin/finance/payments" },
-      { label: "Statements", to: "/admin/finance/statement" },
-      { label: "Financial Ledger", to: "/admin/finance/ledger" },
-      { label: "Fee Templates", to: "/admin/finance/fee-templates" },
-      { label: "Add Template", to: "/admin/finance/fee-templates/create" },
+      { label: "Reports", to: "/admin/finance/reports" },
+      { label: "Finance Health", to: "/admin/finance/health" },
+      { label: "Readiness", to: "/admin/finance/readiness" },
+      { label: "Settings", to: "/admin/finance/settings" },
     ],
   },
   {
@@ -130,7 +135,6 @@ export const adminNav = [
     icon: Settings2,
     children: [
       { label: "Enrollments", to: "/admin/operations/enrollments" },
-      { label: "Status Logs", to: "/admin/operations/status-logs" },
     ],
   },
   {

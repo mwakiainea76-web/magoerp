@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StorestaffsRequest;
 use App\Http\Requests\UpdatestaffsRequest;
 use App\Models\staffs;
+use App\Models\StaffStatusLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -218,6 +219,8 @@ class StaffsController extends Controller
                 $user->syncRoles([$request->role]);
             }
 
+            $oldStatus = $staff->status;
+
             $staff->update([
                 'kra_pin'               => $request->kra_pin,
                 'nhif_number'           => $request->nhif_number,
@@ -234,6 +237,17 @@ class StaffsController extends Controller
                 'updated_by'            => $request->user()->id,
             ]);
 
+            if ((bool) $oldStatus !== (bool) $request->status) {
+                StaffStatusLog::create([
+                    'staff_id'    => $staff->id,
+                    'from_status' => $oldStatus ? 'active' : 'inactive',
+                    'to_status'   => $request->status ? 'active' : 'inactive',
+                    'reason'      => $request->status_reason,
+                    'changed_at'  => now(),
+                    'changed_by'  => $request->user()->id,
+                ]);
+            }
+
             $staff->load(['user', 'department']);
 
             return $staff;
@@ -242,6 +256,51 @@ class StaffsController extends Controller
         return response()->json([
             'message' => 'Staff updated successfully.',
             'data'    => $this->transformStaff($staff),
+        ]);
+    }
+
+    public function statusLogs(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('staff.view'), 403);
+
+        $search = trim((string) $request->string('q', ''));
+        $status = (string) $request->string('status', '');
+        $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
+
+        $logs = StaffStatusLog::query()
+            ->with(['staff.user', 'changedBy'])
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->whereHas('staff', function ($sq) use ($search) {
+                        $sq->where('employee_number', 'like', "%{$search}%");
+                    })->orWhereHas('staff.user', function ($uq) use ($search) {
+                        $uq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('middle_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    });
+                });
+            })
+            ->when($status !== '', fn ($q) => $q->where('to_status', $status))
+            ->latest('changed_at')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return response()->json([
+            'data' => $logs->getCollection()->map(fn (StaffStatusLog $log) => [
+                'id' => $log->id,
+                'staff_name' => trim(collect([$log->staff?->user?->first_name, $log->staff?->user?->middle_name, $log->staff?->user?->last_name])->filter()->implode(' ')),
+                'employee_number' => $log->staff?->employee_number,
+                'from_status' => $log->from_status,
+                'to_status' => $log->to_status,
+                'reason' => $log->reason,
+                'changed_at' => $log->changed_at?->format('Y-m-d'),
+                'changed_by' => trim(collect([$log->changedBy?->first_name, $log->changedBy?->middle_name, $log->changedBy?->last_name])->filter()->implode(' ')),
+                'created_at' => $log->created_at,
+            ])->values(),
+            'meta' => $this->paginationMeta($logs, [
+                'q' => $search,
+                'status' => $status,
+            ]),
         ]);
     }
 

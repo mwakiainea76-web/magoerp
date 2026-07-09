@@ -25,6 +25,14 @@ function SidebarChildLink({ child, onNavigate }) {
   const ChildIcon = child.icon;
   const isActive = child.to === location.pathname;
 
+  if (child.groupLabel) {
+    return (
+      <div className="px-4 pl-12 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5e6b86]">
+        {child.groupLabel}
+      </div>
+    );
+  }
+
   return (
     <NavLink
       to={child.to}
@@ -125,7 +133,7 @@ export function SidebarNavItem({ item, onNavigate, openSection, setOpenSection }
         <div className="min-h-0">
           {item.children.map((child) => (
             <SidebarChildLink
-              key={child.label}
+              key={child.label || child.groupLabel}
               child={child}
               onNavigate={onNavigate}
             />

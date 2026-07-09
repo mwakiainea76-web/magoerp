@@ -3,12 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\FeeAssignmentAudit;
 use App\Models\FeeTemplate;
 use App\Models\Invoice;
 use App\Models\Refund;
 use App\Models\Student;
-use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -27,12 +25,10 @@ class FinanceReportsController extends Controller
     private const TYPES = [
         'debtors',
         'credits',
-        'aging',
         'collections',
-        'adjustments',
         'penalties',
         'refunds',
-        'assignment_audits',
+        'hostel',
     ];
 
     public function index(Request $request): JsonResponse
@@ -85,7 +81,6 @@ class FinanceReportsController extends Controller
             'academic_session_id' => ['nullable', 'uuid', 'exists:academic_sessions,id'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
-            'adjustment_type' => ['nullable', Rule::in(['discount', 'waiver', 'bursary', 'helb', 'reversal', 'penalty'])],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:10000'],
         ]) + [
@@ -96,7 +91,7 @@ class FinanceReportsController extends Controller
             'academic_session_id' => '',
             'date_from' => '',
             'date_to' => '',
-            'adjustment_type' => '',
+
             'page' => 1,
             'per_page' => 25,
         ];
@@ -107,12 +102,10 @@ class FinanceReportsController extends Controller
         return match ($filters['report_type']) {
             'debtors' => $this->debtorReport($filters),
             'credits' => $this->creditReport($filters),
-            'aging' => $this->agingReport($filters),
             'collections' => $this->collectionReport($filters),
-            'adjustments' => $this->adjustmentReport($filters),
             'penalties' => $this->penaltyReport($filters),
             'refunds' => $this->refundReport($filters),
-            'assignment_audits' => $this->assignmentAuditReport($filters),
+            'hostel' => $this->hostelReport($filters),
         };
     }
 
@@ -222,50 +215,6 @@ class FinanceReportsController extends Controller
         ], ['available_credit' => $totalCredit]);
     }
 
-    private function agingReport(array $filters): array
-    {
-        $balance = $this->balanceExpression();
-        $query = $this->invoiceScope(Invoice::query()->with(['student.user', 'academicSession']), $filters)
-            ->select('invoices.*')
-            ->selectRaw("CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END AS balance_due")
-            ->whereRaw("({$balance}) > 0")
-            ->orderBy('due_date');
-        $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
-        $today = now()->startOfDay();
-        $rows = $paginator->getCollection()->map(function (Invoice $invoice) use ($today) {
-            $days = $invoice->due_date ? (int) $invoice->due_date->diffInDays($today, false) : 0;
-            $bucket = match (true) {
-                $days <= 0 => 'Current',
-                $days <= 30 => '1-30 days',
-                $days <= 60 => '31-60 days',
-                $days <= 90 => '61-90 days',
-                default => '90+ days',
-            };
-            return [
-                'invoice_number' => $invoice->invoice_number,
-                'student_name' => $invoice->student?->full_name ?? '-',
-                'admission_number' => $invoice->student?->admission_number,
-                'session_name' => $invoice->academicSession?->name,
-                'due_date' => $invoice->due_date?->format('Y-m-d'),
-                'days_overdue' => max(0, $days),
-                'aging_bucket' => $bucket,
-                'balance' => (float) $invoice->balance_due,
-            ];
-        });
-        $summary = $rows->groupBy('aging_bucket')->map(fn (Collection $group) => (float) $group->sum('balance'))->all();
-
-        return $this->result($paginator, $rows, [
-            'invoice_number' => 'Invoice',
-            'student_name' => 'Student',
-            'admission_number' => 'Admission No.',
-            'session_name' => 'Session',
-            'due_date' => 'Due Date',
-            'days_overdue' => 'Days Overdue',
-            'aging_bucket' => 'Aging Bucket',
-            'balance' => 'Balance',
-        ], $summary);
-    }
-
     private function collectionReport(array $filters): array
     {
         $balance = $this->balanceExpression();
@@ -303,41 +252,6 @@ class FinanceReportsController extends Controller
             'collected' => (float) $collectionTotals->collected,
             'outstanding' => (float) $collectionTotals->outstanding,
         ]);
-    }
-
-    private function adjustmentReport(array $filters): array
-    {
-        $query = StudentFeeAdjustment::query()
-            ->with(['invoice.student.user', 'invoice.academicSession', 'creator'])
-            ->whereNull('deleted_at')
-            ->when($filters['adjustment_type'], fn (Builder $q, $type) => $q->where('type', $type))
-            ->when($filters['date_from'], fn (Builder $q, $date) => $q->whereDate('applied_at', '>=', $date))
-            ->when($filters['date_to'], fn (Builder $q, $date) => $q->whereDate('applied_at', '<=', $date))
-            ->whereHas('invoice', fn (Builder $invoice) => $this->invoiceScope($invoice, $filters, null))
-            ->latest('applied_at');
-        $totalAdjustments = (float) (clone $query)->reorder()->sum('amount');
-        $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
-        $rows = $paginator->getCollection()->map(fn (StudentFeeAdjustment $adjustment) => [
-            'date' => $adjustment->applied_at?->format('Y-m-d'),
-            'type' => $adjustment->type,
-            'invoice_number' => $adjustment->invoice?->invoice_number,
-            'student_name' => $adjustment->invoice?->student?->full_name ?? '-',
-            'admission_number' => $adjustment->invoice?->student?->admission_number,
-            'session_name' => $adjustment->invoice?->academicSession?->name,
-            'amount' => (float) $adjustment->amount,
-            'description' => $adjustment->description,
-        ]);
-
-        return $this->result($paginator, $rows, [
-            'date' => 'Date',
-            'type' => 'Type',
-            'invoice_number' => 'Invoice',
-            'student_name' => 'Student',
-            'admission_number' => 'Admission No.',
-            'session_name' => 'Session',
-            'amount' => 'Amount',
-            'description' => 'Reason',
-        ], ['total' => $totalAdjustments]);
     }
 
     private function penaltyReport(array $filters): array
@@ -415,31 +329,44 @@ class FinanceReportsController extends Controller
         ], ['total_refunded' => $totalRefunded]);
     }
 
-    private function assignmentAuditReport(array $filters): array
+    private function hostelReport(array $filters): array
     {
-        $query = FeeAssignmentAudit::query()
-            ->with(['assignment.feeTemplate', 'assignment.academicSession', 'modifier'])
-            ->latest();
+        $balance = $this->balanceExpression();
+        $query = $this->invoiceScope(Invoice::query(), $filters)
+            ->where('invoice_type', 'hostel')
+            ->selectRaw("snapshot_data->>'$.hostel_name' AS hostel_name")
+            ->selectRaw('COUNT(DISTINCT student_id) AS students_count')
+            ->selectRaw('SUM(amount_due) AS total_invoiced')
+            ->selectRaw('SUM(COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)) AS collected')
+            ->selectRaw("SUM(CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END) AS outstanding")
+            ->groupBy('hostel_name')
+            ->orderByDesc('total_invoiced');
+
+        $totals = DB::query()->fromSub((clone $query)->reorder(), 'report_totals')
+            ->selectRaw('COALESCE(SUM(students_count), 0) AS students, COALESCE(SUM(total_invoiced), 0) AS invoiced, COALESCE(SUM(collected), 0) AS collected, COALESCE(SUM(outstanding), 0) AS outstanding')
+            ->first();
+
         $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
-        $rows = $paginator->getCollection()->map(fn (FeeAssignmentAudit $audit) => [
-            'date' => $audit->created_at?->format('Y-m-d H:i'),
-            'action' => $audit->field,
-            'fee_template' => $audit->assignment?->feeTemplate?->name,
-            'session_name' => $audit->assignment?->academicSession?->name,
-            'old_amount' => (float) $audit->old_value,
-            'new_amount' => (float) $audit->new_value,
-            'changed_by' => $audit->modifier?->full_name,
+        $rows = $paginator->getCollection()->map(fn ($row) => [
+            'hostel_name' => $row->hostel_name ?? '-',
+            'students_count' => (int) $row->students_count,
+            'total_invoiced' => (float) $row->total_invoiced,
+            'collected' => (float) $row->collected,
+            'outstanding' => (float) $row->outstanding,
         ]);
 
         return $this->result($paginator, $rows, [
-            'date' => 'Date',
-            'action' => 'Action',
-            'fee_template' => 'Fee Template',
-            'session_name' => 'Session',
-            'old_amount' => 'Old Amount',
-            'new_amount' => 'New Amount',
-            'changed_by' => 'Changed By',
-        ], ['changes' => $paginator->total()]);
+            'hostel_name' => 'Hostel',
+            'students_count' => 'Students',
+            'total_invoiced' => 'Invoiced',
+            'collected' => 'Collected',
+            'outstanding' => 'Outstanding',
+        ], [
+            'students' => (int) ($totals->students ?? 0),
+            'invoiced' => (float) ($totals->invoiced ?? 0),
+            'collected' => (float) ($totals->collected ?? 0),
+            'outstanding' => (float) ($totals->outstanding ?? 0),
+        ]);
     }
 
     private function result(LengthAwarePaginator $paginator, Collection $rows, array $columns, array $summary): array

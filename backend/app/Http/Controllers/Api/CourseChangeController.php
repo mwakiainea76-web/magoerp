@@ -11,10 +11,10 @@ use App\Models\CourseEnrolment;
 use App\Models\Curriculum;
 use App\Models\CurriculumTransfer;
 use App\Models\Invoice;
-use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
 use App\Models\Student;
 use App\Services\AdmissionNumberService;
+use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -162,25 +162,17 @@ class CourseChangeController extends Controller
                 ->whereNotIn('status', ['cancelled', 'reversed'])
                 ->get();
 
+            $syncedSessions = [];
             foreach ($invoicesToReverse as $invoice) {
                 $paid = (float) $invoice->paymentAllocations()->sum('amount');
                 $balanceDue = max(0, (float) $invoice->amount_due - $paid);
 
                 if ($balanceDue > 0) {
-                    StudentFeeAdjustment::create([
-                        'invoice_id' => $invoice->id,
-                        'type' => 'reversal',
-                        'amount' => $balanceDue,
-                        'description' => 'Full reversal due to course transfer.',
-                        'applied_at' => now()->toDateString(),
-                        'created_by' => $processedBy->id,
-                    ]);
-
                     StudentLedgerEntry::create([
                         'student_id' => $invoice->student_id,
                         'invoice_id' => $invoice->id,
                         'academic_session_id' => $invoice->academic_session_id,
-                        'type' => 'reversal',
+                        'type' => 'invoice_reversal',
                         'debit' => 0,
                         'credit' => $balanceDue,
                         'description' => 'Full reversal due to course transfer.',
@@ -192,6 +184,13 @@ class CourseChangeController extends Controller
                 }
 
                 $invoice->update(['status' => 'reversed']);
+                if ($invoice->academic_session_id) {
+                    $syncedSessions[$invoice->academic_session_id] = true;
+                }
+            }
+
+            foreach (array_keys($syncedSessions) as $sessionId) {
+                app(BillingService::class)->syncAccountBalance($student->id, $sessionId);
             }
 
             $newEnrolment = CourseEnrolment::create([

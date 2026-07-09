@@ -65,7 +65,7 @@ class InvoicesController extends Controller
         ];
 
         $invoices = Invoice::query()
-            ->with(['student.user', 'academicSession', 'paymentAllocations', 'adjustments'])
+            ->with(['student.user', 'academicSession', 'paymentAllocations'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->where('invoice_number', 'like', "%{$search}%")
@@ -158,7 +158,7 @@ class InvoicesController extends Controller
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $invoice->load(['student.user', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerEntries']);
+        $invoice->load(['student.user', 'academicSession', 'items', 'paymentAllocations.payment', 'ledgerEntries']);
 
         return response()->json([
             'status_code' => 200,
@@ -211,6 +211,12 @@ class InvoicesController extends Controller
                 'year_level' => $cit->year_level,
                 'session_number' => $cit->session_number,
                 'total_amount' => (float) $cit->feeTemplate->activeItems->sum('amount'),
+                'items' => $cit->feeTemplate->activeItems->map(fn ($i) => [
+                    'id' => $i->id,
+                    'name' => $i->name,
+                    'amount' => (float) $i->amount,
+                    'description' => $i->description,
+                ])->values(),
             ]);
 
         return response()->json(['data' => $templates], 200);
@@ -317,6 +323,82 @@ class InvoicesController extends Controller
         }
 
         return $this->statementDownload($request, $student);
+    }
+
+    public function studentsNotInvoiced(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
+        $sessionId = (string) $request->string('academic_session_id', '');
+        $search = trim((string) $request->string('q', ''));
+        $perPage = max(1, min((int) $request->integer('per_page', 50), 200));
+
+        if ($sessionId === '') {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'Academic session is required.',
+            ], 422);
+        }
+
+        $invoicedIds = Invoice::query()
+            ->where('academic_session_id', $sessionId)
+            ->where('status', '!=', 'cancelled')
+            ->select('student_id')
+            ->distinct()
+            ->pluck('student_id');
+
+        $students = Student::query()
+            ->whereHas('sessionEnrolments', function ($q) use ($sessionId) {
+                $q->where('academic_session_id', $sessionId)
+                  ->where('status', 'enrolled');
+            })
+            ->when($invoicedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $invoicedIds))
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('admission_number', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($uq) use ($search) {
+                            $uq->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('middle_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->with([
+                'user',
+                'sessionEnrolments' => function ($q) use ($sessionId) {
+                    $q->where('academic_session_id', $sessionId)
+                      ->where('status', 'enrolled');
+                },
+                'activeEnrolment.courseCurriculum.course',
+            ])
+            ->orderBy('admission_number')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $data = $students->getCollection()->map(function (Student $student) {
+            $enrolment = $student->sessionEnrolments->first();
+            $course = $student->activeEnrolment?->courseCurriculum?->course;
+
+            return [
+                'id' => $student->id,
+                'admission_number' => $student->admission_number,
+                'full_name' => $student->full_name,
+                'course_name' => $course?->name,
+                'course_code' => $course?->code,
+                'year_of_study' => $enrolment?->year_of_study,
+                'session_number' => $enrolment?->session_number,
+            ];
+        })->values();
+
+        return response()->json([
+            'status_code' => 200,
+            'data' => $data,
+            'meta' => $this->paginationMeta($students, [
+                'academic_session_id' => $sessionId,
+                'q' => $search,
+                'per_page' => $perPage,
+            ]),
+        ], 200);
     }
 
     public function reconcile(Request $request): JsonResponse
@@ -683,7 +765,7 @@ class InvoicesController extends Controller
             ], 422);
         }
 
-        $invoice->load(['student.user', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerEntries']);
+        $invoice->load(['student.user', 'academicSession', 'items', 'paymentAllocations.payment', 'ledgerEntries']);
 
         return response()->json([
             'status_code' => 201,
@@ -701,7 +783,7 @@ class InvoicesController extends Controller
 
         $invoices = Invoice::query()
             ->where('student_id', $student->id)
-            ->with(['student.user', 'academicSession', 'items', 'adjustments', 'paymentAllocations.payment', 'ledgerEntries'])
+            ->with(['student.user', 'academicSession', 'items', 'paymentAllocations.payment', 'ledgerEntries'])
             ->latest()
             ->get()
             ->map(fn (Invoice $i) => $this->transformFull($i))
@@ -734,11 +816,6 @@ class InvoicesController extends Controller
 
         $invoices = $baseQuery->get();
         $outstanding = (float) $invoices->sum('balance_due');
-        $totalAdjustments = (float) \App\Models\StudentFeeAdjustment::query()
-            ->whereHas('invoice', fn ($q) => $q->where('student_id', $student->id))
-            ->whereNull('deleted_at')
-            ->selectRaw("{$this->adjustmentExpression()} as total")
-            ->value('total');
 
         $payments = Payment::query()
             ->where('student_id', $student->id)
@@ -767,19 +844,60 @@ class InvoicesController extends Controller
             'outstanding_balance' => $outstanding,
             'net_balance' => $netBalance,
             'total_paid' => $totalPaid,
-            'total_adjustments' => $totalAdjustments,
             'unallocated_credit' => $unallocatedCredit,
             'next_due_date' => $nextDueInvoice?->due_date?->format('Y-m-d'),
         ], 200);
     }
 
+    public function storeCharge(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.create'), 403);
+
+        $validated = $request->validate([
+            'student_id' => ['required', 'string', 'exists:students,id'],
+            'charge_type' => ['required', 'string', 'in:penalty'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'description' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $student = Student::findOrFail($validated['student_id']);
+
+        try {
+            $invoice = $this->billingService->createStandaloneChargeInvoice(
+                $student,
+                (float) $validated['amount'],
+                $validated['charge_type'],
+                $validated['description'] ?? null,
+                $request->user()?->id,
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'Failed to create charge invoice.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        $invoice->load(['student.user', 'academicSession', 'items']);
+
+        return response()->json([
+            'status_code' => 201,
+            'message' => 'Penalty invoice created successfully.',
+            'data' => [
+                'id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'invoice_type' => $invoice->invoice_type,
+                'student_id' => $invoice->student_id,
+                'amount' => (float) $invoice->amount_due,
+                'status' => $invoice->status,
+            ],
+        ], 201);
+    }
+
     private function transform(Invoice $invoice, float $fifoCredit = 0): array
     {
         $amountDue = (float) $invoice->amount_due;
-        $creditTypes = ['discount', 'waiver', 'bursary', 'helb', 'reversal'];
         $allocatedPayments = (float) $invoice->paymentAllocations->sum('amount');
-        $adjustmentAmount = (float) $invoice->adjustments->whereIn('type', $creditTypes)->sum('amount')
-            - (float) $invoice->adjustments->whereNotIn('type', $creditTypes)->sum('amount');
         $paidAmount = $allocatedPayments + $fifoCredit;
 
         return [
@@ -796,7 +914,7 @@ class InvoicesController extends Controller
             'amount_due' => $amountDue,
             'computed_amount' => (float) $invoice->computed_amount,
             'paid_amount' => $paidAmount,
-            'balance_due' => max(0, $amountDue - $paidAmount - $adjustmentAmount),
+            'balance_due' => max(0, $amountDue - $paidAmount),
             'created_at' => $invoice->created_at,
         ];
     }
@@ -811,15 +929,6 @@ class InvoicesController extends Controller
                 'amount' => (float) $item->amount,
                 'quantity' => $item->quantity,
                 'total_amount' => (float) $item->total_amount,
-            ])->values()->all(),
-            'adjustments' => $invoice->adjustments->map(fn ($adj) => [
-                'id' => $adj->id,
-                'type' => $adj->type,
-                'amount' => (float) $adj->amount,
-                'discount_type' => $adj->discount_type,
-                'discount_percentage' => $adj->discount_percentage ? (float) $adj->discount_percentage : null,
-                'description' => $adj->description,
-                'applied_at' => $adj->applied_at?->format('Y-m-d'),
             ])->values()->all(),
             'invoice_payment_allocations' => $invoice->paymentAllocations->map(fn ($pa) => [
                 'id' => $pa->id,

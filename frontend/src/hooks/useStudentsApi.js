@@ -32,6 +32,10 @@ export function useStudentsApi() {
         const response = await authClient.get(`/students/${id}/admission-letter`);
         return response.data;
       },
+      resetPassword: async (admissionNumber) => {
+        const response = await authClient.post("/admin/reset-student-password", { admission_number: admissionNumber });
+        return response.data;
+      },
       exportStudents: async (params = {}) => {
         try {
           return await authClient.get("/students/export", {

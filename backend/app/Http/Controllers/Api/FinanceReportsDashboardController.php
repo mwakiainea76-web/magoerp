@@ -11,7 +11,6 @@ use App\Models\Invoice;
 use App\Models\InvoicePaymentAllocation;
 use App\Models\Payment;
 use App\Models\Student;
-use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -72,12 +71,6 @@ class FinanceReportsDashboardController extends Controller
                 ->sum('credit');
         }
         $outstandingBalance = $invoiceOutstanding - $unallocatedCredits;
-
-        $totalAdjustments = (float) StudentFeeAdjustment::query()
-            ->whereNull('deleted_at')
-            ->whereHas('invoice', $scopeInvoice)
-            ->selectRaw("COALESCE(SUM(CASE WHEN type IN ('discount','waiver','bursary','helb','reversal') THEN amount ELSE -amount END), 0) AS total")
-            ->value('total');
 
         $totalRefunds = (float) StudentLedgerEntry::query()
             ->where('type', 'refund')
@@ -204,7 +197,6 @@ class FinanceReportsDashboardController extends Controller
                     'total_invoiced' => $totalInvoiced,
                     'total_collected' => $totalCollected,
                     'outstanding_balance' => $outstandingBalance,
-                    'total_adjustments' => $totalAdjustments,
                     'total_refunds' => $totalRefunds,
                     'collection_rate' => $collectionRate,
                     'invoice_counts' => $invoiceCounts,

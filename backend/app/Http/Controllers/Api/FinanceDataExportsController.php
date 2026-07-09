@@ -16,7 +16,7 @@ class FinanceDataExportsController extends Controller
     {
         $this->authorizeFinance($request);
         $query = Invoice::query()
-            ->with(['student.user', 'academicSession', 'paymentAllocations', 'adjustments'])
+            ->with(['student.user', 'academicSession', 'paymentAllocations'])
             ->when($request->string('status', 'all')->toString() !== 'all', fn (Builder $q) => $q->where('status', $request->string('status')))
             ->when($request->filled('admission_number'), fn (Builder $q) => $q->whereHas('student', fn (Builder $student) => $student->where('admission_number', 'like', '%' . $request->string('admission_number') . '%')))
             ->when($request->filled('department_id'), fn (Builder $q) => $q->where('department_id', $request->string('department_id')))
@@ -29,11 +29,9 @@ class FinanceDataExportsController extends Controller
 
         return $this->csv('invoices', [
             'Invoice', 'Student', 'Admission No.', 'Session', 'Type', 'Issue Date', 'Due Date',
-            'Amount', 'Paid', 'Adjustments', 'Balance', 'Status',
+            'Amount', 'Paid', 'Balance', 'Status',
         ], $query->cursor()->map(function (Invoice $invoice) {
             $paid = (float) $invoice->paymentAllocations->sum('amount');
-            $credits = (float) $invoice->adjustments->whereIn('type', ['discount', 'waiver', 'bursary', 'helb', 'reversal'])->sum('amount');
-            $debits = (float) $invoice->adjustments->whereNotIn('type', ['discount', 'waiver', 'bursary', 'helb', 'reversal'])->sum('amount');
             return [
                 $invoice->invoice_number,
                 $invoice->student?->full_name,
@@ -44,8 +42,7 @@ class FinanceDataExportsController extends Controller
                 $invoice->due_date?->format('Y-m-d'),
                 (float) $invoice->amount_due,
                 $paid,
-                $credits - $debits,
-                (float) $invoice->amount_due - $paid - $credits + $debits,
+                (float) $invoice->amount_due - $paid,
                 $invoice->status,
             ];
         }));

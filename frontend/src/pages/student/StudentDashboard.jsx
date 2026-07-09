@@ -215,13 +215,6 @@ export function StudentDashboard() {
       icon: GraduationCap,
       tone: "from-sky-500 to-cyan-500",
     },
-    {
-      label: "Net Adjustments",
-      value: currency(finance?.total_adjustments ?? 0),
-      helper: "Discounts, waivers, bursaries, and penalties",
-      icon: ShieldCheck,
-      tone: "from-amber-500 to-orange-500",
-    },
   ];
 
   return (

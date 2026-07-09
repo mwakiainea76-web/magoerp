@@ -131,6 +131,9 @@ return new class extends Migration
             $table->string('method', 50)->nullable();
             $table->string('reference', 100)->nullable();
             $table->string('status', 50)->default('completed');
+            $table->timestamp('reversed_at')->nullable()->after('status');
+            $table->uuid('reversed_by')->nullable()->after('reversed_at');
+            $table->string('reversal_reason', 255)->nullable()->after('reversed_by');
             $table->string('idempotency_key')->nullable()->unique();
             $table->uuid('created_by')->nullable();
             $table->text('notes')->nullable();
@@ -161,28 +164,6 @@ return new class extends Migration
             DB::statement('ALTER TABLE invoice_payment_allocations ADD CONSTRAINT invoice_payment_allocations_amount_check CHECK (amount > 0)');
         }
 
-        Schema::create('student_fee_adjustments', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
-            $table->foreignUuid('academic_session_id')->nullable()->after('invoice_id')->constrained('academic_sessions')->nullOnDelete();
-            $table->string('type', 50);
-            $table->string('discount_type', 20)->nullable();
-            $table->decimal('discount_percentage', 5, 2)->nullable();
-            $table->decimal('amount', 10, 2);
-            $table->string('idempotency_key')->nullable()->unique();
-            $table->text('description')->nullable();
-            $table->date('applied_at')->nullable();
-            $table->boolean('ledger_posted')->default(false);
-            $table->uuid('created_by')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-
-            $table->index('type');
-            $table->index(['academic_session_id', 'type', 'applied_at'], 'fee_adjustments_session_type_date_idx');
-            $table->index(['invoice_id', 'deleted_at', 'type'], 'fee_adjustments_invoice_active_type_idx');
-            $table->index(['type', 'applied_at', 'deleted_at'], 'fee_adjustments_type_date_idx');
-        });
-
         Schema::create('refunds', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->constrained()->cascadeOnDelete();
@@ -208,7 +189,7 @@ return new class extends Migration
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('invoice_id')->nullable()->constrained('invoices')->nullOnDelete();
             $table->foreignUuid('payment_id')->nullable()->constrained('payments')->nullOnDelete();
-            $table->foreignUuid('adjustment_id')->nullable()->constrained('student_fee_adjustments')->nullOnDelete();
+            $table->foreignUuid('refund_id')->nullable()->constrained('refunds')->nullOnDelete();
             $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->string('type', 50);
             $table->decimal('debit', 12, 2)->default(0);
@@ -226,6 +207,10 @@ return new class extends Migration
             $table->index('type');
             $table->unique('idempotency_key', 'ledger_idempotency_key_unique');
         });
+
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE student_ledger_entries ADD CONSTRAINT ledger_single_sided_check CHECK ((debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0))');
+        }
 
         Schema::create('student_account_balances', function (Blueprint $table) {
             $table->uuid('id')->primary();
@@ -248,7 +233,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('student_account_balances');
         Schema::dropIfExists('student_ledger_entries');
-        Schema::dropIfExists('student_fee_adjustments');
         Schema::dropIfExists('invoice_payment_allocations');
         Schema::dropIfExists('refunds');
         Schema::dropIfExists('payments');

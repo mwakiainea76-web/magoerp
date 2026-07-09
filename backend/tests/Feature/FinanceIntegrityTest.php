@@ -46,19 +46,6 @@ class FinanceIntegrityTest extends TestCase
             ->assertJsonPath('data.id', $invoice->id);
     }
 
-    public function test_penalty_without_discount_percentage_does_not_raise_an_undefined_key_error(): void
-    {
-        $invoice = Invoice::factory()->create();
-
-        $this->postJson("/api/invoices/{$invoice->id}/adjustments", [
-            'type' => 'penalty',
-            'amount' => 250,
-            'description' => 'Late fee',
-        ])->assertCreated()
-            ->assertJsonPath('data.type', 'penalty')
-            ->assertJsonPath('data.amount', 250);
-    }
-
     public function test_graduated_student_status_enum_allows_a_refund(): void
     {
         AcademicSession::factory()->active()->create();
@@ -101,37 +88,6 @@ class FinanceIntegrityTest extends TestCase
             'amount' => 100,
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('invoice_id');
-    }
-
-    public function test_allocating_advance_credit_does_not_double_post_payment_to_ledger(): void
-    {
-        AcademicSession::factory()->active()->create();
-        $student = Student::factory()->create();
-        $payment = app(BillingService::class)->recordStudentPayment(
-            $student,
-            500,
-            'cash',
-            $this->admin->id,
-            'ADVANCE-CREDIT-001',
-        );
-        $feeTemplate = FeeTemplate::create([
-            'code' => 'MANUAL-001',
-            'name' => 'Manual charge',
-            'type' => 'fees',
-            'is_active' => true,
-        ]);
-
-        $invoice = app(BillingService::class)->createManualInvoiceAdjustment(
-            $student,
-            $feeTemplate,
-            300,
-            'Manual charge',
-            $this->admin->id,
-        );
-
-        $this->assertSame(500.0, (float) StudentLedgerEntry::where('payment_id', $payment->id)->sum('credit'));
-        $this->assertSame(300.0, (float) InvoicePaymentAllocation::where('invoice_id', $invoice->id)->sum('amount'));
-        $this->assertSame('paid', $invoice->fresh()->status);
     }
 
     public function test_reconcile_student_finance_recomputes_invoice_totals_from_line_items(): void
@@ -338,20 +294,6 @@ class FinanceIntegrityTest extends TestCase
     {
         AcademicSession::factory()->active()->create();
         $student = Student::factory()->create();
-        $template = FeeTemplate::create([
-            'code' => 'BASE-FEE-001',
-            'name' => 'Base fee',
-            'type' => 'fees',
-            'is_active' => true,
-        ]);
-
-        $feeInvoice = app(BillingService::class)->createManualInvoiceAdjustment(
-            $student,
-            $template,
-            1000,
-            'Base fee invoice',
-            $this->admin->id,
-        );
 
         $penaltyInvoiceId = $this->postJson('/api/invoice-charges', [
             'student_id' => $student->id,
@@ -363,18 +305,13 @@ class FinanceIntegrityTest extends TestCase
             ->assertJsonPath('data.amount', 200)
             ->json('data.id');
 
-        $this->assertDatabaseCount('invoices', 2);
+        $this->assertDatabaseCount('invoices', 1);
         $this->assertDatabaseHas('invoices', [
             'id' => $penaltyInvoiceId,
             'student_id' => $student->id,
             'invoice_type' => 'penalty',
             'fee_template_id' => null,
             'amount_due' => 200,
-        ]);
-        $this->assertSame(1000.0, (float) $feeInvoice->fresh()->amount_due);
-        $this->assertDatabaseMissing('student_fee_adjustments', [
-            'invoice_id' => $feeInvoice->id,
-            'type' => 'penalty',
         ]);
     }
     public function test_student_dashboard_shows_credit_as_a_negative_net_balance(): void

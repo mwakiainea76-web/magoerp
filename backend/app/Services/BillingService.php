@@ -18,7 +18,6 @@ use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\Student;
 use App\Models\StudentAccountBalance;
-use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,13 +26,6 @@ use Illuminate\Validation\ValidationException;
 
 class BillingService
 {
-    // -------------------------------------------------------------------------
-    // CREDIT ADJUSTMENT TYPES
-    // These types reduce what the student owes (posted as ledger credits).
-    // All other adjustment types are treated as debits (increase what is owed).
-    // -------------------------------------------------------------------------
-    private const CREDIT_ADJUSTMENT_TYPES = ['discount', 'waiver', 'bursary', 'helb', 'reversal'];
-
     // =========================================================================
     // INVOICE CREATION
     // =========================================================================
@@ -663,118 +655,134 @@ class BillingService
     }
 
     // =========================================================================
-    // ADJUSTMENTS (DISCOUNTS / WAIVERS / BURSARIES / PENALTIES)
+    // PAYMENT REVERSAL
     // =========================================================================
 
     /**
-     * Apply a fee adjustment to an invoice.
+     * Reverse a completed payment.
      *
-     * Credit types  (reduce what the student owes): discount, waiver, bursary, helb, reversal
-     * Debit types   (increase what the student owes): penalty, fine, etc.
+     * This creates a new `payment_reversal` ledger debit entry — it does NOT
+     * edit or delete the original payment's ledger entries, preserving the
+     * append-only audit trail.
      *
-     * When type=discount and discountType='percentage' the amount is computed as
-     * (discountPercentage / 100) * invoice items total, capped at the outstanding
-     * balance so credits never exceed debits.
-     *
-     * Every adjustment is posted to the ledger and the ledger_posted flag
-     * is set to true atomically within the same transaction.
+     * Steps:
+     * 1. Guard: payment must be `completed` (not already reversed).
+     * 2. Find all InvoicePaymentAllocation rows for this payment.
+     * 3. For each allocation: un-apply it (leave the row, mark as part of audit),
+     *    increase the invoice's balance_due back, and recalculateTotals().
+     * 4. If unallocated credit was created (ledger entry with this payment_id
+     *    and no invoice_id), reverse that too.
+     * 5. POST StudentLedgerEntry (type='payment_reversal', debit=amount).
+     * 6. UPDATE Payment: status='reversed', reversed_at, reversed_by, reversal_reason.
+     * 7. SYNC StudentAccountBalance for all affected sessions.
+     * 8. AUDIT LOG.
      */
-    public function applyAdjustment(
-        Invoice $invoice,
-        string $type,
-        float $amount,
-        ?string $createdBy,
-        ?string $description = null,
-        ?string $discountType = null,
-        ?float $discountPercentage = null
-    ): StudentFeeAdjustment {
-        if ($amount <= 0) {
+    public function reversePayment(Payment $payment, string $reason, string $reversedBy): Payment
+    {
+        if ($payment->status !== 'completed') {
             throw ValidationException::withMessages([
-                'amount' => 'Adjustment amount must be greater than zero.',
+                'payment' => 'Only completed payments can be reversed.',
             ]);
         }
 
-        if ($invoice->status === 'cancelled') {
-            throw ValidationException::withMessages([
-                'invoice' => 'Cannot apply an adjustment to a cancelled invoice.',
-            ]);
-        }
+        return DB::transaction(function () use ($payment, $reason, $reversedBy) {
+            $payment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
+            $studentId = $payment->student_id;
+            $sessionsSynced = [];
 
-        return DB::transaction(function () use ($invoice, $type, $amount, $createdBy, $description, $discountType, $discountPercentage) {
+            // 2 & 3. Reverse each allocation
+            $allocations = InvoicePaymentAllocation::where('payment_id', $payment->id)->get();
+            foreach ($allocations as $allocation) {
+                $invoice = Invoice::lockForUpdate()->find($allocation->invoice_id);
+                if (!$invoice) continue;
 
-            // Lock invoice row
-            $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
+                // Debit the invoice back (the allocation amount was reducing balance_due,
+                // now we increase it again by the same amount).
+                StudentLedgerEntry::create([
+                    'student_id'          => $studentId,
+                    'invoice_id'          => $invoice->id,
+                    'payment_id'          => $payment->id,
+                    'academic_session_id' => $invoice->academic_session_id,
+                    'type'                => 'payment_reversal',
+                    'debit'               => (float) $allocation->amount,
+                    'credit'              => 0,
+                    'reference'           => $payment->reference,
+                    'description'         => 'Payment reversal — ' . $reason,
+                    'transaction_date'    => now()->toDateString(),
+                    'created_by'          => $reversedBy,
+                ]);
 
-            $isCredit = in_array($type, self::CREDIT_ADJUSTMENT_TYPES);
+                $invoice->recalculateTotals();
 
-            // Resolve effective amount: percentage discount computes from invoice total
-            $effectiveAmount = $amount;
-            $storeDiscountType = null;
-            $storeDiscountPct = null;
-
-            if ($type === 'discount' && $discountType === 'percentage' && $discountPercentage !== null) {
-                $storeDiscountType = 'percentage';
-                $storeDiscountPct = $discountPercentage;
-                $itemsTotal = (float) $invoice->items()->sum('total_amount');
-                $effectiveAmount = round($itemsTotal * $discountPercentage / 100, 2);
-            } elseif ($type === 'discount') {
-                $storeDiscountType = 'fixed';
-            }
-
-            // Prevent credit adjustments from exceeding what the student owes
-            if ($isCredit) {
-                $outstanding = $this->calculateOutstanding($invoice);
-                if ($effectiveAmount > $outstanding) {
-                    $effectiveAmount = $outstanding;
-                }
-                if ($effectiveAmount <= 0) {
-                    throw ValidationException::withMessages([
-                        'amount' => 'No outstanding balance to apply a credit adjustment against.',
-                    ]);
+                if ($invoice->academic_session_id) {
+                    $sessionsSynced[$invoice->academic_session_id] = true;
                 }
             }
 
-            // 1. Create adjustment record (ledger_posted starts false)
-            $adjustment = StudentFeeAdjustment::create([
-                'invoice_id'          => $invoice->id,
-                'academic_session_id' => $invoice->academic_session_id,
-                'type'                => $type,
-                'discount_type'       => $storeDiscountType,
-                'discount_percentage' => $storeDiscountPct,
-                'amount'              => $effectiveAmount,
-                'idempotency_key'     => "adj:{$invoice->id}:{$type}",
-                'description'        => $description,
-                'applied_at'         => now()->toDateString(),
-                'ledger_posted'      => false,
-                'created_by'         => $createdBy,
+            // 4. Reverse any unallocated credit ledger entries for this payment
+            $unallocatedEntries = StudentLedgerEntry::where('payment_id', $payment->id)
+                ->whereNull('invoice_id')
+                ->where('type', 'payment')
+                ->where('credit', '>', 0)
+                ->get();
+
+            foreach ($unallocatedEntries as $entry) {
+                StudentLedgerEntry::create([
+                    'student_id'          => $studentId,
+                    'payment_id'          => $payment->id,
+                    'academic_session_id' => $entry->academic_session_id,
+                    'type'                => 'payment_reversal',
+                    'debit'               => (float) $entry->credit,
+                    'credit'              => 0,
+                    'reference'           => $payment->reference,
+                    'description'         => 'Reversal of unallocated credit — ' . $reason,
+                    'transaction_date'    => now()->toDateString(),
+                    'created_by'          => $reversedBy,
+                ]);
+
+                if ($entry->academic_session_id) {
+                    $sessionsSynced[$entry->academic_session_id] = true;
+                }
+            }
+
+            // 6. Mark payment as reversed
+            $payment->update([
+                'status'          => 'reversed',
+                'reversed_at'     => now(),
+                'reversed_by'     => $reversedBy,
+                'reversal_reason' => $reason,
             ]);
 
-            // 2. Post to ledger with direct adjustment_id traceability
-            StudentLedgerEntry::create([
-                'student_id'          => $invoice->student_id,
-                'invoice_id'          => $invoice->id,
-                'adjustment_id'       => $adjustment->id,
-                'academic_session_id' => $invoice->academic_session_id,
-                'type'                => 'adjustment',
-                'debit'               => $isCredit ? 0 : $effectiveAmount,
-                'credit'              => $isCredit ? $effectiveAmount : 0,
-                'description'         => $description ?? ucfirst($type) . ' adjustment applied.',
-                'transaction_date'    => now()->toDateString(),
-                'created_by'          => $createdBy,
-            ]);
+            // 7. Sync balance for every affected session
+            foreach (array_keys($sessionsSynced) as $sessionId) {
+                $this->syncAccountBalance($studentId, $sessionId);
+            }
 
-            // 3. Mark as posted — atomic within this transaction
-            $adjustment->update(['ledger_posted' => true]);
+            // 8. Audit log
+            $student = Student::find($studentId);
+            if ($student) {
+                $this->auditLog(
+                    $student,
+                    FinanceAuditAction::PAYMENT_REVERSED,
+                    'payment',
+                    $payment->id,
+                    [
+                        'amount'          => (float) $payment->amount,
+                        'reason'          => $reason,
+                        'reversed_by'     => $reversedBy,
+                        'allocations'     => $allocations->count(),
+                        'unallocated'     => $unallocatedEntries->count(),
+                    ]
+                );
+            }
 
-            // 4. Recalculate invoice status
-            $invoice->recalculateTotals();
-
-            // 5. Sync balance snapshot
-            $this->syncAccountBalance($invoice->student_id, $invoice->academic_session_id);
-
-            return $adjustment->fresh();
+            return $payment->fresh();
         });
     }
+
+    // =========================================================================
+    // REFUNDS
+    // =========================================================================
 
     /**
      * Process a refund — issues money back to the student for unallocated credit.
@@ -874,6 +882,7 @@ class BillingService
             StudentLedgerEntry::create([
                 'student_id'          => $student->id,
                 'invoice_id'          => $invoice?->id,
+                'refund_id'           => $refund->id,
                 'academic_session_id' => $targetSession->id,
                 'type'                => 'refund',
                 'debit'               => $amount,
@@ -965,17 +974,15 @@ class BillingService
     /**
      * Calculate the outstanding balance on a single invoice.
      *
-     * outstanding = amount_due + debit_adjustments - credit_adjustments - allocated_payments
+     * outstanding = amount_due - allocated_payments
      *
      * Uses fresh DB queries to avoid stale in-memory sums.
      */
     private function calculateOutstanding(Invoice $invoice): float
     {
         $allocated = (float) $invoice->paymentAllocations()->sum('amount');
-        $credits   = (float) $invoice->adjustments()->whereIn('type', self::CREDIT_ADJUSTMENT_TYPES)->sum('amount');
-        $debits    = (float) $invoice->adjustments()->whereNotIn('type', self::CREDIT_ADJUSTMENT_TYPES)->sum('amount');
 
-        return max(0, (float) $invoice->amount_due + $debits - $credits - $allocated);
+        return max(0, (float) $invoice->amount_due - $allocated);
     }
 
     /**
@@ -1194,90 +1201,6 @@ class BillingService
             return $invoice->fresh(['items']);
         });
     }
-    public function createManualInvoiceAdjustment(
-        Student $student,
-        FeeTemplate $feeTemplate,
-        float $amount,
-        ?string $description = null,
-        ?string $createdBy = null
-    ): Invoice {
-        if ($amount <= 0) {
-            throw ValidationException::withMessages([
-                'amount' => 'Invoice amount must be greater than zero.',
-            ]);
-        }
-
-        return DB::transaction(function () use ($student, $feeTemplate, $amount, $description, $createdBy) {
-
-            $targetSession = AcademicSession::query()
-                ->where('is_active', true)
-                ->whereHas('year', fn ($query) => $query->where('is_active', true))
-                ->latest('start_date')
-                ->first();
-
-            if (!$targetSession) {
-                throw ValidationException::withMessages([
-                    'session' => 'No active academic session found.',
-                ]);
-            }
-
-            $invoice = Invoice::create([
-                'invoice_number'      => Invoice::generateInvoiceNumber(),
-                'student_id'          => $student->id,
-                'academic_session_id' => $targetSession->id,
-                'fee_template_id'     => $feeTemplate->id,
-                'invoice_type'        => 'fees',
-                'status'              => 'issued',
-                'issue_date'          => now()->toDateString(),
-                'due_date'            => now()->addDays(30)->toDateString(),
-                'amount_due'          => 0,
-                'computed_amount'     => 0,
-                'notes'               => $description,
-                'created_by'          => $createdBy,
-            ]);
-
-            InvoiceLineItem::create([
-                'invoice_id'   => $invoice->id,
-                'name'         => $feeTemplate->name,
-                'description'  => $description,
-                'amount'       => $amount,
-                'quantity'     => 1,
-                'total_amount' => $amount,
-                'snapshot_data' => [
-                    'template_id'   => $feeTemplate->id,
-                    'template_code' => $feeTemplate->code,
-                    'template_name' => $feeTemplate->name,
-                    'manual_amount' => $amount,
-                    'snapshot_taken_at' => now()->toDateTimeString(),
-                ],
-            ]);
-
-            if (!$feeTemplate->is_issued) {
-                $feeTemplate->update(['is_issued' => true]);
-            }
-
-            $invoice->recalculateTotals();
-
-            StudentLedgerEntry::create([
-                'student_id'          => $student->id,
-                'invoice_id'          => $invoice->id,
-                'academic_session_id' => $targetSession->id,
-                'type'                => 'invoice',
-                'debit'               => (float) $invoice->amount_due,
-                'credit'              => 0,
-                'reference'           => $invoice->invoice_number,
-                'description'         => $description ?? 'Manual invoice adjustment.',
-                'transaction_date'    => now()->toDateString(),
-                'created_by'          => $createdBy,
-            ]);
-
-            $this->applyAvailableCredits($invoice, $createdBy);
-            $this->syncAccountBalance($student->id, $targetSession->id);
-
-            return $invoice->fresh();
-        });
-    }
-
     /**
      * Sync the student's account balance snapshot from the ledger.
      *
@@ -1285,12 +1208,9 @@ class BillingService
      * with a clean recalculation of everything from the ledger table.
      *
      * Formula:
-     *   balance = total_invoiced - total_paid - total_adjustments
-     *
-     * Where total_adjustments = net of credit adjustments minus debit adjustments.
-     * A net positive total_adjustments means the student has been given concessions.
+     *   balance = total_invoiced - total_paid + total_refunded + total_payment_reversals - total_reversal_credits - total_adjustments
      */
-    private function syncAccountBalance(string $studentId, ?string $academicSessionId): void
+    public function syncAccountBalance(string $studentId, ?string $academicSessionId): void
     {
         if (!$academicSessionId) {
             return;
@@ -1303,14 +1223,18 @@ class BillingService
                 COALESCE(SUM(CASE WHEN type = \'invoice\' THEN debit ELSE 0 END), 0) as total_invoiced,
                 COALESCE(SUM(CASE WHEN type = \'payment\' THEN credit ELSE 0 END), 0) as total_paid,
                 COALESCE(SUM(CASE WHEN type = \'refund\' THEN debit ELSE 0 END), 0) as total_refunded,
-                COALESCE(SUM(CASE WHEN type = \'adjustment\' AND adjustment_id IS NOT NULL THEN credit ELSE 0 END), 0) as adjustment_credits,
-                COALESCE(SUM(CASE WHEN type = \'adjustment\' AND adjustment_id IS NOT NULL THEN debit ELSE 0 END), 0) as adjustment_debits
+                COALESCE(SUM(CASE WHEN type = \'payment_reversal\' THEN debit ELSE 0 END), 0) as total_payment_reversals,
+                COALESCE(SUM(CASE WHEN type = \'invoice_reversal\' THEN credit ELSE 0 END), 0) as total_reversal_credits,
+                COALESCE(SUM(CASE WHEN type = \'adjustment\' THEN credit ELSE 0 END), 0) as adjustment_credits,
+                COALESCE(SUM(CASE WHEN type = \'adjustment\' THEN debit ELSE 0 END), 0) as adjustment_debits
             ')
             ->first();
 
         $totalInvoiced = (float) ($totals->total_invoiced ?? 0);
         $totalPaid = (float) ($totals->total_paid ?? 0);
         $totalRefunded = (float) ($totals->total_refunded ?? 0);
+        $totalPaymentReversals = (float) ($totals->total_payment_reversals ?? 0);
+        $totalReversalCredits = (float) ($totals->total_reversal_credits ?? 0);
         $adjustmentCredits = (float) ($totals->adjustment_credits ?? 0);
         $adjustmentDebits = (float) ($totals->adjustment_debits ?? 0);
         $totalAdjustments = $adjustmentCredits - $adjustmentDebits;
@@ -1324,7 +1248,7 @@ class BillingService
                 'total_invoiced'      => $totalInvoiced,
                 'total_paid'          => $totalPaid,
                 'total_adjustments'   => $totalAdjustments,
-                'balance'             => $totalInvoiced - $totalPaid + $totalRefunded - $totalAdjustments,
+                'balance'             => $totalInvoiced - $totalPaid + $totalRefunded + $totalPaymentReversals - $totalReversalCredits - $totalAdjustments,
                 'last_transaction_at' => now(),
             ]
         );

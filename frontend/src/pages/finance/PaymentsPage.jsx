@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Download, Filter, X } from "lucide-react";
+import { Download, Filter, Search, X, ChevronDown } from "lucide-react";
 
 import { initialMeta } from "@/lib/styles";
-import { FormButton } from "@/components/FormButton";
 import { LookupSelect } from "@/components/LookupSelect";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
@@ -12,15 +11,17 @@ import { useLookupApi } from "@/hooks/useLookupApi";
 const currency = (amount) =>
   `Ksh ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const statusBadgeStyles = {
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  failed: "bg-red-50 text-red-700 border-red-200",
+  refunded: "bg-sky-50 text-sky-700 border-sky-200",
+  reversed: "bg-slate-50 text-slate-600 border-slate-200",
+};
+
 function StatusBadge({ status }) {
-  const styles = {
-    completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    pending: "bg-amber-50 text-amber-700 border-amber-200",
-    failed: "bg-red-50 text-red-700 border-red-200",
-    refunded: "bg-sky-50 text-sky-700 border-sky-200",
-  };
   return (
-    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium capitalize ${styles[status] ?? "bg-slate-50 text-slate-600 border-slate-200"}`}>
+    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium capitalize ${statusBadgeStyles[status] ?? "bg-slate-50 text-slate-600 border-slate-200"}`}>
       {status}
     </span>
   );
@@ -32,6 +33,7 @@ const statusOptions = [
   { value: "pending", label: "Pending" },
   { value: "failed", label: "Failed" },
   { value: "refunded", label: "Refunded" },
+  { value: "reversed", label: "Reversed" },
 ];
 
 export function PaymentsPage() {
@@ -44,8 +46,8 @@ export function PaymentsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Pending filter state (applied on Apply click)
   const [pendingStatus, setPendingStatus] = useState("all");
   const [pendingAdmission, setPendingAdmission] = useState("");
   const [pendingDept, setPendingDept] = useState(null);
@@ -55,7 +57,6 @@ export function PaymentsPage() {
   const [pendingDateFrom, setPendingDateFrom] = useState("");
   const [pendingDateTo, setPendingDateTo] = useState("");
 
-  // Active filter params sent to API
   const [activeFilters, setActiveFilters] = useState({});
 
   useEffect(() => {
@@ -96,6 +97,7 @@ export function PaymentsPage() {
     if (pendingDateTo) f.date_to = pendingDateTo;
     setActiveFilters(f);
     setPage(1);
+    setShowFilters(false);
   }
 
   function handleClearFilters() {
@@ -109,9 +111,10 @@ export function PaymentsPage() {
     setPendingDateTo("");
     setActiveFilters({});
     setPage(1);
+    setShowFilters(false);
   }
 
-  const hasActiveFilters = Object.keys(activeFilters).length > 0;
+  const activeFilterCount = Object.keys(activeFilters).length;
 
   async function handleExport() {
     setIsExporting(true);
@@ -154,179 +157,137 @@ export function PaymentsPage() {
     }, [lookupApi, pendingYear],
   );
 
+  const totalCollected = Array.isArray(payments) ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) : 0;
+
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Payments</h1><p className="mt-1 text-[14px] text-slate-500">View all student payments recorded in the system.</p></div>
-        <button type="button" onClick={handleExport} disabled={isExporting} className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60"><Download className="size-4" />{isExporting ? "Exporting..." : "Export CSV"}</button>
+        <div>
+          <h1 className="text-xl font-semibold text-slate-950">Payments</h1>
+          <p className="mt-1 text-sm text-slate-500">View all student payments recorded in the system.</p>
+        </div>
+        <button type="button" onClick={handleExport} disabled={isExporting || isLoading}
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60">
+          <Download className="size-4" />{isExporting ? "Exporting..." : "Export CSV"}
+        </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-1.5">
-          <Filter className="h-4 w-4 text-slate-400" />
-          <span className="mr-1 text-[13px] font-medium text-slate-500">Filters</span>
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-          <div>
-            <label className="mb-0.5 block text-[11px] font-medium text-slate-400">Admission No.</label>
-            <input
-              type="text"
-              value={pendingAdmission}
-              onChange={(e) => setPendingAdmission(e.target.value)}
-              placeholder="e.g. STU/0001/24"
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none transition placeholder:text-[13px] placeholder:text-[#a8b6c7] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
+      {/* Filter bar */}
+      <form onSubmit={(e) => { e.preventDefault(); handleApplyFilters(); }} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 p-3">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input value={pendingAdmission} onChange={(e) => setPendingAdmission(e.target.value)}
+              placeholder="Admission No."
+              className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-emerald-500" />
           </div>
-
-          <LookupSelect
-            label="Department"
-            placeholder="All departments"
-            value={pendingDept}
-            selectedOption={null}
-            onChange={(id) => {
-              setPendingDept(id);
-              setPendingCourse(null);
-            }}
-            fetchOptions={fetchDepartments}
-          />
-
-          <LookupSelect
-            label="Course"
-            placeholder={pendingDept ? "All courses" : "Select dept first"}
-            value={pendingCourse}
-            selectedOption={null}
-            onChange={(id) => setPendingCourse(id)}
-            fetchOptions={fetchCourses}
-            disabled={!pendingDept}
-          />
-
-          <div>
-            <label className="mb-0.5 block text-[11px] font-medium text-slate-400">Status</label>
-            <select
-              value={pendingStatus}
-              onChange={(e) => setPendingStatus(e.target.value)}
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none focus:border-emerald-500"
-            >
-              {statusOptions.map((f) => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <LookupSelect
-            label="Academic Year"
-            placeholder="All years"
-            value={pendingYear}
-            selectedOption={null}
-            onChange={(id) => {
-              setPendingYear(id);
-              setPendingSession(null);
-            }}
-            fetchOptions={fetchAcademicYears}
-          />
-
-          <LookupSelect
-            label="Academic Session"
-            placeholder={pendingYear ? "All sessions" : "Select year first"}
-            value={pendingSession}
-            selectedOption={null}
-            onChange={(id) => setPendingSession(id)}
-            fetchOptions={fetchAcademicSessions}
-            disabled={!pendingYear}
-          />
-
-          <div>
-            <label className="mb-0.5 block text-[11px] font-medium text-slate-400">Date From</label>
-            <input
-              type="date"
-              value={pendingDateFrom}
-              onChange={(e) => setPendingDateFrom(e.target.value)}
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
-          </div>
-
-          <div>
-            <label className="mb-0.5 block text-[11px] font-medium text-slate-400">Date To</label>
-            <input
-              type="date"
-              value={pendingDateTo}
-              onChange={(e) => setPendingDateTo(e.target.value)}
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center gap-2">
-          <FormButton type="button" onClick={handleApplyFilters} className="h-9">
+          <button type="button" onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition ${
+              showFilters || activeFilterCount > 0
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}>
+            <Filter className="size-4" />
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </button>
+          <button className="h-10 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700">
             Apply
-          </FormButton>
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-            >
-              <X className="h-4 w-4" />
+          </button>
+          {activeFilterCount > 0 && (
+            <button type="button" onClick={handleClearFilters}
+              className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50">
+              <X className="size-4" />Clear
             </button>
-          ) : null}
+          )}
         </div>
-      </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        {showFilters && (
+          <div className="border-t border-slate-100 px-3 pb-4 pt-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <LookupSelect label="Department" placeholder="All departments" value={pendingDept} selectedOption={null} onChange={(id) => { setPendingDept(id); setPendingCourse(null); }} fetchOptions={fetchDepartments} />
+              <LookupSelect label="Course" placeholder={pendingDept ? "All courses" : "Select dept first"} value={pendingCourse} selectedOption={null} onChange={(id) => setPendingCourse(id)} fetchOptions={fetchCourses} disabled={!pendingDept} />
+              <label className="text-xs font-medium text-slate-600">Status
+                <select value={pendingStatus} onChange={(e) => setPendingStatus(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500">
+                  {statusOptions.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+              </label>
+              <LookupSelect label="Academic Year" placeholder="All years" value={pendingYear} selectedOption={null} onChange={(id) => { setPendingYear(id); setPendingSession(null); }} fetchOptions={fetchAcademicYears} />
+              <LookupSelect label="Academic Session" placeholder={pendingYear ? "All sessions" : "Select year first"} value={pendingSession} selectedOption={null} onChange={(id) => setPendingSession(id)} fetchOptions={fetchAcademicSessions} disabled={!pendingYear} />
+              <label className="text-xs font-medium text-slate-600">From date
+                <input type="date" value={pendingDateFrom} onChange={(e) => setPendingDateFrom(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500" />
+              </label>
+              <label className="text-xs font-medium text-slate-600">To date
+                <input type="date" value={pendingDateTo} onChange={(e) => setPendingDateTo(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500" />
+              </label>
+            </div>
+          </div>
+        )}
+      </form>
+
+      {/* Table */}
+      <div>
+        <div className="flex items-baseline justify-between px-1 pb-2">
+          <h2 className="text-sm font-semibold text-slate-900">Payments</h2>
+          {!isLoading && payments.length > 0 && (
+            <span className="text-sm text-slate-700">
+              <span className="text-xs text-slate-400">collected: </span>
+              <span className="font-semibold">{currency(totalCollected)}</span>
+            </span>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="min-w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50 text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-5 py-3">Student</th>
-                <th className="px-5 py-3">Date</th>
-                <th className="px-5 py-3">Method</th>
-                <th className="px-5 py-3">Reference</th>
-                <th className="px-5 py-3 text-right">Amount</th>
-                <th className="px-5 py-3">Status</th>
+              <tr className="border-b border-slate-100">
+                <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Student</th>
+                <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Date</th>
+                <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Method</th>
+                <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Reference</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</th>
+                <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-slate-500">Loading payments...</td>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                      Loading payments...
+                    </div>
+                  </td>
                 </tr>
               ) : payments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-slate-500">No payments recorded yet.</td>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500">No payments recorded yet.</td>
                 </tr>
               ) : payments.map((payment) => (
-                <tr key={payment.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
-                  <td className="px-5 py-3">
+                <tr key={payment.id} className="border-b border-slate-100 last:border-b-0">
+                  <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex flex-col">
-                      <span className="font-medium text-slate-900">{payment.student_name}</span>
+                      <span className="text-sm font-medium text-slate-900">{payment.student_name}</span>
                       <span className="text-xs text-slate-400">{payment.admission_number}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-slate-600">{payment.payment_date ?? "-"}</td>
-                  <td className="px-5 py-3 text-slate-600">{payment.method ?? "-"}</td>
-                  <td className="px-5 py-3 text-slate-600">{payment.reference ?? "-"}</td>
-                  <td className="px-5 py-3 text-right font-semibold">{currency(payment.amount)}</td>
-                  <td className="px-5 py-3"><StatusBadge status={payment.status} /></td>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">{payment.payment_date ?? "-"}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">{payment.method ?? "-"}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">{payment.reference ?? "-"}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-700">{currency(payment.amount)}</td>
+                  <td className="whitespace-nowrap px-4 py-3"><StatusBadge status={payment.status} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {!isLoading && meta.total > 0 && (
+            <div className="border-t border-slate-100 px-4 py-2">
+              <PaginationFooter page={page} perPage={perPage} total={meta.total} lastPage={meta.last_page} onPageChange={setPage} onPerPageChange={setPerPage} />
+            </div>
+          )}
         </div>
-
-        {!isLoading && payments.length > 0 ? (
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <PaginationFooter
-              page={page}
-              perPage={perPage}
-              total={meta.total}
-              lastPage={meta.last_page}
-              onPageChange={setPage}
-              onPerPageChange={setPerPage}
-            />
-          </div>
-        ) : null}
       </div>
     </section>
   );

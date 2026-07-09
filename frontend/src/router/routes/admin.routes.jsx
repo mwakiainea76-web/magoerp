@@ -7,7 +7,6 @@ const AccessRoleFormPage = lazy(() => import("@/pages/access/AccessRoleFormPage"
 const AccessRolePermissionsPage = lazy(() => import("@/pages/access/AccessRolePermissionsPage").then((module) => ({ default: module.AccessRolePermissionsPage })));
 const AccessRolesPage = lazy(() => import("@/pages/access/AccessRolesPage").then((module) => ({ default: module.AccessRolesPage })));
 const CalendarPage = lazy(() => import("@/pages/calendar/CalendarPage").then((module) => ({ default: module.CalendarPage })));
-const StudentStatusLogsPage = lazy(() => import("@/pages/enrolments/StudentStatusLogsPage").then((module) => ({ default: module.StudentStatusLogsPage })));
 const SystemConfigurationsPage = lazy(() => import("@/pages/admin/SystemConfigurationsPage").then((module) => ({ default: module.SystemConfigurationsPage })));
 const InstitutionDetailsPage = lazy(() => import("@/pages/admin/InstitutionDetailsPage").then((module) => ({ default: module.InstitutionDetailsPage })));
 const AcademicSessionFormPage = lazy(() => import("@/pages/academicCalendar/AcademicSessionFormPage").then((module) => ({ default: module.AcademicSessionFormPage })));
@@ -42,6 +41,16 @@ const FeeTemplateAssignmentsPage = lazy(() => import("@/pages/feeTemplates/FeeTe
 const FeeTemplateFormPage = lazy(() => import("@/pages/feeTemplates/FeeTemplateFormPage").then((module) => ({ default: module.FeeTemplateFormPage })));
 const FeeTemplateItemsPage = lazy(() => import("@/pages/feeTemplates/FeeTemplateItemsPage").then((module) => ({ default: module.FeeTemplateItemsPage })));
 const FeeTemplatesPage = lazy(() => import("@/pages/feeTemplates/FeeTemplatesPage").then((module) => ({ default: module.FeeTemplatesPage })));
+const FeeStructureDetailPage = lazy(() => import("@/pages/finance/FeeStructureDetailPage").then((module) => ({ default: module.FeeStructureDetailPage })));
+const FeeStructureListPage = lazy(() => import("@/pages/finance/FeeStructureListPage").then((module) => ({ default: module.FeeStructureListPage })));
+const FeeStructureWizardPage = lazy(() => import("@/pages/finance/FeeStructureWizardPage").then((module) => ({ default: module.FeeStructureWizardPage })));
+const StudentAccountsPage = lazy(() => import("@/pages/finance/StudentAccountsPage").then((module) => ({ default: module.StudentAccountsPage })));
+const StudentAccountDetailPage = lazy(() => import("@/pages/finance/StudentAccountDetailPage").then((module) => ({ default: module.StudentAccountDetailPage })));
+const FinanceActionsPage = lazy(() => import("@/pages/finance/FinanceActionsPage").then((module) => ({ default: module.FinanceActionsPage })));
+const CohortBillingPage = lazy(() => import("@/pages/finance/CohortBillingPage").then((module) => ({ default: module.CohortBillingPage })));
+const FinanceHealthPage = lazy(() => import("@/pages/finance/FinanceHealthPage").then((module) => ({ default: module.FinanceHealthPage })));
+const FinanceReadinessPage = lazy(() => import("@/pages/finance/FinanceReadinessPage").then((module) => ({ default: module.FinanceReadinessPage })));
+const FinanceSettingsPage = lazy(() => import("@/pages/finance/FinanceSettingsPage").then((module) => ({ default: module.FinanceSettingsPage })));
 const AdminSupportRequestDetailPage = lazy(() => import("@/pages/support-requests/AdminSupportRequestDetailPage").then((module) => ({ default: module.AdminSupportRequestDetailPage })));
 const AdminSupportRequestsPage = lazy(() => import("@/pages/support-requests/AdminSupportRequestsPage").then((module) => ({ default: module.AdminSupportRequestsPage })));
 const HostelAllocationsPage = lazy(() => import("@/pages/hostels/HostelAllocationsPage").then((module) => ({ default: module.HostelAllocationsPage })));
@@ -59,11 +68,15 @@ const TimetableCreatePage = lazy(() => import("@/pages/timetables/TimetableCreat
 const TimetablePage = lazy(() => import("@/pages/timetables/TimetablePage").then((module) => ({ default: module.TimetablePage })));
 const StaffFormPage = lazy(() => import("@/pages/staffs/StaffFormPage").then((module) => ({ default: module.StaffFormPage })));
 const StaffsPage = lazy(() => import("@/pages/staffs/StaffsPage").then((module) => ({ default: module.StaffsPage })));
+const StaffStatusLogsPage = lazy(() => import("@/pages/staffs/StaffStatusLogsPage").then((module) => ({ default: module.StaffStatusLogsPage })));
+const StudentStatusLogsPage = lazy(() => import("@/pages/enrolments/StudentStatusLogsPage").then((module) => ({ default: module.StudentStatusLogsPage })));
+const PasswordResetPage = lazy(() => import("@/pages/admin/PasswordResetPage").then((module) => ({ default: module.PasswordResetPage })));
 const AdmissionLetterPage = lazy(() => import("@/pages/students/AdmissionLetterPage").then((module) => ({ default: module.AdmissionLetterPage })));
 const CourseChangePage = lazy(() => import("@/pages/students/CourseChangePage").then((module) => ({ default: module.CourseChangePage })));
 const CourseTransfersPage = lazy(() => import("@/pages/students/CourseTransfersPage").then((module) => ({ default: module.CourseTransfersPage })));
 const StudentFormPage = lazy(() => import("@/pages/students/StudentFormPage").then((module) => ({ default: module.StudentFormPage })));
 const StudentsPage = lazy(() => import("@/pages/students/StudentsPage").then((module) => ({ default: module.StudentsPage })));
+const StudentsNotInvoicedPage = lazy(() => import("@/pages/finance/StudentsNotInvoicedPage").then((module) => ({ default: module.StudentsNotInvoicedPage })));
 const UnitFormPage = lazy(() => import("@/pages/units/UnitFormPage").then((module) => ({ default: module.UnitFormPage })));
 const UnitsPage = lazy(() => import("@/pages/units/UnitsPage").then((module) => ({ default: module.UnitsPage })));
 
@@ -84,6 +97,8 @@ export const AdminRoutes = (
     <Route path="/admin/courses/create" element={<CourseFormPage />} />
     <Route path="/admin/courses/:courseId/edit" element={<CourseFormPage />} />
     <Route path="/admin/courses/enrolments" element={<CourseEnrolmentsPage />} />
+    <Route path="/admin/courses/course-change" element={<CourseChangePage />} />
+    <Route path="/admin/courses/transfers" element={<CourseTransfersPage />} />
     <Route path="/admin/curriculums" element={<CurriculumsPage />} />
     <Route path="/admin/curriculums/create" element={<CurriculumFormPage />} />
     <Route path="/admin/curriculums/:curriculumId/edit" element={<CurriculumFormPage />} />
@@ -100,14 +115,26 @@ export const AdminRoutes = (
     <Route path="/admin/academic-calendar/sessions" element={<AcademicSessionsPage />} />
     <Route path="/admin/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
     <Route path="/admin/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
-    <Route path="/admin/finance/dashboard" element={<FinanceDashboardPage />} />
+    <Route path="/admin/finance/overview" element={<FinanceDashboardPage />} />
+    <Route path="/admin/finance/fee-structures" element={<FeeStructureListPage />} />
+    <Route path="/admin/finance/fee-structures/create" element={<FeeStructureWizardPage />} />
+    <Route path="/admin/finance/fee-structures/:templateId" element={<FeeStructureDetailPage />} />
+    <Route path="/admin/finance/fee-structures/:templateId/edit" element={<FeeStructureWizardPage />} />
+    <Route path="/admin/finance/student-accounts" element={<StudentAccountsPage />} />
+    <Route path="/admin/finance/student-accounts/:studentId" element={<StudentAccountDetailPage />} />
+    <Route path="/admin/finance/actions" element={<FinanceActionsPage />} />
+    <Route path="/admin/finance/students-not-invoiced" element={<StudentsNotInvoicedPage />} />
+    <Route path="/admin/finance/cohort-billing" element={<CohortBillingPage />} />
+    <Route path="/admin/finance/payments" element={<PaymentsPage />} />
     <Route path="/admin/finance/reports" element={<FinanceReportsPage />} />
     <Route path="/admin/finance/statement" element={<StudentFeeStatementPage role="admin" />} />
     <Route path="/admin/finance/statement/:studentId" element={<StudentFeeStatementPage role="admin" />} />
+    <Route path="/admin/finance/health" element={<FinanceHealthPage />} />
+    <Route path="/admin/finance/readiness" element={<FinanceReadinessPage />} />
+    <Route path="/admin/finance/settings" element={<FinanceSettingsPage />} />
+    <Route path="/admin/finance/ledger" element={<LedgerPage />} />
     <Route path="/admin/finance/billing" element={<BillingPage />} />
     <Route path="/admin/finance/invoices" element={<InvoicesPage />} />
-    <Route path="/admin/finance/payments" element={<PaymentsPage />} />
-    <Route path="/admin/finance/ledger" element={<LedgerPage />} />
     <Route path="/admin/finance/fee-templates" element={<FeeTemplatesPage />} />
     <Route path="/admin/finance/fee-templates/create" element={<FeeTemplateFormPage />} />
     <Route path="/admin/finance/fee-templates/:templateId/edit" element={<FeeTemplateFormPage />} />
@@ -116,13 +143,15 @@ export const AdminRoutes = (
     <Route path="/admin/finance/fee-templates/items" element={<FeeTemplateItemsPage />} />
     <Route path="/admin/staffs" element={<StaffsPage />} />
     <Route path="/admin/staffs/create" element={<StaffFormPage />} />
+    <Route path="/admin/staffs/reset-password" element={<PasswordResetPage mode="staff" />} />
+    <Route path="/admin/staffs/status-logs" element={<StaffStatusLogsPage />} />
     <Route path="/admin/staffs/:staffId/edit" element={<StaffFormPage />} />
     <Route path="/admin/students" element={<StudentsPage />} />
     <Route path="/admin/students/create" element={<StudentFormPage />} />
+    <Route path="/admin/students/reset-password" element={<PasswordResetPage mode="student" />} />
+    <Route path="/admin/students/status-logs" element={<StudentStatusLogsPage />} />
     <Route path="/admin/students/:studentId/edit" element={<StudentFormPage />} />
     <Route path="/admin/students/:studentId/admission-letter" element={<AdmissionLetterPage />} />
-    <Route path="/admin/students/course-change" element={<CourseChangePage />} />
-    <Route path="/admin/students/transfers" element={<CourseTransfersPage />} />
     <Route path="/admin/access-roles" element={<AccessRolesPage />} />
     <Route path="/admin/access-roles/create" element={<AccessRoleFormPage />} />
     <Route path="/admin/access-roles/:roleId/edit" element={<AccessRoleFormPage />} />

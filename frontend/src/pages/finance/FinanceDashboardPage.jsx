@@ -318,12 +318,6 @@ export function FinanceDashboardPage() {
           accent={{ bg: "bg-blue-50", text: "text-blue-600" }}
         />
         <StatCard
-          icon={BadgePercent}
-          label="Adjustments"
-          value={money(summary.total_adjustments)}
-          accent={{ bg: "bg-purple-50", text: "text-purple-600" }}
-        />
-        <StatCard
           icon={RotateCcw}
           label="Total Refunds"
           value={money(summary.total_refunds)}

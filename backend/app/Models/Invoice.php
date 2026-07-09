@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\InvoiceLineItem;
 use App\Models\InvoicePaymentAllocation;
-use App\Models\StudentFeeAdjustment;
 use App\Models\StudentLedgerEntry;
 
 class Invoice extends Model
@@ -110,11 +109,6 @@ class Invoice extends Model
         return $this->hasMany(InvoicePaymentAllocation::class);
     }
 
-    public function adjustments(): HasMany
-    {
-        return $this->hasMany(StudentFeeAdjustment::class);
-    }
-
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(StudentLedgerEntry::class);
@@ -128,16 +122,11 @@ class Invoice extends Model
     public function recalculateTotals(): static
     {
         $itemsTotal = (float) $this->items()->sum('total_amount');
-        $creditTypes = ['discount', 'waiver', 'bursary', 'helb', 'reversal'];
-        $debitAdjustmentsTotal = (float) $this->adjustments()->whereNotIn('type', $creditTypes)->sum('amount');
-        $creditAdjustmentsTotal = (float) $this->adjustments()->whereIn('type', $creditTypes)->sum('amount');
         $paidAmount = (float) $this->paymentAllocations()->sum('amount');
-
-        $amountDue = $itemsTotal;
-        $balanceDue = $amountDue + $debitAdjustmentsTotal - $creditAdjustmentsTotal - $paidAmount;
+        $balanceDue = $itemsTotal - $paidAmount;
 
         $this->forceFill([
-            'amount_due' => $amountDue,
+            'amount_due' => $itemsTotal,
             'computed_amount' => $itemsTotal,
             'status' => $this->status === 'cancelled' ? 'cancelled' : ($balanceDue <= 0 ? 'paid' : ($paidAmount > 0 ? 'partial' : 'issued')),
         ]);

@@ -28,11 +28,15 @@ class Payment extends Model
         'idempotency_key',
         'created_by',
         'notes',
+        'reversed_at',
+        'reversed_by',
+        'reversal_reason',
     ];
 
     protected $casts = [
         'payment_date' => 'date',
         'amount' => 'decimal:2',
+        'reversed_at' => 'datetime',
     ];
 
     protected $keyType = 'string';

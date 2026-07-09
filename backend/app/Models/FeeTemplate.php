@@ -44,6 +44,11 @@ class FeeTemplate extends Model
         return $this->hasMany(FeeTemplateItem::class, 'fee_template_id')->where('is_active', true);
     }
 
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(CurriculumFeeAssignment::class, 'fee_template_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

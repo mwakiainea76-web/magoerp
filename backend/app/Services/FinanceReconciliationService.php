@@ -185,6 +185,8 @@ class FinanceReconciliationService
                 COALESCE(SUM(CASE WHEN type = 'invoice' THEN debit ELSE 0 END), 0) as total_invoiced,
                 COALESCE(SUM(CASE WHEN type = 'payment' THEN credit ELSE 0 END), 0) as total_paid,
                 COALESCE(SUM(CASE WHEN type = 'refund' THEN debit ELSE 0 END), 0) as total_refunded,
+                COALESCE(SUM(CASE WHEN type = 'payment_reversal' THEN debit ELSE 0 END), 0) as total_payment_reversals,
+                COALESCE(SUM(CASE WHEN type = 'invoice_reversal' THEN credit ELSE 0 END), 0) as total_reversal_credits,
                 COALESCE(SUM(CASE WHEN type = 'adjustment' THEN credit ELSE 0 END), 0) as adjustment_credits,
                 COALESCE(SUM(CASE WHEN type = 'adjustment' THEN debit ELSE 0 END), 0) as adjustment_debits
             ")
@@ -193,10 +195,12 @@ class FinanceReconciliationService
         $totalInvoiced = (float) ($totals->total_invoiced ?? 0);
         $totalPaid = (float) ($totals->total_paid ?? 0);
         $totalRefunded = (float) ($totals->total_refunded ?? 0);
+        $totalPaymentReversals = (float) ($totals->total_payment_reversals ?? 0);
+        $totalReversalCredits = (float) ($totals->total_reversal_credits ?? 0);
         $adjustmentCredits = (float) ($totals->adjustment_credits ?? 0);
         $adjustmentDebits = (float) ($totals->adjustment_debits ?? 0);
         $totalAdjustments = $adjustmentCredits - $adjustmentDebits;
-        $balance = $totalInvoiced - $totalPaid + $totalRefunded - $totalAdjustments;
+        $balance = $totalInvoiced - $totalPaid + $totalRefunded + $totalPaymentReversals - $totalReversalCredits - $totalAdjustments;
 
         return [
             'total_invoiced' => $totalInvoiced,

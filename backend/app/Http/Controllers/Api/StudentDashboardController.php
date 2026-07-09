@@ -154,11 +154,6 @@ class StudentDashboardController extends Controller
 
         $invoices = $invoiceBaseQuery->get();
         $outstandingBalance = (float) $invoices->where('balance_due', '>', 0)->sum('balance_due');
-        $totalAdjustments = (float) \App\Models\StudentFeeAdjustment::query()
-            ->whereHas('invoice', fn ($q) => $q->where('student_id', $student->id))
-            ->whereNull('deleted_at')
-            ->selectRaw("{$this->adjustmentExpression()} as total")
-            ->value('total');
 
         $payments = Payment::query()
             ->where('student_id', $student->id)
@@ -240,7 +235,6 @@ class StudentDashboardController extends Controller
                     'outstanding_balance' => $outstandingBalance,
                     'net_balance' => $netBalance,
                     'total_paid' => $totalPaid,
-                    'total_adjustments' => $totalAdjustments,
                     'unallocated_credit' => $unallocatedCredit,
                     'next_due_date' => $nextDueInvoice?->due_date?->format('Y-m-d'),
                     'overdue_count' => $overdueCount,

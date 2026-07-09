@@ -21,7 +21,6 @@ class StudentLedgerEntryFactory extends Factory
             'student_id' => Student::factory(),
             'invoice_id' => Invoice::factory(),
             'payment_id' => $isDebit ? null : Payment::factory(),
-            'adjustment_id' => null,
             'academic_session_id' => AcademicSession::factory(),
             'type' => $isDebit ? 'debit' : 'credit',
             'debit' => $isDebit ? fake()->randomFloat(2, 1000, 50000) : 0,

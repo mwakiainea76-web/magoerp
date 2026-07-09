@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Models\Invoice;
+use App\Models\InvoicePaymentAllocation;
 use App\Models\Payment;
 use App\Models\Student;
+use App\Models\StudentLedgerEntry;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -110,6 +112,139 @@ class PaymentsController extends Controller
             'message' => 'Payment recorded successfully.',
             'data' => $this->transform($payment),
         ], 201);
+    }
+
+    /**
+     * Reverse a completed payment.
+     */
+    public function reverse(Request $request, Payment $payment): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.update'), 403);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $payment = $this->billingService->reversePayment(
+                $payment,
+                $validated['reason'],
+                (string) $request->user()->id,
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'Failed to reverse payment.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'status_code' => 200,
+            'message' => 'Payment reversed successfully.',
+            'data' => $this->transform($payment),
+        ]);
+    }
+
+    /**
+     * Preview what would happen if a payment is reversed.
+     * Shows which invoices would reopen and by how much.
+     */
+    public function reversalPreview(Request $request, Payment $payment): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
+        if ($payment->status !== 'completed') {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'Payment is not in a reversible state.',
+            ], 422);
+        }
+
+        $allocations = InvoicePaymentAllocation::where('payment_id', $payment->id)
+            ->with('invoice')
+            ->get();
+
+        $invoices = $allocations->map(fn ($a) => [
+            'invoice_id' => $a->invoice_id,
+            'invoice_number' => $a->invoice?->invoice_number,
+            'current_balance' => (float) ($a->invoice?->amount_due ?? 0),
+            'reversal_amount' => (float) $a->amount,
+            'new_balance' => (float) (($a->invoice?->amount_due ?? 0) + (float) $a->amount),
+        ]);
+
+        $unallocatedCredit = (float) StudentLedgerEntry::where('payment_id', $payment->id)
+            ->whereNull('invoice_id')
+            ->where('type', 'payment')
+            ->where('credit', '>', 0)
+            ->sum('credit');
+
+        return response()->json([
+            'data' => [
+                'payment' => [
+                    'id' => $payment->id,
+                    'amount' => (float) $payment->amount,
+                    'method' => $payment->method,
+                    'reference' => $payment->reference,
+                    'payment_date' => $payment->payment_date?->format('Y-m-d'),
+                ],
+                'affected_invoices' => $invoices,
+                'unallocated_credit' => round($unallocatedCredit, 2),
+                'total_reversal' => round((float) $payment->amount, 2),
+            ],
+        ]);
+    }
+
+    /**
+     * Preview FIFO allocation — shows how a given payment amount would
+     * be distributed across outstanding invoices.
+     */
+    public function fifoPreview(Request $request, Student $student): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        $amount = (float) $validated['amount'];
+        $remaining = $amount;
+        $allocations = [];
+
+        $invoices = Invoice::where('student_id', $student->id)
+            ->whereIn('status', ['issued', 'partial'])
+            ->orderBy('issue_date')
+            ->orderBy('created_at')
+            ->get();
+
+        foreach ($invoices as $invoice) {
+            if ($remaining <= 0) break;
+
+            $paidAmount = (float) InvoicePaymentAllocation::where('invoice_id', $invoice->id)->sum('amount');
+            $outstanding = (float) $invoice->amount_due - $paidAmount;
+            $outstanding = max(0, $outstanding);
+
+            if ($outstanding <= 0) continue;
+
+            $alloc = min($remaining, $outstanding);
+            $allocations[] = [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'outstanding' => round($outstanding, 2),
+                'allocation' => round($alloc, 2),
+                'status' => $invoice->status,
+            ];
+            $remaining -= $alloc;
+        }
+
+        return response()->json([
+            'data' => [
+                'total_amount' => $amount,
+                'allocated' => round($amount - $remaining, 2),
+                'unallocated_credit' => round($remaining, 2),
+                'allocations' => $allocations,
+            ],
+        ]);
     }
 
     private function transform(Payment $payment): array

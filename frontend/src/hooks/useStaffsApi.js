@@ -35,6 +35,14 @@ export function useStaffsApi() {
         });
         return response;
       },
+      statusLogs: async (params = {}) => {
+        const response = await authClient.get("/staff-status-logs", { params });
+        return response.data;
+      },
+      resetPassword: async (employeeNumber) => {
+        const response = await authClient.post("/admin/reset-staff-password", { employee_number: employeeNumber });
+        return response.data;
+      },
     }),
     [],
   );
