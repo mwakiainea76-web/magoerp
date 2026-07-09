@@ -166,6 +166,42 @@ class InvoicesController extends Controller
         ], 200);
     }
 
+    /**
+     * Reverse (cancel) a wrongly issued invoice.
+     */
+    public function reverse(Request $request, Invoice $invoice): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.update'), 403);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $invoice = $this->billingService->reverseInvoice(
+                $invoice,
+                $validated['reason'],
+                (string) $request->user()->id,
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'Failed to reverse invoice.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'status_code' => 200,
+            'message' => 'Invoice reversed successfully.',
+            'data' => [
+                'id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'status' => $invoice->status,
+            ],
+        ]);
+    }
+
     public function availableTemplates(Student $student): JsonResponse
     {
         abort_unless(request()->user()?->can('finance.view'), 403);

@@ -781,6 +781,69 @@ class BillingService
     }
 
     // =========================================================================
+    // INVOICE REVERSAL
+    // =========================================================================
+
+    /**
+     * Reverse (cancel) a wrongly issued invoice.
+     *
+     * Only invoices in `issued` or `partial` status can be reversed.
+     * Posts an `invoice_reversal` ledger entry and marks the invoice as `cancelled`.
+     */
+    public function reverseInvoice(Invoice $invoice, string $reason, string $reversedBy): Invoice
+    {
+        if (!in_array($invoice->status, ['issued', 'partial'], true)) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Only invoices with issued or partial status can be reversed.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($invoice, $reason, $reversedBy) {
+            $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
+            $studentId = $invoice->student_id;
+
+            StudentLedgerEntry::create([
+                'student_id'          => $studentId,
+                'invoice_id'          => $invoice->id,
+                'academic_session_id' => $invoice->academic_session_id,
+                'type'                => 'invoice_reversal',
+                'credit'              => (float) $invoice->amount_due,
+                'debit'               => 0,
+                'reference'           => $invoice->invoice_number,
+                'description'         => 'Invoice reversal — ' . $reason,
+                'transaction_date'    => now()->toDateString(),
+                'created_by'          => $reversedBy,
+            ]);
+
+            $invoice->forceFill([
+                'status' => 'cancelled',
+            ]);
+            $invoice->save();
+
+            if ($invoice->academic_session_id) {
+                $this->syncAccountBalance($studentId, $invoice->academic_session_id);
+            }
+
+            $student = Student::find($studentId);
+            if ($student) {
+                $this->auditLog(
+                    $student,
+                    FinanceAuditAction::INVOICE_REVERSED,
+                    'invoice',
+                    $invoice->id,
+                    [
+                        'amount'      => (float) $invoice->amount_due,
+                        'reason'      => $reason,
+                        'reversed_by' => $reversedBy,
+                    ]
+                );
+            }
+
+            return $invoice->fresh();
+        });
+    }
+
+    // =========================================================================
     // REFUNDS
     // =========================================================================
 

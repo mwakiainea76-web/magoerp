@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Banknote, Plus, RotateCcw, LoaderCircle, AlertTriangle, Search } from "lucide-react";
+import { ArrowLeft, Banknote, Plus, RotateCcw, LoaderCircle, AlertTriangle, Search, FileX } from "lucide-react";
 import { useStudentsApi } from "@/hooks/useStudentsApi";
 import { useStudentAccountApi } from "@/hooks/useStudentAccountApi";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
@@ -58,7 +58,7 @@ export function FinanceActionsPage() {
         </button>
         <div>
           <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Finance Actions</h1>
-          <p className="text-[13px] text-slate-500">Issue invoices, record and reverse payments</p>
+          <p className="text-[13px] text-slate-500">Issue invoices, record and reverse payments, reverse invoices</p>
         </div>
       </div>
 
@@ -90,11 +90,21 @@ export function FinanceActionsPage() {
           }`}>
           <RotateCcw className="h-3.5 w-3.5" /> Reverse Payment
         </button>
+        <button type="button"
+          onClick={() => setActiveAction("reverse-invoice")}
+          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[13px] font-medium transition ${
+            activeAction === "reverse-invoice"
+              ? "border-emerald-600 bg-emerald-600 text-white"
+              : "border-slate-300 text-slate-600 hover:bg-slate-50"
+          }`}>
+          <FileX className="h-3.5 w-3.5" /> Reverse Invoice
+        </button>
       </div>
 
       {activeAction === "record" && <RecordPaymentForm studentsApi={studentsApi} accountApi={accountApi} paymentsApi={paymentsApi} />}
       {activeAction === "issue" && <IssueInvoiceForm studentsApi={studentsApi} accountApi={accountApi} invoicesApi={invoicesApi} />}
       {activeAction === "reverse" && <ReversePaymentForm studentsApi={studentsApi} accountApi={accountApi} paymentsApi={paymentsApi} />}
+      {activeAction === "reverse-invoice" && <ReverseInvoiceForm studentsApi={studentsApi} accountApi={accountApi} invoicesApi={invoicesApi} />}
     </section>
   );
 }
@@ -547,6 +557,168 @@ function RecordPaymentForm({ studentsApi, accountApi, paymentsApi }) {
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50">
                 {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
                 Record Payment — {money(parseFloat(amount) || 0)}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReverseInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
+  const uid = useId();
+  const submitRef = useRef(null);
+  const [studentData, setStudentData] = useState(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const [reason, setReason] = useState("");
+  const [otherReason, setOtherReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  function handleStudentReady(data) {
+    setStudentData(data);
+    setSelectedInvoiceId("");
+    setReason("");
+    setOtherReason("");
+    setConfirmed(false);
+    setError("");
+    setFieldErrors({});
+  }
+
+  const reversibleInvoices = studentData?.invoices?.filter(
+    inv => inv.status === "issued" || inv.status === "partial"
+  ) || [];
+  const selectedInvoice = reversibleInvoices.find(inv => inv.id === selectedInvoiceId);
+
+  function validate() {
+    const errs = {};
+    if (!selectedInvoiceId) errs.selectedInvoiceId = "Select an invoice.";
+    if (!reason) errs.reason = "Select a reason.";
+    if (reason === "Other" && !otherReason.trim()) errs.otherReason = "Describe the reason.";
+    if (!confirmed) errs.confirmed = "You must confirm this action.";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  async function handleSubmit() {
+    if (!validate()) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await invoicesApi.reverse(selectedInvoiceId, {
+        reason: reason === "Other" ? otherReason.trim() : reason,
+        idempotency_key: `reverse-invoice:${selectedInvoiceId}:${uid}`,
+      });
+      toast.success("Invoice reversed successfully.");
+      setSelectedInvoiceId("");
+      setReason("");
+      setOtherReason("");
+      setConfirmed(false);
+    } catch (e) {
+      setError(getApiErrorMessage(e, "Failed to reverse invoice."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-5 py-3">
+        <h2 className="text-[15px] font-semibold text-slate-900">Reverse Invoice</h2>
+      </div>
+      <div className="space-y-5 p-5">
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
+
+        <AdmissionNumberLookup
+          studentsApi={studentsApi}
+          accountApi={accountApi}
+          onStudentReady={handleStudentReady}
+        />
+
+        {studentData && (
+          <>
+            <div>
+              <label className="mb-1 block text-[13px] font-medium text-slate-600">Invoice <span className="text-red-400">*</span></label>
+              <select value={selectedInvoiceId} onChange={e => setSelectedInvoiceId(e.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500">
+                <option value="">Select a reversible invoice...</option>
+                {reversibleInvoices.map(inv => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.invoice_number} — {money(inv.amount_due)} ({inv.status})
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.selectedInvoiceId && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.selectedInvoiceId}</p>}
+              {reversibleInvoices.length === 0 && (
+                <p className="mt-1 text-[12px] text-amber-600">No reversible invoices for this student.</p>
+              )}
+            </div>
+
+            {selectedInvoice && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-[13px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Invoice</span>
+                  <span className="font-semibold text-slate-900">{selectedInvoice.invoice_number}</span>
+                </div>
+                <div className="mt-1 flex justify-between">
+                  <span className="text-slate-500">Amount</span>
+                  <span className="font-semibold text-slate-900">{money(selectedInvoice.amount_due)}</span>
+                </div>
+                <div className="mt-1 flex justify-between">
+                  <span className="text-slate-500">Status</span>
+                  <span className="capitalize text-slate-700">{selectedInvoice.status}</span>
+                </div>
+                {selectedInvoice.items_count > 0 && (
+                  <div className="mt-1 flex justify-between">
+                    <span className="text-slate-500">Items</span>
+                    <span className="text-slate-700">{selectedInvoice.items_count}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1 block text-[13px] font-medium text-slate-600">Reason <span className="text-red-400">*</span></label>
+              <select value={reason} onChange={e => setReason(e.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500">
+                <option value="">Select a reason...</option>
+                <option value="Wrongly issued">Wrongly issued</option>
+                <option value="Duplicate">Duplicate</option>
+                <option value="Student not enrolled">Student not enrolled</option>
+                <option value="Fee template changed">Fee template changed</option>
+                <option value="Other">Other</option>
+              </select>
+              {fieldErrors.reason && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.reason}</p>}
+            </div>
+
+            {reason === "Other" && (
+              <div>
+                <label className="mb-1 block text-[13px] font-medium text-slate-600">Describe the reason <span className="text-red-400">*</span></label>
+                <input type="text" value={otherReason} onChange={e => setOtherReason(e.target.value)}
+                  placeholder="Describe why this invoice is being reversed..."
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
+                {fieldErrors.otherReason && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.otherReason}</p>}
+              </div>
+            )}
+
+            <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
+              <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+              <span className="text-[13px] text-slate-600">I understand this will cancel the invoice and cannot be undone.</span>
+            </label>
+            {fieldErrors.confirmed && <p className="text-[12px] text-red-500">{fieldErrors.confirmed}</p>}
+
+            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+              <div className="text-[13px] text-slate-500">
+                {selectedInvoice ? `Amount to reverse: ${money(selectedInvoice.amount_due)}` : ""}
+              </div>
+              <button type="button" ref={submitRef} onClick={handleSubmit} disabled={submitting || !confirmed}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                Reverse Invoice
               </button>
             </div>
           </>
