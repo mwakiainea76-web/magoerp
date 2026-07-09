@@ -206,8 +206,6 @@ export function CourseFormPage() {
         await coursesApi.create(payload);
         toast.success("Course created successfully.");
       }
-
-      navigate("/admin/courses", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

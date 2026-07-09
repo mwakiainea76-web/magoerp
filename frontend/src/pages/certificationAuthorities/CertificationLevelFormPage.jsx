@@ -193,8 +193,6 @@ export function CertificationLevelFormPage() {
         await levelsApi.create(payload);
         toast.success("Certification level created successfully.");
       }
-
-      navigate("/admin/certification-levels", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

@@ -155,8 +155,6 @@ export function AcademicYearFormPage() {
         await yearsApi.create(payload);
         toast.success("Academic year created successfully.");
       }
-
-      navigate("/admin/academic-calendar/years", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

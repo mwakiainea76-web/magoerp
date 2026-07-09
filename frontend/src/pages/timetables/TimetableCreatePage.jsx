@@ -189,7 +189,6 @@ export function TimetableCreatePage() {
         await timetableApi.create(payload);
         toast.success("Timetable entry created.");
       }
-      navigate("/admin/timetables");
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {

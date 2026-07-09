@@ -86,7 +86,6 @@ export function LectureRoomFormPage() {
         await api.create(payload);
         toast.success("Room created.");
       }
-      navigate("/admin/lecture-rooms");
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {

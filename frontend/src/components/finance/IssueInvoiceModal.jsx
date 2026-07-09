@@ -86,7 +86,6 @@ export function IssueInvoiceModal({ open, onClose, studentId, invoicesApi, onSuc
         });
         onSuccess?.("Penalty invoice issued.");
       }
-      onClose();
     } catch (e) {
       setError(getApiErrorMessage(e, "Failed to issue invoice."));
     } finally {

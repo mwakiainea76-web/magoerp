@@ -153,10 +153,6 @@ export function CertificationAuthorityFormPage() {
         await authoritiesApi.create(payload);
         toast.success("Certification authority created successfully.");
       }
-
-      navigate("/admin/certification-authorities", {
-        replace: true,
-      });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

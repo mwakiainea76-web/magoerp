@@ -176,7 +176,6 @@ export function FeeStructureWizardPage() {
       };
       const res = await api.create(payload);
       setSuccess(res.message);
-      setTimeout(() => navigate("/admin/finance/fee-structures"), 1500);
     } catch (e) {
       setError(getApiErrorMessage(e, "Failed to save fee structure."));
     } finally {

@@ -449,7 +449,6 @@ function GradeModalForm({ open, onClose, gradeId, authorityId, api, onSaved }) {
 
       toast.success(isEdit ? "Grade updated successfully." : "Grade created successfully.");
       onSaved?.(response?.data ?? null);
-      onClose?.();
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

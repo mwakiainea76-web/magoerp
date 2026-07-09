@@ -165,7 +165,6 @@ export function CertificationLevelModalForm({
 
       toast.success(isEdit ? "Certification level updated successfully." : "Certification level created successfully.");
       onSaved?.(response?.data ?? null);
-      onClose?.();
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

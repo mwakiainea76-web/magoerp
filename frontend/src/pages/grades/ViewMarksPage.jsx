@@ -235,7 +235,6 @@ export function ViewMarksPage() {
     try {
       await marksApi.update(editMark.id, { score: Number(data.score) });
       toast.success("Score updated.");
-      closeEditModal();
       await loadData();
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;

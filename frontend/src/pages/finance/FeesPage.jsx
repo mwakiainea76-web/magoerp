@@ -196,7 +196,6 @@ function RecordPaymentModal({ open, onClose, lookupApi, paymentsApi, invoicesApi
       });
       toast.success("Payment recorded successfully.");
       resetForm();
-      onClose();
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to record payment."));
     } finally {

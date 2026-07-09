@@ -135,7 +135,6 @@ export function CertificationAuthorityModalForm({
 
       toast.success(isEdit ? "Certification authority updated successfully." : "Certification authority created successfully.");
       onSaved?.(response?.data ?? null);
-      onClose?.();
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

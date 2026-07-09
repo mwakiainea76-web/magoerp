@@ -135,8 +135,6 @@ export function AcademicSessionFormPage() {
         await sessionsApi.create(payload);
         toast.success("Academic session created successfully.");
       }
-
-      navigate("/admin/academic-calendar/sessions", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

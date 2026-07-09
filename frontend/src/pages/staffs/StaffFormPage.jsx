@@ -313,8 +313,6 @@ export function StaffFormPage() {
         await staffsApi.create(payload);
         toast.success("Staff created successfully.");
       }
-
-      navigate("/admin/staffs", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

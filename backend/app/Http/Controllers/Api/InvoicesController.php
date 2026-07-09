@@ -167,6 +167,42 @@ class InvoicesController extends Controller
     }
 
     /**
+     * Preview what would happen if an invoice is reversed.
+     * Shows the amount that would be credited and affected ledger entries.
+     */
+    public function reversalPreview(Request $request, Invoice $invoice): JsonResponse
+    {
+        abort_unless($request->user()?->can('finance.view'), 403);
+
+        if (!in_array($invoice->status, ['issued', 'partial'], true)) {
+            return response()->json([
+                'status_code' => 422,
+                'message' => 'Invoice is not in a reversible state.',
+            ], 422);
+        }
+
+        $allocatedPayments = (float) InvoicePaymentAllocation::where('invoice_id', $invoice->id)->sum('amount');
+        $itemsTotal = (float) $invoice->items()->sum('total_amount');
+
+        return response()->json([
+            'data' => [
+                'invoice' => [
+                    'id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'amount_due' => (float) $invoice->amount_due,
+                    'status' => $invoice->status,
+                ],
+                'items_total' => $itemsTotal,
+                'allocated_payments' => $allocatedPayments,
+                'reversal_amount' => round((float) $invoice->amount_due, 2),
+                'impact' => $allocatedPayments > 0
+                    ? 'This invoice has KES ' . number_format($allocatedPayments, 2) . ' in payments allocated. Reversing will cancel the invoice and remove its balance from the student account.'
+                    : 'No payments have been allocated to this invoice. Reversing will simply cancel it.',
+            ],
+        ]);
+    }
+
+    /**
      * Reverse (cancel) a wrongly issued invoice.
      */
     public function reverse(Request $request, Invoice $invoice): JsonResponse

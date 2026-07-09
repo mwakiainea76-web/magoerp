@@ -109,7 +109,6 @@ export function HostelRoomsPage() {
         await roomsApi.create(normalizeHostelRoomPayload(data, hostelId));
         toast.success("Room created.");
       }
-      closeModal();
       await loadRooms();
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;

@@ -225,7 +225,6 @@ export function FeeTemplateItemsPage() {
         toast.success("Fee component created successfully.");
       }
 
-      setIsFormModalOpen(false);
       setEditingItemId(null);
       setEditingItem(null);
       setIsFormLoading(false);

@@ -111,8 +111,6 @@ export function AccessRoleFormPage() {
         await rolesApi.create(payload);
         toast.success("Role created successfully.");
       }
-
-          navigate("/admin/access-roles", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

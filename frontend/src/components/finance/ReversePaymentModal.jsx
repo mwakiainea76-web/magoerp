@@ -60,7 +60,6 @@ export function ReversePaymentModal({ open, onClose, payment, paymentsApi, onSuc
         idempotency_key: `reverse:${payment.id}:${uid}`,
       });
       onSuccess?.("Payment reversed successfully.");
-      onClose();
     } catch (e) {
       setError(getApiErrorMessage(e, "Failed to reverse payment."));
     } finally {

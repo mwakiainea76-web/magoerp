@@ -384,7 +384,6 @@ export function CalendarPage() {
         await calendarApi.createEvent(sessionId, payload);
         toast.success("Event created.");
       }
-      setShowForm(false);
       setEditingEvent(null);
       await refreshCalendar();
     } catch (e) {

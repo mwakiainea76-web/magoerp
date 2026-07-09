@@ -144,6 +144,7 @@ Route::middleware([
         Route::post('/finance/reconcile', [InvoicesController::class, 'reconcile']);
         Route::get('/finance/students-not-invoiced', [InvoicesController::class, 'studentsNotInvoiced']);
         Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
+        Route::get('/invoices/{invoice}/reversal-preview', [InvoicesController::class, 'reversalPreview']);
         Route::post('/invoices/{invoice}/reverse', [InvoicesController::class, 'reverse']);
         Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
         Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);

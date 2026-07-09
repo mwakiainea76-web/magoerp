@@ -99,7 +99,6 @@ export function RecordPaymentModal({ open, onClose, studentId, paymentsApi, over
         idempotency_key: `pay:${studentId}:${uid}`,
       });
       onSuccess?.(`Payment of ${money(amount)} recorded.`);
-      onClose();
     } catch (e) {
       setError(getApiErrorMessage(e, "Failed to record payment."));
     } finally {

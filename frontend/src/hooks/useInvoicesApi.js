@@ -20,6 +20,10 @@ export function useInvoicesApi() {
         const response = await authClient.post("/invoice-charges", payload);
         return response.data;
       },
+      reversalPreview: async (invoiceId) => {
+        const response = await authClient.get(`/invoices/${invoiceId}/reversal-preview`);
+        return response.data;
+      },
       reverse: async (invoiceId, payload) => {
         const response = await authClient.post(`/invoices/${invoiceId}/reverse`, payload);
         return response.data;

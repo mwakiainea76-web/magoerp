@@ -125,15 +125,15 @@ return new class extends Migration
         Schema::create('payments', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->nullable()->constrained('students')->nullOnDelete();
-            $table->foreignUuid('academic_session_id')->nullable()->after('student_id')->constrained('academic_sessions')->nullOnDelete();
+            $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->decimal('amount', 10, 2);
             $table->date('payment_date');
             $table->string('method', 50)->nullable();
             $table->string('reference', 100)->nullable();
             $table->string('status', 50)->default('completed');
-            $table->timestamp('reversed_at')->nullable()->after('status');
-            $table->uuid('reversed_by')->nullable()->after('reversed_at');
-            $table->string('reversal_reason', 255)->nullable()->after('reversed_by');
+            $table->timestamp('reversed_at')->nullable();
+            $table->uuid('reversed_by')->nullable();
+            $table->string('reversal_reason', 255)->nullable();
             $table->string('idempotency_key')->nullable()->unique();
             $table->uuid('created_by')->nullable();
             $table->text('notes')->nullable();
@@ -150,7 +150,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('payment_id')->constrained('payments')->cascadeOnDelete();
             $table->foreignUuid('invoice_id')->constrained('invoices')->cascadeOnDelete();
-            $table->foreignUuid('academic_session_id')->nullable()->after('invoice_id')->constrained('academic_sessions')->nullOnDelete();
+            $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->decimal('amount', 10, 2);
             $table->date('allocated_at')->nullable();
             $table->timestamps();
@@ -168,10 +168,10 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('student_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('invoice_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignUuid('academic_session_id')->nullable()->after('invoice_id')->constrained('academic_sessions')->nullOnDelete();
+            $table->foreignUuid('academic_session_id')->nullable()->constrained('academic_sessions')->nullOnDelete();
             $table->decimal('amount', 10, 2);
             $table->string('reason', 500)->nullable();
-            $table->string('idempotency_key', 150)->nullable()->after('reason');
+            $table->string('idempotency_key', 150)->nullable();
             $table->string('status', 20)->default('processed');
             $table->foreignUuid('processed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('processed_at')->nullable();
@@ -196,7 +196,7 @@ return new class extends Migration
             $table->decimal('credit', 12, 2)->default(0);
             $table->string('reference', 100)->nullable();
             $table->text('description')->nullable();
-            $table->string('idempotency_key', 150)->nullable()->after('description');
+            $table->string('idempotency_key', 150)->nullable();
             $table->date('transaction_date');
             $table->uuid('created_by')->nullable();
             $table->timestamps();

@@ -196,7 +196,6 @@ export function AcademicSessionsPage() {
         toast.success("Academic session created successfully.");
       }
 
-      setIsFormModalOpen(false);
       setEditingSessionId(null);
       setEditData(null);
       setIsFormLoading(false);

@@ -122,8 +122,6 @@ export function FeeTemplateFormPage() {
         await templatesApi.create(payload);
         toast.success("Fee template created successfully.");
       }
-
-      navigate("/admin/finance/fee-templates", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

@@ -294,8 +294,6 @@ export function StudentFormPage() {
         await studentsApi.create(payload);
         toast.success("Student admitted successfully.");
       }
-
-      navigate("/admin/students", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

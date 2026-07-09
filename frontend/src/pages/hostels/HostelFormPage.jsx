@@ -97,7 +97,6 @@ export function HostelFormPage() {
         await api.create(payload);
         toast.success("Hostel created.");
       }
-      navigate("/admin/hostels");
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {

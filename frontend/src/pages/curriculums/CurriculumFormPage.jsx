@@ -151,8 +151,6 @@ export function CurriculumFormPage() {
         await curriculumsApi.create(payload);
         toast.success("Curriculum created successfully.");
       }
-
-      navigate("/admin/curriculums", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

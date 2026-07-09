@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('code')->unique();
             $table->string('name');
-            $table->foreignUuid('head_of_department')->nullable()->constrained('staffs')->nullOnDelete();
+            $table->foreignUuid('head_of_department')->nullable();
             $table->text('description')->nullable();
             $table->uuid('created_by')->nullable();
             $table->uuid('updated_by')->nullable();

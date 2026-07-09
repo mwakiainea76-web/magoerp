@@ -139,8 +139,6 @@ export function DepartmentFormPage() {
         await departmentsApi.create(payload);
         toast.success("Department created successfully.");
       }
-
-      navigate("/admin/departments", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

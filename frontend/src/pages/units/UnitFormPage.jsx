@@ -168,8 +168,6 @@ export function UnitFormPage() {
         await unitsApi.create(payload);
         toast.success("Unit created successfully.");
       }
-
-      navigate("/admin/units", { replace: true });
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
 

@@ -573,6 +573,7 @@ function ReverseInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [reason, setReason] = useState("");
   const [otherReason, setOtherReason] = useState("");
+  const [preview, setPreview] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -583,10 +584,20 @@ function ReverseInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
     setSelectedInvoiceId("");
     setReason("");
     setOtherReason("");
+    setPreview(null);
     setConfirmed(false);
     setError("");
     setFieldErrors({});
   }
+
+  useEffect(() => {
+    if (!selectedInvoiceId) { setPreview(null); return; }
+    invoicesApi.reversalPreview(selectedInvoiceId).then(res => {
+      setPreview(res.data);
+    }).catch(() => {
+      setPreview(null);
+    });
+  }, [selectedInvoiceId, invoicesApi]);
 
   const reversibleInvoices = studentData?.invoices?.filter(
     inv => inv.status === "issued" || inv.status === "partial"
@@ -704,6 +715,24 @@ function ReverseInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
               </div>
             )}
 
+            {preview && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-amber-700">
+                  <AlertTriangle className="h-3.5 w-3.5" /> This will
+                </div>
+                <div className="mt-2 space-y-1 text-[13px]">
+                  <div className="flex justify-between">
+                    <span className="text-amber-800">Reverse invoice {preview.invoice.invoice_number}</span>
+                    <span className="font-medium text-amber-900">{money(preview.reversal_amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-800">Status changes from <span className="capitalize">{preview.invoice.status}</span> to cancelled</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[13px] text-amber-800">{preview.impact}</p>
+              </div>
+            )}
+
             <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
               <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
@@ -713,7 +742,7 @@ function ReverseInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
 
             <div className="flex items-center justify-between border-t border-slate-100 pt-4">
               <div className="text-[13px] text-slate-500">
-                {selectedInvoice ? `Amount to reverse: ${money(selectedInvoice.amount_due)}` : ""}
+                {preview ? `Amount to reverse: ${money(preview.reversal_amount)}` : ""}
               </div>
               <button type="button" ref={submitRef} onClick={handleSubmit} disabled={submitting || !confirmed}
                 className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-red-700 disabled:opacity-50">
