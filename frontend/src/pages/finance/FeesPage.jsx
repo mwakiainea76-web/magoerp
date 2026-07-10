@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Banknote, FileText, Percent } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName, inputClassName, labelTextClassName, selectClassName } from "@/lib/styles";
+import { bodyTextClassName, labelTextClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
+import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useLookupApi } from "@/hooks/useLookupApi";
@@ -257,19 +258,10 @@ function RecordPaymentModal({ open, onClose, lookupApi, paymentsApi, invoicesApi
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                    Amount *
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={amount}
+                  <FormInput label="Amount" type="number" min={0} step="0.01" value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className={inputClassName}
                     placeholder="e.g. 5000"
-                    required
-                  />
+                    required />
                 </div>
                 <div>
                   <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
@@ -290,41 +282,20 @@ function RecordPaymentModal({ open, onClose, lookupApi, paymentsApi, invoicesApi
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                    Reference
-                  </label>
-                  <input
-                    type="text"
-                    value={reference}
+                  <FormInput label="Reference" type="text" value={reference}
                     onChange={(e) => setReference(e.target.value)}
-                    className={inputClassName}
-                    placeholder="e.g. M-Pesa transaction code"
-                  />
+                    placeholder="e.g. M-Pesa transaction code" />
                 </div>
                 <div>
-                  <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                    Payment Date
-                  </label>
-                  <input
-                    type="date"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    className={inputClassName}
-                  />
+                  <FormInput label="Payment Date" type="date" value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)} />
                 </div>
               </div>
 
               <div>
-                <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>
-                  Notes
-                </label>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className={inputClassName}
-                  placeholder="Optional notes about this payment"
-                />
+                <FormInput label="Notes" type="text" value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Optional notes about this payment" />
               </div>
             </>
           ) : null}

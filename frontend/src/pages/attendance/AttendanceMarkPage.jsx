@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName, inputClassName } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useAttendanceApi } from "@/hooks/useAttendanceApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -150,14 +151,11 @@ export function AttendanceMarkPage() {
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[200px] flex-1">
-            <label htmlFor="search" className="mb-1 block text-[13px] font-medium text-slate-600">Search student</label>
-            <input
+            <FormInput
               id="search"
-              type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               placeholder="By admission number or name..."
-              className={inputClassName}
             />
           </div>
           <div className="min-w-[150px]">

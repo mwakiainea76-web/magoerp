@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { bodyTextClassName, labelTextClassName, inputClassName, selectClassName, initialMeta } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import {
@@ -51,10 +52,7 @@ export function StudentStatusLogsPage() {
 
       <form onSubmit={(e) => { e.preventDefault(); setPage(1); setQuery(searchInput.trim()); }} className="rounded-xl border border-slate-200/80 bg-white p-5">
         <div className="grid gap-4 xl:grid-cols-[1.6fr_0.6fr_0.5fr_auto] xl:items-end">
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
-            <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className={inputClassName} placeholder="Student name or admission #..." />
-          </div>
+          <FormInput value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Student name or admission #..." />
           <div>
             <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Status</label>
             <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className={`${selectClassName} w-full`}>

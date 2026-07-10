@@ -15,7 +15,8 @@ import {
   TableFooter,
 } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useLectureRoomsApi } from "@/hooks/useLectureRoomsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -123,16 +124,11 @@ export function LectureRoomsPage() {
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.6fr)_auto] xl:items-end">
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className={inputClassName}
-              placeholder="Search by name, code, or location..."
-            />
-          </div>
+          <FormInput
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by name, code, or location..."
+          />
           <div>
             <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Status</label>
             <select

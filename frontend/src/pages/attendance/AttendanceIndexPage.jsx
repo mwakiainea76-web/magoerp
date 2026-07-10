@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FormInput } from "@/components/FormInput";
 import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useAttendanceApi } from "@/hooks/useAttendanceApi";
@@ -82,23 +83,21 @@ export function AttendanceIndexPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="date" className="mb-1 block text-[13px] font-medium text-slate-600">Date</label>
-              <input
+              <FormInput
                 id="date"
                 type="date"
                 value={sessionDate}
                 onChange={(e) => setSessionDate(e.target.value)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition"
+                label="Session Date"
               />
             </div>
             <div>
-              <label htmlFor="time" className="mb-1 block text-[13px] font-medium text-slate-600">Start Time</label>
-              <input
+              <FormInput
                 id="time"
                 type="time"
+                label="Start Time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-4 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition"
               />
             </div>
           </div>

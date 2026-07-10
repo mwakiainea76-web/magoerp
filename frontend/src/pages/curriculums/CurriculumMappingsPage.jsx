@@ -16,7 +16,8 @@ import {
   TableFooter,
 } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useCourseCurriculaApi } from "@/hooks/useCourseCurriculaApi";
 import { useCoursesApi } from "@/hooks/useCoursesApi";
@@ -175,11 +176,9 @@ export function CurriculumMappingsPage() {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_auto] xl:items-end">
           <div>
             <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
-            <input
-              type="text"
+            <FormInput
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className={inputClassName}
               placeholder="Search by course or curriculum name/code..."
             />
           </div>

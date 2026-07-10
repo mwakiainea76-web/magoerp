@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Filter, Search, X, ChevronDown } from "lucide-react";
+import { Download, Filter, X, ChevronDown } from "lucide-react";
 
+import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { initialMeta } from "@/lib/styles";
@@ -222,11 +223,9 @@ export function FinanceReportsPage() {
       {/* Filter bar */}
       <form onSubmit={applyFilters} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-2 p-3">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-            <input value={pending.q} onChange={(e) => update("q", e.target.value)}
-              placeholder="Student, admission or invoice"
-              className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-emerald-500" />
+          <div className="flex-1">
+            <FormInput label="Search" value={pending.q} onChange={(e) => update("q", e.target.value)}
+              placeholder="Student, admission or invoice" />
           </div>
           <button type="button" onClick={() => setShowFilters(!showFilters)}
             className={`inline-flex h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition ${
@@ -267,14 +266,8 @@ export function FinanceReportsPage() {
                   {visibleSessions.map((session) => <option key={session.id} value={session.id}>{session.name}</option>)}
                 </select>
               </label>
-              <label className="text-xs font-medium text-slate-600">From date
-                <input type="date" value={pending.date_from} onChange={(e) => update("date_from", e.target.value)}
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500" />
-              </label>
-              <label className="text-xs font-medium text-slate-600">To date
-                <input type="date" value={pending.date_to} onChange={(e) => update("date_to", e.target.value)}
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500" />
-              </label>
+              <FormInput label="Date From" type="date" value={pending.date_from} onChange={(e) => update("date_from", e.target.value)} />
+              <FormInput label="Date To" type="date" value={pending.date_to} onChange={(e) => update("date_to", e.target.value)} />
             </div>
           </div>
         )}

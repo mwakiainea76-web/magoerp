@@ -18,6 +18,7 @@ const AttendanceIndexPage = lazy(() => import("@/pages/attendance/AttendanceInde
 const AttendanceMarkPage = lazy(() => import("@/pages/attendance/AttendanceMarkPage").then((module) => ({ default: module.AttendanceMarkPage })));
 const CertificationAuthoritiesPage = lazy(() => import("@/pages/certificationAuthorities/CertificationAuthoritiesPage").then((module) => ({ default: module.CertificationAuthoritiesPage })));
 const CertificationAuthorityFormPage = lazy(() => import("@/pages/certificationAuthorities/CertificationAuthorityFormPage").then((module) => ({ default: module.CertificationAuthorityFormPage })));
+const CertificationWizardPage = lazy(() => import("@/pages/certificationAuthorities/CertificationWizardPage").then((module) => ({ default: module.CertificationWizardPage })));
 const CertificationAuthorityGradesPage = lazy(() => import("@/pages/certificationAuthorities/CertificationAuthorityGradesPage").then((module) => ({ default: module.CertificationAuthorityGradesPage })));
 const CertificationLevelFormPage = lazy(() => import("@/pages/certificationAuthorities/CertificationLevelFormPage").then((module) => ({ default: module.CertificationLevelFormPage })));
 const CertificationLevelsPage = lazy(() => import("@/pages/certificationAuthorities/CertificationLevelsPage").then((module) => ({ default: module.CertificationLevelsPage })));
@@ -87,7 +88,7 @@ export const AdminRoutes = (
     <Route path="/admin/departments/create" element={<DepartmentFormPage />} />
     <Route path="/admin/departments/:departmentId/edit" element={<DepartmentFormPage />} />
     <Route path="/admin/certification-authorities" element={<CertificationAuthoritiesPage />} />
-    <Route path="/admin/certification-authorities/create" element={<CertificationAuthorityFormPage />} />
+    <Route path="/admin/certification-authorities/create" element={<CertificationWizardPage />} />
     <Route path="/admin/certification-authorities/:authorityId/edit" element={<CertificationAuthorityFormPage />} />
     <Route path="/admin/certification-authorities/grades" element={<CertificationAuthorityGradesPage />} />
     <Route path="/admin/certification-levels" element={<CertificationLevelsPage />} />

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName, inputClassName, labelClassName, selectClassName } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useSystemConfigurationsApi } from "@/hooks/useSystemConfigurationsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -89,19 +90,21 @@ export function SystemConfigurationsPage() {
                       className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     />
                   ) : config.type === "integer" ? (
-                    <input
+                    <FormInput
                       id={`config-${config.key}`}
                       type="number"
                       min="1"
                       defaultValue={config.value}
-                      className={`${inputClassName} w-24`}
+                      label="Value"
+                      className="w-24"
                     />
                   ) : (
-                    <input
+                    <FormInput
                       id={`config-${config.key}`}
                       type="text"
                       defaultValue={config.value}
-                      className={`${inputClassName} w-48`}
+                      label="Value"
+                      className="w-48"
                     />
                   )}
                   <FormButton

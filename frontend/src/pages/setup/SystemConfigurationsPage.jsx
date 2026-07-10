@@ -3,6 +3,7 @@ import { Save } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { FormButton } from "@/components/FormButton";
+import { FormInput } from "@/components/FormInput";
 import { useSystemConfigurationsApi } from "@/hooks/useSystemConfigurationsApi";
 import { bodyTextClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
@@ -97,7 +98,7 @@ export function SystemConfigurationsPage() {
                       <option value="false">Disabled</option>
                     </select>
                   ) : (
-                    <input
+                    <FormInput
                       type={item.type === "integer" ? "number" : "text"}
                       value={
                         item.editingValue !== undefined
@@ -113,7 +114,8 @@ export function SystemConfigurationsPage() {
                           ),
                         )
                       }
-                      className="h-9 w-28 rounded-lg border border-slate-200 bg-white px-3 text-[14px] text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                      label="Value"
+                      className="w-28"
                     />
                   )}
                   <FormButton

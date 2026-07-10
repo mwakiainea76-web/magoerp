@@ -15,7 +15,8 @@ import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { useAcademicSessionEnrolmentsApi } from "@/hooks/useAcademicSessionEnrolmentsApi";
 import { useAuthStore } from "@/store/authStore";
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const statusColors = {
@@ -244,16 +245,11 @@ export function SessionEnrolmentsPage() {
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_auto] xl:items-end">
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              className={inputClassName}
-              placeholder="Search by student name or admission #"
-            />
-          </div>
+          <FormInput
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search by student name or admission #"
+          />
           <div className="flex gap-3 xl:justify-end">
             <FormButton type="submit" className="w-full sm:w-auto">Apply</FormButton>
             <FormButton type="button" variant="secondary" className="w-full sm:w-auto" onClick={handleResetFilters}>Reset</FormButton>

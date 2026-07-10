@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
@@ -161,16 +162,9 @@ export function CurriculumsPage() {
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_repeat(2,minmax(0,0.6fr))_auto] xl:items-end">
           <div>
-            <label
-              className={`mb-2 block text-slate-600 ${labelTextClassName}`}
-            >
-              Search
-            </label>
-            <input
-              type="text"
+            <FormInput
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              className={inputClassName}
               placeholder="Search by code, name, description, or authority"
             />
           </div>

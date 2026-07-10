@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
 import { Search, Users, ArrowRight, GraduationCap } from "lucide-react";
+import { FormInput } from "@/components/FormInput";
 import { useStudentAccountApi } from "@/hooks/useStudentAccountApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -42,9 +43,8 @@ export function StudentAccountsPage() {
             <label className="mb-1 block text-[13px] font-medium text-slate-700">Search Student</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input type="text" value={query} onChange={e => setQuery(e.target.value)}
+              <FormInput type="text" value={query} onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleSearch()}
-                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-[14px] outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 placeholder="Search by name or admission number..." />
             </div>
           </div>

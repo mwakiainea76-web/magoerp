@@ -11,10 +11,10 @@ import {
   TableFooter,
 } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
+import { FormInput } from "@/components/FormInput";
 import {
   bodyTextClassName,
   labelTextClassName,
-  inputClassName,
   selectClassName,
   initialMeta,
 } from "@/lib/styles";
@@ -83,16 +83,11 @@ export function CourseTransfersPage() {
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_auto] xl:items-end">
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className={inputClassName}
-              placeholder="Search by student name or admission number..."
-            />
-          </div>
+          <FormInput
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by student name or admission number..."
+          />
           <div className="flex gap-3 xl:justify-end">
             <FormButton type="submit" className="w-full sm:w-auto">Apply</FormButton>
             <FormButton type="button" variant="secondary" className="w-full sm:w-auto" onClick={handleResetFilters}>Reset</FormButton>

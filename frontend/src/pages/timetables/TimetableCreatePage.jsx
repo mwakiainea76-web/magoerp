@@ -5,8 +5,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
-import { bodyTextClassName, inputClassName } from "@/lib/styles";
+import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
+import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { useTimetableApi } from "@/hooks/useTimetableApi";
 import { useCourseCurriculaApi } from "@/hooks/useCourseCurriculaApi";
@@ -334,17 +335,21 @@ export function TimetableCreatePage() {
               </select>
             </div>
 
-            <div>
-              <label htmlFor="start_time" className="mb-1 block text-[13px] font-medium text-slate-600">Start Time</label>
-              <input id="start_time" type="time" className={inputClassName} {...register("start_time")} />
-              {errors.start_time ? <p className="mt-1 text-sm text-red-600">{errors.start_time.message}</p> : null}
-            </div>
+            <FormInput
+              id="start_time"
+              type="time"
+              label="Start Time"
+              error={errors.start_time?.message}
+              {...register("start_time")}
+            />
 
-            <div>
-              <label htmlFor="end_time" className="mb-1 block text-[13px] font-medium text-slate-600">End Time</label>
-              <input id="end_time" type="time" className={inputClassName} {...register("end_time")} />
-              {errors.end_time ? <p className="mt-1 text-sm text-red-600">{errors.end_time.message}</p> : null}
-            </div>
+            <FormInput
+              id="end_time"
+              type="time"
+              label="End Time"
+              error={errors.end_time?.message}
+              {...register("end_time")}
+            />
           </div>
         </div>
 

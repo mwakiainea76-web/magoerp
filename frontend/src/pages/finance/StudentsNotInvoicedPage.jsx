@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Search, ExternalLink } from "lucide-react";
+import { FormInput } from "@/components/FormInput";
 import { authClient } from "@/lib/api/authClient";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
@@ -96,10 +97,9 @@ export function StudentsNotInvoicedPage() {
           <label className="mb-1 block text-[13px] font-medium text-slate-600">Search</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            <FormInput type="text" value={search} onChange={e => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Admission no. or name..."
-              className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-[13px] outline-none focus:border-emerald-500" />
+              placeholder="Admission no. or name..." />
           </div>
         </div>
       </div>

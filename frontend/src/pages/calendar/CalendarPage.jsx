@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName, inputClassName, labelClassName, selectClassName, textAreaClassName } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, labelClassName, selectClassName, textAreaClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
@@ -883,11 +884,10 @@ export function CalendarPage() {
                       </select>
                 </div>
                 <div>
-                  <label className={labelClassName}>Title</label>
-                  <input
+                  <FormInput
+                    label="Title"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className={inputClassName}
                     required
                   />
                 </div>
@@ -901,22 +901,20 @@ export function CalendarPage() {
                   />
                 </div>
                 <div>
-                  <label className={labelClassName}>Start Date</label>
-                  <input
+                  <FormInput
                     type="date"
+                    label="Start Date"
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className={inputClassName}
                     required
                   />
                 </div>
                 <div>
-                  <label className={labelClassName}>End Date</label>
-                  <input
+                  <FormInput
                     type="date"
+                    label="End Date"
                     value={formData.end_date}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className={inputClassName}
                     required
                   />
                 </div>

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, ChevronRight, Save, Send, Plus, Trash2, Eye } from "lucide-react";
 import { SearchSelect } from "@/components/SearchSelect";
+import { FormInput } from "@/components/FormInput";
 import { useFeeStructureApi } from "@/hooks/useFeeStructureApi";
 import { authClient, getApiErrorMessage } from "@/lib/api/authClient";
+import { selectClassName, textAreaClassName, labelClassName } from "@/lib/styles";
 
 const STEPS = ["General Information", "Fee Items", "Assignment", "Review"];
 
@@ -16,6 +18,9 @@ export function FeeStructureWizardPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [erroredSteps, setErroredSteps] = useState(new Set());
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [itemErrors, setItemErrors] = useState([{}]);
   const [lookups, setLookups] = useState({ sessions: [], curricula: [], departments: [] });
 
   // Form state
@@ -104,21 +109,60 @@ export function FeeStructureWizardPage() {
 
   const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
+  function validateStep(stepIndex) {
+    const errors = {};
+    if (stepIndex === 0) {
+      if (!form.name.trim()) errors.name = "Fee structure name is required";
+      if (!form.code.trim()) errors.code = "Code is required";
+    }
+    if (stepIndex === 1) {
+      const itemErrs = items.map(item => {
+        const e = {};
+        if (!item.name.trim()) e.name = "Required";
+        if (!item.amount || parseFloat(item.amount) <= 0) e.amount = "Must be > 0";
+        return e;
+      });
+      setItemErrors(itemErrs);
+      return itemErrs.every(e => Object.keys(e).length === 0);
+    }
+    if (stepIndex === 2) {
+      if (!form.academic_session_id) errors.academic_session_id = "Required";
+      if (form.assignment_scope === "course" && !form.course_curriculum_id) errors.course_curriculum_id = "Required";
+      if (form.assignment_scope === "department" && !form.department_id) errors.department_id = "Required";
+      if (form.year_level === "" && form.year_level !== 0) errors.year_level = "Required";
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
   function updateForm(key, value) {
     setForm(prev => ({ ...prev, [key]: value }));
+    if (key === "name" || key === "code" || key === "description") {
+      setErroredSteps(prev => { const n = new Set(prev); n.delete(0); return n; });
+    }
+    if (key === "academic_session_id" || key === "assignment_scope" || key === "course_curriculum_id" || key === "department_id" || key === "year_level" || key === "issuance_type" || key === "session_number") {
+      setErroredSteps(prev => { const n = new Set(prev); n.delete(2); return n; });
+    }
+    setFieldErrors(prev => ({ ...prev, [key]: undefined }));
   }
 
   function addItem() {
     setItems(prev => [...prev, { name: "", amount: "", description: "" }]);
+    setItemErrors(prev => [...prev, {}]);
+    setErroredSteps(prev => { const n = new Set(prev); n.delete(1); return n; });
   }
 
   function removeItem(index) {
     if (items.length <= 1) return;
     setItems(prev => prev.filter((_, i) => i !== index));
+    setItemErrors(prev => prev.filter((_, i) => i !== index));
+    setErroredSteps(prev => { const n = new Set(prev); n.delete(1); return n; });
   }
 
   function updateItem(index, key, value) {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, [key]: value } : item));
+    setItemErrors(prev => prev.map((e, i) => i === index ? { ...e, [key]: undefined } : e));
+    setErroredSteps(prev => { const n = new Set(prev); n.delete(1); return n; });
   }
 
   const canProceed = useCallback(() => {
@@ -159,6 +203,8 @@ export function FeeStructureWizardPage() {
     setSaving(true);
     setError("");
     setSuccess("");
+    setErroredSteps(new Set());
+
     try {
       const payload = {
         name: form.name,
@@ -175,12 +221,22 @@ export function FeeStructureWizardPage() {
         action,
       };
       const res = await api.create(payload);
-      setSuccess(res.message);
+      setSuccess(res.message || "Fee structure saved successfully.");
     } catch (e) {
+      setErroredSteps(prev => { const n = new Set(prev); n.add(0); n.add(1); n.add(2); return n; });
       setError(getApiErrorMessage(e, "Failed to save fee structure."));
     } finally {
       setSaving(false);
     }
+  }
+
+  function goToStep(i) {
+    if (i > step) {
+      if (!validateStep(step)) return;
+    }
+    setStep(i);
+    setError("");
+    setFieldErrors({});
   }
 
   function nextStep() {
@@ -215,17 +271,23 @@ export function FeeStructureWizardPage() {
 
       {/* Steps indicator */}
       <div className="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-        {STEPS.map((label, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-medium ${
-              i === step ? "bg-emerald-600 text-white" : i < step ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
-            }`}>
-              {i < step ? "✓" : i + 1}
-            </div>
-            <span className={`text-[13px] ${i === step ? "font-semibold text-slate-900" : "text-slate-500"}`}>{label}</span>
-            {i < STEPS.length - 1 && <div className="mx-2 h-px w-8 bg-slate-200" />}
-          </div>
-        ))}
+        {STEPS.map((label, i) => {
+          const isErrored = erroredSteps.has(i);
+          return (
+            <button key={i} type="button" onClick={() => goToStep(i)}
+              className="flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={i > step && !canProceed()}>
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-medium transition ${
+                isErrored ? "bg-red-500 text-white ring-2 ring-red-300" :
+                i === step ? "bg-emerald-600 text-white" : i < step ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
+              }`}>
+                {i < step && !isErrored ? "✓" : i + 1}
+              </div>
+              <span className={`text-[13px] ${isErrored ? "font-semibold text-red-600" : i === step ? "font-semibold text-slate-900" : "text-slate-500"}`}>{label}</span>
+              {i < STEPS.length - 1 && <div className="mx-2 h-px w-8 bg-slate-200" />}
+            </button>
+          );
+        })}
       </div>
 
       {loadingTemplate && (
@@ -241,7 +303,16 @@ export function FeeStructureWizardPage() {
         </div>
       )}
 
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+          {error}
+          {erroredSteps.size > 0 && (
+            <p className="mt-1 text-[12px] text-red-500">
+              Fix the issue in the highlighted step{erroredSteps.size > 1 ? "s" : ""} above, then try again.
+            </p>
+          )}
+        </div>
+      )}
       {success && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-700">{success}</div>}
 
       {/* Step 1: General Information */}
@@ -249,22 +320,29 @@ export function FeeStructureWizardPage() {
         <div className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
           <h2 className="text-[15px] font-semibold text-slate-900">General Information</h2>
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-700">Fee Structure Name *</label>
-              <input type="text" value={form.name} onChange={e => updateForm("name", e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[13px] outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                placeholder="e.g. BSc Computer Science Fees" />
-            </div>
-            <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-700">Code *</label>
-              <input type="text" value={form.code} onChange={e => updateForm("code", e.target.value.toUpperCase())}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[13px] outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                placeholder="e.g. CSC-FEES-2026" />
-            </div>
+            <FormInput
+              id="fee-structure-name"
+              label="Fee Structure Name"
+              placeholder="e.g. BSc Computer Science Fees"
+              required
+              value={form.name}
+              onChange={e => updateForm("name", e.target.value)}
+              error={fieldErrors.name}
+            />
+            <FormInput
+              id="fee-structure-code"
+              label="Code"
+              placeholder="e.g. CSC-FEES-2026"
+              required
+              value={form.code}
+              onChange={e => updateForm("code", e.target.value.toUpperCase())}
+              error={fieldErrors.code}
+            />
             <div className="md:col-span-2">
-              <label className="mb-1 block text-[13px] font-medium text-slate-700">Description</label>
-              <textarea value={form.description} onChange={e => updateForm("description", e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[13px] outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              <label htmlFor="fee-structure-description" className={labelClassName}>Description</label>
+              <textarea id="fee-structure-description" value={form.description}
+                onChange={e => updateForm("description", e.target.value)}
+                className={textAreaClassName}
                 rows={2} placeholder="Optional description" />
             </div>
           </div>
@@ -281,51 +359,50 @@ export function FeeStructureWizardPage() {
               <Plus className="h-3.5 w-3.5" /> Add Item
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Item Name</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Amount (KES)</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-500">Description</th>
-                  <th className="w-10 px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, i) => (
-                  <tr key={i} className="border-b border-slate-100">
-                    <td className="px-3 py-2">
-                      <input type="text" value={item.name} onChange={e => updateItem(i, "name", e.target.value)}
-                        className="w-full rounded border border-slate-300 px-2 py-1.5 text-[13px] outline-none focus:border-emerald-500"
-                        placeholder="e.g. Tuition" />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input type="number" step="0.01" min="0" value={item.amount} onChange={e => updateItem(i, "amount", e.target.value)}
-                        className="w-full rounded border border-slate-300 px-2 py-1.5 text-[13px] outline-none focus:border-emerald-500"
-                        placeholder="0.00" />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input type="text" value={item.description} onChange={e => updateItem(i, "description", e.target.value)}
-                        className="w-full rounded border border-slate-300 px-2 py-1.5 text-[13px] outline-none focus:border-emerald-500"
-                        placeholder="Optional" />
-                    </td>
-                    <td className="px-3 py-2">
-                      <button type="button" onClick={() => removeItem(i)} disabled={items.length <= 1}
-                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="font-semibold">
-                  <td className="px-3 py-2 text-slate-700">Total</td>
-                  <td className="px-3 py-2 text-emerald-700">KES {totalAmount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}</td>
-                  <td colSpan={2} />
-                </tr>
-              </tfoot>
-            </table>
+          <div className="space-y-4">
+            {items.map((item, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <FormInput
+                    label="Item Name"
+                    required
+                    value={item.name}
+                    onChange={e => updateItem(i, "name", e.target.value)}
+                    placeholder="e.g. Tuition"
+                    error={itemErrors[i]?.name}
+                  />
+                  <FormInput
+                    label="Amount (KES)"
+                    type="number"
+                    required
+                    step="0.01"
+                    min="0"
+                    value={item.amount}
+                    onChange={e => updateItem(i, "amount", e.target.value)}
+                    placeholder="0.00"
+                    error={itemErrors[i]?.amount}
+                  />
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <FormInput
+                        label="Description"
+                        value={item.description}
+                        onChange={e => updateItem(i, "description", e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <button type="button" onClick={() => removeItem(i)} disabled={items.length <= 1}
+                      className="mt-7 rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <span className="text-[13px] font-semibold text-slate-700">Total</span>
+              <span className="text-[15px] font-semibold text-emerald-700">KES {totalAmount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}</span>
+            </div>
           </div>
         </div>
       )}
@@ -388,7 +465,7 @@ export function FeeStructureWizardPage() {
           <div>
             <label className="mb-1 block text-[13px] font-medium text-slate-700">Year Level *</label>
             <select value={form.year_level} onChange={e => updateForm("year_level", e.target.value)}
-              className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-[13px] outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+              className={selectClassName}>
               <option value="">Select year</option>
               <option value="0">All Years</option>
               {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
@@ -416,7 +493,7 @@ export function FeeStructureWizardPage() {
             <div>
               <label className="mb-1 block text-[13px] font-medium text-slate-700">Session Number *</label>
               <select value={form.session_number} onChange={e => updateForm("session_number", e.target.value)}
-                className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-[13px] outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                className={selectClassName}>
                 <option value="1">Session 1</option>
                 <option value="2">Session 2</option>
                 <option value="3">Session 3</option>
@@ -431,34 +508,28 @@ export function FeeStructureWizardPage() {
                 <Eye className="h-4 w-4 text-slate-400" />
                 <h3 className="text-[13px] font-semibold text-slate-700">Preview Matrix</h3>
               </div>
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="px-3 py-1.5 text-left font-medium text-slate-500">Year</th>
-                    <th className="px-3 py-1.5 text-left font-medium text-slate-500">Session</th>
-                    <th className="px-3 py-1.5 text-right font-medium text-slate-500">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.generated_assignments?.map((a, i) => (
-                    <tr key={i} className="border-b border-slate-100">
-                      <td className="px-3 py-1.5 text-slate-700">{preview.academic_year || "—"}</td>
-                      <td className="px-3 py-1.5 text-slate-700">{a.session}</td>
-                      <td className="px-3 py-1.5 text-right font-medium text-slate-900">
-                        KES {a.amount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="font-semibold">
-                    <td colSpan={2} className="px-3 py-1.5 text-slate-700">Total</td>
-                    <td className="px-3 py-1.5 text-right text-emerald-700">
-                      KES {preview.total_amount?.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+              <div className="hidden md:grid md:grid-cols-3 gap-3 px-1 pb-2">
+                <span className="text-[13px] font-medium text-slate-500">Year</span>
+                <span className="text-[13px] font-medium text-slate-500">Session</span>
+                <span className="text-[13px] font-medium text-slate-500 text-right">Amount</span>
+              </div>
+              <div className="space-y-2">
+                {preview.generated_assignments?.map((a, i) => (
+                  <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2">
+                    <span className="text-[13px] text-slate-700"><span className="md:hidden font-medium text-slate-500">Year: </span>{preview.academic_year || "—"}</span>
+                    <span className="text-[13px] text-slate-700"><span className="md:hidden font-medium text-slate-500">Session: </span>{a.session}</span>
+                    <span className="text-[13px] font-medium text-slate-900 md:text-right">
+                      <span className="md:hidden font-medium text-slate-500">Amount: </span>KES {a.amount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ))}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 font-semibold">
+                  <span className="text-[13px] text-slate-700 md:col-span-2">Total</span>
+                  <span className="text-[13px] text-emerald-700 md:text-right">
+                    KES {preview.total_amount?.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>

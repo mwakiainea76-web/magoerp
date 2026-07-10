@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { ArrowLeftRight, Search, UserCheck } from "lucide-react";
 
+import { FormInput } from "@/components/FormInput";
 import { bodyTextClassName, labelTextClassName, inputClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useCourseChangeApi } from "@/hooks/useCourseChangeApi";
@@ -121,12 +122,12 @@ export function CourseChangePage() {
           ) : null}
 
           <div className="flex gap-3">
-            <input
-              type="text"
+            <FormInput
               value={admissionInput}
               onChange={(e) => setAdmissionInput(e.target.value)}
-              className={`${inputClassName} flex-1`}
+              label="Admission Number"
               placeholder="Enter admission number..."
+              className="flex-1"
             />
             <FormButton type="submit" disabled={isLookingUp || !admissionInput.trim()}>
               <Search className="mr-1.5 h-4 w-4" />

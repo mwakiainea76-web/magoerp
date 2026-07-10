@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Banknote, Plus, RotateCcw, LoaderCircle, AlertTriangle, Search, FileX } from "lucide-react";
+import { FormInput } from "@/components/FormInput";
 import { useStudentsApi } from "@/hooks/useStudentsApi";
 import { useStudentAccountApi } from "@/hooks/useStudentAccountApi";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
@@ -154,10 +155,8 @@ function AdmissionNumberLookup({ studentsApi, accountApi, onStudentReady, formLa
     <div className="space-y-3">
       <div className="flex items-end gap-2">
         <div className="flex-1">
-          <label className="mb-1 block text-[13px] font-medium text-slate-600">Admission Number</label>
-          <input type="text" value={admNo} onChange={e => setAdmNo(e.target.value)}
-            placeholder="Enter admission number"
-            className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
+          <FormInput label="Admission Number" type="text" value={admNo} onChange={e => setAdmNo(e.target.value)}
+            placeholder="Enter admission number" />
         </div>
         {studentData ? (
           <button type="button" onClick={handleClear}
@@ -340,33 +339,19 @@ function IssueInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
                 )}
 
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-600">Due Date</label>
-                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                  {fieldErrors.dueDate && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.dueDate}</p>}
+                  <FormInput label="Due Date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} error={fieldErrors.dueDate} />
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-600">Description <span className="text-red-400">*</span></label>
-                  <input type="text" value={penaltyDesc} onChange={e => setPenaltyDesc(e.target.value)}
-                    placeholder="e.g. Late registration penalty"
-                    className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                  {fieldErrors.penaltyDesc && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.penaltyDesc}</p>}
+                  <FormInput label="Penalty Description" type="text" value={penaltyDesc} onChange={e => setPenaltyDesc(e.target.value)} placeholder="e.g. Late registration penalty" error={fieldErrors.penaltyDesc} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-600">Amount <span className="text-red-400">*</span></label>
-                  <input type="number" step="0.01" min="0.01" value={penaltyAmount} onChange={e => setPenaltyAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                  {fieldErrors.penaltyAmount && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.penaltyAmount}</p>}
+                  <FormInput label="Penalty Amount" type="number" step="0.01" min="0.01" value={penaltyAmount} onChange={e => setPenaltyAmount(e.target.value)} placeholder="0.00" error={fieldErrors.penaltyAmount} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-600">Due Date</label>
-                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                  {fieldErrors.dueDate && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.dueDate}</p>}
+                  <FormInput label="Due Date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} error={fieldErrors.dueDate} />
                 </div>
               </div>
             )}
@@ -487,12 +472,9 @@ function RecordPaymentForm({ studentsApi, accountApi, paymentsApi }) {
           <>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Amount (KES) <span className="text-red-400">*</span></label>
-                <input type="number" step="0.01" min="0.01" value={amount}
+                <FormInput label="Amount" type="number" step="0.01" min="0.01" value={amount}
                   onChange={e => handleAmountChange(e.target.value)}
-                  placeholder={overallBalance > 0 ? money(overallBalance) : "0.00"}
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[14px] outline-none focus:border-emerald-500" />
-                {fieldErrors.amount && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.amount}</p>}
+                  placeholder={overallBalance > 0 ? money(overallBalance) : "0.00"} error={fieldErrors.amount} />
               </div>
 
               <div>
@@ -504,26 +486,18 @@ function RecordPaymentForm({ studentsApi, accountApi, paymentsApi }) {
               </div>
 
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">{REF_LABELS[method] || "Reference"}</label>
-                <input type="text" value={reference} onChange={e => setReference(e.target.value)}
-                  placeholder={method === "Cash" ? "Optional" : "Required"}
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                {fieldErrors.reference && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.reference}</p>}
+                <FormInput label={REF_LABELS[method] || "Reference"} type="text" value={reference} onChange={e => setReference(e.target.value)}
+                  placeholder={method === "Cash" ? "Optional" : "Required"} error={fieldErrors.reference} />
               </div>
 
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Payment Date</label>
-                <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                {fieldErrors.paymentDate && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.paymentDate}</p>}
+                <FormInput label="Payment Date" type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} error={fieldErrors.paymentDate} />
               </div>
             </div>
 
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">Note</label>
-              <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder="Optional"
-                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
+              <FormInput label="Notes" type="text" value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="Optional" />
             </div>
 
             {fifoPreview && (
@@ -707,11 +681,8 @@ function ReverseInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
 
             {reason === "Other" && (
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Describe the reason <span className="text-red-400">*</span></label>
-                <input type="text" value={otherReason} onChange={e => setOtherReason(e.target.value)}
-                  placeholder="Describe why this invoice is being reversed..."
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                {fieldErrors.otherReason && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.otherReason}</p>}
+                <FormInput label="Reason" type="text" value={otherReason} onChange={e => setOtherReason(e.target.value)}
+                  placeholder="Describe why this invoice is being reversed..." error={fieldErrors.otherReason} />
               </div>
             )}
 
@@ -888,11 +859,8 @@ function ReversePaymentForm({ studentsApi, accountApi, paymentsApi }) {
 
             {reason === "Other" && (
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-slate-600">Describe the reason <span className="text-red-400">*</span></label>
-                <input type="text" value={otherReason} onChange={e => setOtherReason(e.target.value)}
-                  placeholder="Describe why this payment is being reversed..."
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] outline-none focus:border-emerald-500" />
-                {fieldErrors.otherReason && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.otherReason}</p>}
+                <FormInput label="Reason" type="text" value={otherReason} onChange={e => setOtherReason(e.target.value)}
+                  placeholder="Describe why this payment is being reversed..." error={fieldErrors.otherReason} />
               </div>
             )}
 

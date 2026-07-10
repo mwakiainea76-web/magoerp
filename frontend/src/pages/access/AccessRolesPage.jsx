@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName, labelTextClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { FormInput } from "@/components/FormInput";
+import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
@@ -127,16 +128,11 @@ export function AccessRolesPage() {
         className="rounded-xl border border-slate-200/80 bg-white p-5"
       >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_repeat(2,minmax(0,0.6fr))_auto] xl:items-end">
-          <div>
-            <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Search</label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              className={inputClassName}
-              placeholder="Search by role name"
-            />
-          </div>
+          <FormInput
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search by role name"
+          />
           <div className="flex gap-3 xl:justify-end">
             <FormButton type="submit" className="w-full sm:w-auto">Apply</FormButton>
             <FormButton type="button" variant="secondary" className="w-full sm:w-auto" onClick={handleResetFilters}>Reset</FormButton>

@@ -4,6 +4,7 @@ import { Download, FileText, Filter, X } from "lucide-react";
 
 import { initialMeta } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
+import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
@@ -172,14 +173,9 @@ export function InvoicesPage() {
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <div>
-            <label className="mb-0.5 block text-[11px] font-medium text-slate-400">Admission No.</label>
-            <input
-              type="text"
-              value={pendingAdmission}
+            <FormInput label="Admission Number" type="text" value={pendingAdmission}
               onChange={(e) => setPendingAdmission(e.target.value)}
-              placeholder="e.g. STU/0001/24"
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none transition placeholder:text-[13px] placeholder:text-[#a8b6c7] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
+              placeholder="e.g. STU/0001/24" />
           </div>
 
           <LookupSelect
@@ -240,23 +236,13 @@ export function InvoicesPage() {
           />
 
           <div>
-            <label className="mb-0.5 block text-[11px] font-medium text-slate-400">Date From</label>
-            <input
-              type="date"
-              value={pendingDateFrom}
-              onChange={(e) => setPendingDateFrom(e.target.value)}
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
+            <FormInput label="Date From" type="date" value={pendingDateFrom}
+              onChange={(e) => setPendingDateFrom(e.target.value)} />
           </div>
 
           <div>
-            <label className="mb-0.5 block text-[11px] font-medium text-slate-400">Date To</label>
-            <input
-              type="date"
-              value={pendingDateTo}
-              onChange={(e) => setPendingDateTo(e.target.value)}
-              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            />
+            <FormInput label="Date To" type="date" value={pendingDateTo}
+              onChange={(e) => setPendingDateTo(e.target.value)} />
           </div>
         </div>
 
