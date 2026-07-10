@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
-import { Link, Plus, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Link2, Plus, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import * as yup from "yup";
 
 import {
@@ -162,10 +163,20 @@ export function CurriculumMappingsPage() {
 
   return (
     <section className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Curriculum Mappings</h1>
           <p className="text-[13px] text-slate-500">Manage curriculum assignments to courses</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Finance</span>
+          <Link
+            to="/admin/finance/fee-templates"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
+          >
+            <Link2 className="h-4 w-4" />
+            Fee Templates
+          </Link>
         </div>
       </div>
 

@@ -111,6 +111,7 @@ export const adminNav = [
     children: [
       { label: "Overview", to: "/admin/finance/overview" },
       { label: "Fee Structures", to: "/admin/finance/fee-structures" },
+      { label: "Course Fee", to: "/admin/finance/course-fee" },
       { label: "Student Accounts", to: "/admin/finance/student-accounts" },
       { label: "Not Invoiced", to: "/admin/finance/students-not-invoiced" },
       { label: "Actions", to: "/admin/finance/actions" },

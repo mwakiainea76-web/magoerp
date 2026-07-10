@@ -49,6 +49,7 @@ const StudentAccountsPage = lazy(() => import("@/pages/finance/StudentAccountsPa
 const StudentAccountDetailPage = lazy(() => import("@/pages/finance/StudentAccountDetailPage").then((module) => ({ default: module.StudentAccountDetailPage })));
 const FinanceActionsPage = lazy(() => import("@/pages/finance/FinanceActionsPage").then((module) => ({ default: module.FinanceActionsPage })));
 const CohortBillingPage = lazy(() => import("@/pages/finance/CohortBillingPage").then((module) => ({ default: module.CohortBillingPage })));
+const CourseFeeAssignmentPage = lazy(() => import("@/pages/finance/CourseFeeAssignmentPage").then((module) => ({ default: module.CourseFeeAssignmentPage })));
 const FinanceHealthPage = lazy(() => import("@/pages/finance/FinanceHealthPage").then((module) => ({ default: module.FinanceHealthPage })));
 const FinanceReadinessPage = lazy(() => import("@/pages/finance/FinanceReadinessPage").then((module) => ({ default: module.FinanceReadinessPage })));
 const FinanceSettingsPage = lazy(() => import("@/pages/finance/FinanceSettingsPage").then((module) => ({ default: module.FinanceSettingsPage })));
@@ -141,6 +142,7 @@ export const AdminRoutes = (
     <Route path="/admin/finance/fee-templates/:templateId/edit" element={<FeeTemplateFormPage />} />
     <Route path="/admin/finance/fee-templates/:templateId/assign" element={<FeeTemplateAssignmentsPage />} />
     <Route path="/admin/finance/fee-assignments" element={<AllFeeAssignmentsPage />} />
+    <Route path="/admin/finance/course-fee" element={<CourseFeeAssignmentPage />} />
     <Route path="/admin/finance/fee-templates/items" element={<FeeTemplateItemsPage />} />
     <Route path="/admin/staffs" element={<StaffsPage />} />
     <Route path="/admin/staffs/create" element={<StaffFormPage />} />

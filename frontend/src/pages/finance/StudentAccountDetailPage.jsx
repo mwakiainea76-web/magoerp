@@ -234,8 +234,6 @@ export function StudentAccountDetailPage() {
             </div>
           )}
         </div>
-
-        </div>
       </div>
 
       <IssueInvoiceModal
