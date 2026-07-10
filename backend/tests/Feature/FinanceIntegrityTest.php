@@ -19,7 +19,8 @@ use App\Models\Payment;
 use App\Models\Student;
 use App\Models\StudentLedgerEntry;
 use App\Models\User;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
+use App\Services\PaymentService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -51,7 +52,7 @@ class FinanceIntegrityTest extends TestCase
         AcademicSession::factory()->active()->create();
         $student = Student::factory()->create(['status' => StudentStatus::Graduated]);
 
-        app(BillingService::class)->recordStudentPayment(
+        app(PaymentService::class)->recordStudentPayment(
             $student,
             500,
             'cash',
@@ -74,7 +75,7 @@ class FinanceIntegrityTest extends TestCase
         $otherStudent = Student::factory()->create();
         $invoice = Invoice::factory()->for($otherStudent)->for($session, 'academicSession')->create();
 
-        app(BillingService::class)->recordStudentPayment(
+        app(PaymentService::class)->recordStudentPayment(
             $student,
             500,
             'cash',
@@ -122,7 +123,7 @@ class FinanceIntegrityTest extends TestCase
             'status' => 'issued',
         ])->save();
 
-        app(BillingService::class)->reconcileStudentFinance($student, $session);
+        app(InvoiceService::class)->reconcileStudentFinance($student, $session);
 
         $invoice->refresh();
 
@@ -232,7 +233,7 @@ class FinanceIntegrityTest extends TestCase
         ]);
         $secondInvoice->recalculateTotals();
 
-        app(BillingService::class)->recordStudentPayment(
+        app(PaymentService::class)->recordStudentPayment(
             $student,
             1000,
             'cash',
@@ -349,7 +350,7 @@ class FinanceIntegrityTest extends TestCase
         AcademicSession::factory()->active()->create();
         $student = Student::factory()->create(['status' => StudentStatus::Cleared]);
 
-        app(BillingService::class)->recordStudentPayment(
+        app(PaymentService::class)->recordStudentPayment(
             $student,
             500,
             'cash',
@@ -466,7 +467,7 @@ class FinanceIntegrityTest extends TestCase
             ->assertJsonPath('data.assignment_scope', 'department')
             ->assertJsonPath('data.department_id', $mapping->course->department_id);
 
-        $invoice = app(BillingService::class)->createInvoiceForStudent($student, $this->admin->id, $session);
+        $invoice = app(InvoiceService::class)->createInvoiceForStudent($student, $this->admin->id, $session);
 
         $this->assertSame(2500.0, (float) $invoice->fresh()->amount_due);
     }
@@ -512,7 +513,7 @@ class FinanceIntegrityTest extends TestCase
             'is_approved' => true,
         ]);
 
-        $invoice = app(BillingService::class)->createInvoiceForStudent($student, $this->admin->id, $session);
+        $invoice = app(InvoiceService::class)->createInvoiceForStudent($student, $this->admin->id, $session);
 
         $this->assertSame(4000.0, (float) $invoice->fresh()->amount_due);
     }

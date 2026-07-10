@@ -10,7 +10,7 @@ use App\Models\AcademicSessionEnrolment;
 use App\Models\FeeTemplate;
 use App\Models\Student;
 use App\Models\Invoice;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,11 +18,11 @@ use Illuminate\Validation\Rule;
 
 class CohortBillingController extends Controller
 {
-    protected BillingService $billingService;
+    protected InvoiceService $invoiceService;
 
-    public function __construct(BillingService $billingService)
+    public function __construct(InvoiceService $invoiceService)
     {
-        $this->billingService = $billingService;
+        $this->invoiceService = $invoiceService;
     }
 
     /**
@@ -161,7 +161,7 @@ class CohortBillingController extends Controller
                     continue;
                 }
 
-                $this->billingService->createInvoiceForStudent(
+                $this->invoiceService->createInvoiceForStudent(
                     $enrolment->student,
                     $request->user()->id,
                     $session

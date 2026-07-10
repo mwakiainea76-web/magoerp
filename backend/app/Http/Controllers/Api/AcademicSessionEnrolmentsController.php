@@ -10,7 +10,7 @@ use App\Models\Invoice;
 use App\Models\SystemConfiguration;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +21,7 @@ class AcademicSessionEnrolmentsController extends Controller
 {
     use PaginationMeta;
     public function __construct(
-        protected BillingService $billingService,
+        protected InvoiceService $invoiceService,
     ) {}
     public function index(Request $request): JsonResponse
     {
@@ -165,7 +165,7 @@ class AcademicSessionEnrolmentsController extends Controller
             ->first();
 
         if ($alreadyEnrolled) {
-            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $alreadyEnrolled->academicSession);
+            $invoice = $this->invoiceService->createInvoiceForStudent($student, $user->id, $alreadyEnrolled->academicSession);
 
             return response()->json([
                 'status_code' => 200,
@@ -204,7 +204,7 @@ class AcademicSessionEnrolmentsController extends Controller
             ]);
 
             $enrolment->load('academicSession');
-            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $session);
+            $invoice = $this->invoiceService->createInvoiceForStudent($student, $user->id, $session);
 
             return [$enrolment, $invoice];
         });
@@ -243,7 +243,7 @@ class AcademicSessionEnrolmentsController extends Controller
             ->first();
 
         if ($alreadyEnrolled) {
-            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $activeSession);
+            $invoice = $this->invoiceService->createInvoiceForStudent($student, $user->id, $activeSession);
 
             return response()->json([
                 'status_code' => 200,
@@ -273,7 +273,7 @@ class AcademicSessionEnrolmentsController extends Controller
             ]);
 
             $enrolment->load('academicSession');
-            $invoice = $this->billingService->createInvoiceForStudent($student, $user->id, $activeSession);
+            $invoice = $this->invoiceService->createInvoiceForStudent($student, $user->id, $activeSession);
 
             return [$enrolment, $invoice];
         });

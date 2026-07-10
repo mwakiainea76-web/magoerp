@@ -7,7 +7,7 @@ use App\Models\Invoice;
 use App\Models\Student;
 use App\Models\StudentLedgerEntry;
 use App\Models\User;
-use App\Services\BillingService;
+use App\Services\PaymentService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -63,7 +63,7 @@ class FinanceReportsTest extends TestCase
             'issue_date' => now(),
         ]);
 
-        app(BillingService::class)->recordStudentPayment(
+        app(PaymentService::class)->recordStudentPayment(
             $student,
             11000,
             'cash',

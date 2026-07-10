@@ -9,7 +9,7 @@ use App\Models\InvoicePaymentAllocation;
 use App\Models\Payment;
 use App\Models\Student;
 use App\Models\StudentLedgerEntry;
-use App\Services\BillingService;
+use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -19,7 +19,7 @@ class PaymentsController extends Controller
     use PaginationMeta;
 
     public function __construct(
-        protected BillingService $billingService
+        protected PaymentService $paymentService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -88,7 +88,7 @@ class PaymentsController extends Controller
         $student = Student::findOrFail($validated['student_id']);
 
         try {
-            $payment = $this->billingService->recordStudentPayment(
+            $payment = $this->paymentService->recordStudentPayment(
                 $student,
                 (float) $validated['amount'],
                 $validated['method'],
@@ -126,7 +126,7 @@ class PaymentsController extends Controller
         ]);
 
         try {
-            $payment = $this->billingService->reversePayment(
+            $payment = $this->paymentService->reversePayment(
                 $payment,
                 $validated['reason'],
                 (string) $request->user()->id,

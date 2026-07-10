@@ -14,7 +14,7 @@ use App\Models\Invoice;
 use App\Models\StudentLedgerEntry;
 use App\Models\Student;
 use App\Services\AdmissionNumberService;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -192,7 +192,7 @@ class CourseChangeController extends Controller
             }
 
             foreach (array_keys($syncedSessions) as $sessionId) {
-                app(BillingService::class)->syncAccountBalance($student->id, $sessionId);
+                app(InvoiceService::class)->syncAccountBalance($student->id, $sessionId);
             }
 
             $newEnrolment = CourseEnrolment::create([

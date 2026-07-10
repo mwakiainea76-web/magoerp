@@ -5,14 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\Student;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
+use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RefundsController extends Controller
 {
     public function __construct(
-        protected BillingService $billingService
+        protected InvoiceService $invoiceService,
+        protected PaymentService $paymentService
     ) {}
 
     public function store(Request $request): JsonResponse
@@ -30,9 +32,9 @@ class RefundsController extends Controller
 
         $invoice = isset($validated['invoice_id']) ? Invoice::find($validated['invoice_id']) : null;
 
-        $amount = $validated['amount'] ?? $this->billingService->calculateCreditBalance($student);
+        $amount = $validated['amount'] ?? $this->invoiceService->calculateCreditBalance($student);
 
-        $refund = $this->billingService->processRefund(
+        $refund = $this->paymentService->processRefund(
             $student,
             (float) $amount,
             $validated['reason'] ?? null,

@@ -6,7 +6,7 @@ use App\Models\AcademicSession;
 use App\Enums\FinanceAuditAction;
 use App\Models\FinanceAuditLog;
 use App\Models\Student;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
 use Illuminate\Console\Command;
 
 class ReconcileFinance extends Command
@@ -17,7 +17,7 @@ class ReconcileFinance extends Command
 
     public function handle(): int
     {
-        $billingService = app(BillingService::class);
+        $invoiceService = app(InvoiceService::class);
 
         $studentId = $this->argument('student_id');
         $sessionId = $this->argument('academic_session_id');
@@ -33,7 +33,7 @@ class ReconcileFinance extends Command
         $count = 0;
         foreach ($students as $student) {
             foreach ($sessions as $session) {
-                $billingService->reconcileStudentFinance($student, $session);
+                $invoiceService->reconcileStudentFinance($student, $session);
                 FinanceAuditLog::create([
                     'student_id'  => $student->id,
                     'action'      => FinanceAuditAction::RECONCILIATION_RUN,

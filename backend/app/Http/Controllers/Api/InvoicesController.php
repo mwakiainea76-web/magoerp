@@ -17,7 +17,7 @@ use App\Models\InvoicePaymentAllocation;
 use App\Models\Student;
 use App\Models\StudentAccountBalance;
 use App\Models\StudentLedgerEntry;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,7 +32,7 @@ class InvoicesController extends Controller
     use PaginationMeta;
 
     public function __construct(
-        protected BillingService $billingService
+        protected InvoiceService $invoiceService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -216,7 +216,7 @@ class InvoicesController extends Controller
         ]);
 
         try {
-            $invoice = $this->billingService->reverseInvoice(
+            $invoice = $this->invoiceService->reverseInvoice(
                 $invoice,
                 $validated['reason'],
                 (string) $request->user()->id,
@@ -500,7 +500,7 @@ class InvoicesController extends Controller
                 : AcademicSession::query()->get();
 
             foreach ($targetSessions as $targetSession) {
-                $this->billingService->reconcileStudentFinance($student, $targetSession);
+                $this->invoiceService->reconcileStudentFinance($student, $targetSession);
                 $reconciledSessions++;
             }
         }
@@ -825,7 +825,7 @@ class InvoicesController extends Controller
         $student = Student::findOrFail($validated['student_id']);
 
         try {
-            $invoice = $this->billingService->createInvoiceForStudent(
+            $invoice = $this->invoiceService->createInvoiceForStudent(
                 $student,
                 $request->user()?->id,
                 null,
@@ -937,7 +937,7 @@ class InvoicesController extends Controller
         $student = Student::findOrFail($validated['student_id']);
 
         try {
-            $invoice = $this->billingService->createStandaloneChargeInvoice(
+            $invoice = $this->invoiceService->createStandaloneChargeInvoice(
                 $student,
                 (float) $validated['amount'],
                 $validated['charge_type'],

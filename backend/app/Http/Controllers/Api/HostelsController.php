@@ -12,7 +12,7 @@ use App\Models\HostelRoom;
 use App\Models\Invoice;
 use App\Models\CourseEnrolment;
 use App\Models\StudentLedgerEntry;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -475,8 +475,8 @@ class HostelsController extends Controller
         $room = $availableBed->room;
 
         $result = DB::transaction(function () use ($student, $hostel, $room, $availableBed, $enrolment, $activeSession, $user) {
-            $billingService = app(BillingService::class);
-            $invoice = $billingService->createHostelInvoiceForStudent($student, $hostel, $user?->id);
+            $invoiceService = app(InvoiceService::class);
+            $invoice = $invoiceService->createHostelInvoiceForStudent($student, $hostel, $user?->id);
 
             $allocation = HostelAllocation::create([
                 'academic_session_enrolment_id' => $enrolment->id,

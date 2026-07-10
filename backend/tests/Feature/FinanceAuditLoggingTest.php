@@ -9,14 +9,16 @@ use App\Models\Invoice;
 use App\Models\InvoiceLineItem;
 use App\Models\Student;
 use App\Models\User;
-use App\Services\BillingService;
+use App\Services\InvoiceService;
+use App\Services\PaymentService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class FinanceAuditLoggingTest extends TestCase
 {
-    protected BillingService $billingService;
+    protected InvoiceService $invoiceService;
+    protected PaymentService $paymentService;
     protected User $admin;
 
     protected function setUp(): void
@@ -25,7 +27,8 @@ class FinanceAuditLoggingTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
         $this->admin = User::factory()->admin()->create();
         Sanctum::actingAs($this->admin);
-        $this->billingService = app(BillingService::class);
+        $this->invoiceService = app(InvoiceService::class);
+        $this->paymentService = app(PaymentService::class);
     }
 
     public function test_invoice_creation_is_logged_in_audit_trail(): void
@@ -40,7 +43,7 @@ class FinanceAuditLoggingTest extends TestCase
         $invoice = Invoice::factory()->for($student)->for($session, 'academicSession')->create();
 
         // Manually audit log since createInvoiceForStudent requires course enrollment
-        $this->billingService->auditLog(
+        $this->invoiceService->auditLog(
             $student,
             FinanceAuditAction::INVOICE_CREATED,
             'invoice',
@@ -73,7 +76,7 @@ class FinanceAuditLoggingTest extends TestCase
         FinanceAuditLog::where('student_id', $student->id)->delete();
 
         // Record a payment
-        $payment = $this->billingService->recordPayment(
+        $payment = $this->paymentService->recordPayment(
             $invoice,
             amount: 500,
             method: 'bank_transfer',
@@ -100,7 +103,7 @@ class FinanceAuditLoggingTest extends TestCase
         FinanceAuditLog::where('student_id', $student->id)->delete();
 
         $invoice = Invoice::factory()->for($student)->for($session, 'academicSession')->create();
-        $this->billingService->auditLog(
+        $this->invoiceService->auditLog(
             $student,
             FinanceAuditAction::INVOICE_CREATED,
             'invoice',
@@ -127,7 +130,7 @@ class FinanceAuditLoggingTest extends TestCase
 
         // Create an invoice  
         $invoice = Invoice::factory()->for($student)->for($session, 'academicSession')->create();
-        $this->billingService->auditLog(
+        $this->invoiceService->auditLog(
             $student,
             FinanceAuditAction::INVOICE_CREATED,
             'invoice',
@@ -150,7 +153,7 @@ class FinanceAuditLoggingTest extends TestCase
 
         // Create an invoice for audit trail
         $invoice = Invoice::factory()->for($student)->for($session, 'academicSession')->create();
-        $this->billingService->auditLog(
+        $this->invoiceService->auditLog(
             $student,
             FinanceAuditAction::INVOICE_CREATED,
             'invoice',
@@ -182,7 +185,7 @@ class FinanceAuditLoggingTest extends TestCase
         $session = AcademicSession::factory()->active()->create();
 
         $invoice = Invoice::factory()->for($student)->for($session, 'academicSession')->create();
-        $this->billingService->auditLog(
+        $this->invoiceService->auditLog(
             $student,
             FinanceAuditAction::INVOICE_CREATED,
             'invoice',

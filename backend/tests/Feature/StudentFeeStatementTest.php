@@ -6,7 +6,7 @@ use App\Models\AcademicSession;
 use App\Models\Payment;
 use App\Models\Student;
 use App\Models\StudentLedgerEntry;
-use App\Services\BillingService;
+use App\Services\PaymentService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -24,7 +24,7 @@ class StudentFeeStatementTest extends TestCase
         $session = AcademicSession::factory()->active()->create();
         $student = Student::factory()->create();
 
-        $payment = app(BillingService::class)->recordStudentPayment(
+        $payment = app(PaymentService::class)->recordStudentPayment(
             $student,
             6000,
             'Bank Transfer',
