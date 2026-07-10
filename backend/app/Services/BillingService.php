@@ -690,14 +690,15 @@ class BillingService
             $studentId = $payment->student_id;
             $sessionsSynced = [];
 
-            // 2 & 3. Reverse each allocation
-            $allocations = InvoicePaymentAllocation::where('payment_id', $payment->id)->get();
+            // 2 & 3. Reverse each allocation, then remove the active allocation
+            // row so invoice balances and reports no longer treat it as paid.
+            $allocations = InvoicePaymentAllocation::where('payment_id', $payment->id)
+                ->lockForUpdate()
+                ->get();
             foreach ($allocations as $allocation) {
                 $invoice = Invoice::lockForUpdate()->find($allocation->invoice_id);
                 if (!$invoice) continue;
 
-                // Debit the invoice back (the allocation amount was reducing balance_due,
-                // now we increase it again by the same amount).
                 StudentLedgerEntry::create([
                     'student_id'          => $studentId,
                     'invoice_id'          => $invoice->id,
@@ -707,11 +708,12 @@ class BillingService
                     'debit'               => (float) $allocation->amount,
                     'credit'              => 0,
                     'reference'           => $payment->reference,
-                    'description'         => 'Payment reversal — ' . $reason,
+                    'description'         => 'Payment reversal - ' . $reason,
                     'transaction_date'    => now()->toDateString(),
                     'created_by'          => $reversedBy,
                 ]);
 
+                $allocation->delete();
                 $invoice->recalculateTotals();
 
                 if ($invoice->academic_session_id) {
@@ -735,7 +737,7 @@ class BillingService
                     'debit'               => (float) $entry->credit,
                     'credit'              => 0,
                     'reference'           => $payment->reference,
-                    'description'         => 'Reversal of unallocated credit — ' . $reason,
+                    'description'         => 'Reversal of unallocated credit - ' . $reason,
                     'transaction_date'    => now()->toDateString(),
                     'created_by'          => $reversedBy,
                 ]);
@@ -801,6 +803,27 @@ class BillingService
         return DB::transaction(function () use ($invoice, $reason, $reversedBy) {
             $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
             $studentId = $invoice->student_id;
+            $sessionsSynced = [];
+
+            $allocations = InvoicePaymentAllocation::query()
+                ->where('invoice_id', $invoice->id)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($allocations as $allocation) {
+                $this->releaseAllocatedPaymentCredit(
+                    $allocation->payment,
+                    $invoice,
+                    (float) $allocation->amount,
+                    'Credit released from reversed invoice.',
+                );
+
+                $allocation->delete();
+
+                if ($invoice->academic_session_id) {
+                    $sessionsSynced[$invoice->academic_session_id] = true;
+                }
+            }
 
             StudentLedgerEntry::create([
                 'student_id'          => $studentId,
@@ -810,7 +833,7 @@ class BillingService
                 'credit'              => (float) $invoice->amount_due,
                 'debit'               => 0,
                 'reference'           => $invoice->invoice_number,
-                'description'         => 'Invoice reversal — ' . $reason,
+                'description'         => 'Invoice reversal - ' . $reason,
                 'transaction_date'    => now()->toDateString(),
                 'created_by'          => $reversedBy,
             ]);
@@ -821,7 +844,11 @@ class BillingService
             $invoice->save();
 
             if ($invoice->academic_session_id) {
-                $this->syncAccountBalance($studentId, $invoice->academic_session_id);
+                $sessionsSynced[$invoice->academic_session_id] = true;
+            }
+
+            foreach (array_keys($sessionsSynced) as $sessionId) {
+                $this->syncAccountBalance($studentId, $sessionId);
             }
 
             $student = Student::find($studentId);
@@ -1031,6 +1058,10 @@ class BillingService
             }
         }
 
+        if ($idempotencyKey) {
+            $data['idempotency_key'] = $idempotencyKey;
+        }
+
         return StudentLedgerEntry::create($data);
     }
 
@@ -1043,7 +1074,9 @@ class BillingService
      */
     private function calculateOutstanding(Invoice $invoice): float
     {
-        $allocated = (float) $invoice->paymentAllocations()->sum('amount');
+        $allocated = (float) $invoice->paymentAllocations()
+            ->whereHas('payment', fn ($query) => $query->where('status', 'completed'))
+            ->sum('amount');
 
         return max(0, (float) $invoice->amount_due - $allocated);
     }
@@ -1173,6 +1206,75 @@ class BillingService
                 'description' => 'Existing credit applied to new invoice.',
                 'transaction_date' => $allocatedAt,
                 'created_by' => $createdBy,
+            ]);
+        }
+    }
+    /**
+     * Release an allocated payment back into unallocated credit when its invoice
+     * is reversed, without changing the payment's total ledger credit.
+     */
+    private function releaseAllocatedPaymentCredit(?Payment $payment, Invoice $invoice, float $amount, string $description): void
+    {
+        if (!$payment || $amount <= 0) {
+            return;
+        }
+
+        $remaining = $amount;
+
+        $allocatedEntries = StudentLedgerEntry::query()
+            ->where('payment_id', $payment->id)
+            ->where('invoice_id', $invoice->id)
+            ->where('type', 'payment')
+            ->where('credit', '>', 0)
+            ->orderBy('created_at')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($allocatedEntries as $entry) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $available = (float) $entry->credit;
+            $released = min($remaining, $available);
+
+            if ($released >= $available) {
+                $entry->update([
+                    'invoice_id' => null,
+                    'description' => $description,
+                ]);
+            } else {
+                $entry->update(['credit' => $available - $released]);
+
+                StudentLedgerEntry::create([
+                    'student_id' => $invoice->student_id,
+                    'payment_id' => $payment->id,
+                    'academic_session_id' => $entry->academic_session_id,
+                    'type' => 'payment',
+                    'debit' => 0,
+                    'credit' => $released,
+                    'reference' => $payment->reference,
+                    'description' => $description,
+                    'transaction_date' => $entry->transaction_date,
+                    'created_by' => $entry->created_by,
+                ]);
+            }
+
+            $remaining -= $released;
+        }
+
+        if ($remaining > 0) {
+            StudentLedgerEntry::create([
+                'student_id' => $invoice->student_id,
+                'payment_id' => $payment->id,
+                'academic_session_id' => $invoice->academic_session_id,
+                'type' => 'payment',
+                'debit' => 0,
+                'credit' => $remaining,
+                'reference' => $payment->reference,
+                'description' => $description,
+                'transaction_date' => now()->toDateString(),
+                'created_by' => $payment->created_by,
             ]);
         }
     }

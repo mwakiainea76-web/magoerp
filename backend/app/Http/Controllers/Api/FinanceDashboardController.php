@@ -169,7 +169,7 @@ class FinanceDashboardController extends Controller
             ->selectRaw('students.admission_number')
             ->selectRaw($studentNameExpression . ' as student_name')
             ->selectRaw("COALESCE((SELECT SUM(amount_due) FROM invoices WHERE student_id = students.id AND status != 'cancelled'), 0) as total_invoiced")
-            ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations ipa JOIN invoices i2 ON ipa.invoice_id = i2.id WHERE i2.student_id = students.id), 0) as total_paid')
+            ->selectRaw("COALESCE((SELECT SUM(ipa.amount) FROM invoice_payment_allocations ipa INNER JOIN payments p ON p.id = ipa.payment_id JOIN invoices i2 ON ipa.invoice_id = i2.id WHERE i2.student_id = students.id AND p.status = 'completed'), 0) as total_paid")
             ->orderByDesc('total_invoiced')
             ->limit(10);
 

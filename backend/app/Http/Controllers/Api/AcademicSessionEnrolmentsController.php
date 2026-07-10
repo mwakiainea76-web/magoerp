@@ -406,7 +406,9 @@ class AcademicSessionEnrolmentsController extends Controller
 
     private function transformInvoice(Invoice $invoice): array
     {
-        $paidAmount = (float) $invoice->paymentAllocations()->sum('amount');
+        $paidAmount = (float) $invoice->paymentAllocations()
+            ->whereHas('payment', fn ($query) => $query->where('status', 'completed'))
+            ->sum('amount');
         $amountDue = (float) $invoice->amount_due;
 
         return [

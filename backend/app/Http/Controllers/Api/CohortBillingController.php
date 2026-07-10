@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\CourseCurriculum;
 use App\Models\CurriculumFeeAssignment;
-use App\Models\CourseEnrolment;
+use App\Models\AcademicSessionEnrolment;
 use App\Models\FeeTemplate;
 use App\Models\Student;
 use App\Models\Invoice;
@@ -62,10 +62,14 @@ class CohortBillingController extends Controller
                 ->first();
         }
 
-        // Find students
-        $students = CourseEnrolment::where('course_curriculum_id', $validated['course_curriculum_id'])
+        // Find students registered in the target session/year and enrolled on this curriculum.
+        $students = AcademicSessionEnrolment::query()
+            ->where('academic_session_id', $session->id)
             ->where('status', 'enrolled')
             ->where('year_of_study', $validated['year_level'])
+            ->whereHas('student.courseEnrolments', fn ($query) => $query
+                ->where('course_curriculum_id', $validated['course_curriculum_id'])
+                ->where('status', 'enrolled'))
             ->with('student.user')
             ->get();
 
@@ -133,9 +137,13 @@ class CohortBillingController extends Controller
 
         $session = AcademicSession::findOrFail($validated['academic_session_id']);
 
-        $enrolments = CourseEnrolment::where('course_curriculum_id', $validated['course_curriculum_id'])
+        $enrolments = AcademicSessionEnrolment::query()
+            ->where('academic_session_id', $session->id)
             ->where('status', 'enrolled')
             ->where('year_of_study', $validated['year_level'])
+            ->whereHas('student.courseEnrolments', fn ($query) => $query
+                ->where('course_curriculum_id', $validated['course_curriculum_id'])
+                ->where('status', 'enrolled'))
             ->with('student')
             ->get();
 

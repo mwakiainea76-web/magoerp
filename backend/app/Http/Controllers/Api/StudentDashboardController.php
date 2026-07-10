@@ -149,7 +149,7 @@ class StudentDashboardController extends Controller
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
-            ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
+            ->selectRaw("COALESCE((SELECT SUM(invoice_payment_allocations.amount) FROM invoice_payment_allocations INNER JOIN payments ON payments.id = invoice_payment_allocations.payment_id WHERE invoice_payment_allocations.invoice_id = invoices.id AND payments.status = 'completed'), 0) as paid_amount")
             ->selectRaw("CASE WHEN ({$this->balanceExpression()}) > 0 THEN ({$this->balanceExpression()}) ELSE 0 END as balance_due");
 
         $invoices = $invoiceBaseQuery->get();

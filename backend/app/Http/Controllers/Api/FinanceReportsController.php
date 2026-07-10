@@ -25,6 +25,8 @@ class FinanceReportsController extends Controller
     private const TYPES = [
         'debtors',
         'credits',
+        'aging',
+        'overdue_fees',
         'collections',
         'penalties',
         'refunds',
@@ -102,6 +104,7 @@ class FinanceReportsController extends Controller
         return match ($filters['report_type']) {
             'debtors' => $this->debtorReport($filters),
             'credits' => $this->creditReport($filters),
+            'aging', 'overdue_fees' => $this->overdueFeesReport($filters),
             'collections' => $this->collectionReport($filters),
             'penalties' => $this->penaltyReport($filters),
             'refunds' => $this->refundReport($filters),
@@ -172,6 +175,61 @@ class FinanceReportsController extends Controller
         ], ['outstanding' => $totalOutstanding]);
     }
 
+    private function overdueFeesReport(array $filters): array
+    {
+        $balance = $this->balanceExpression();
+        $query = $this->invoiceScope(Invoice::query()->with(['student.user', 'academicSession']), $filters, 'due_date')
+            ->select('invoices.*')
+            ->selectRaw("CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END AS balance")
+            ->whereDate('due_date', '<', now()->toDateString())
+            ->whereRaw("CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END > 0")
+            ->orderBy('due_date');
+
+        $totalOutstanding = (float) DB::query()
+            ->fromSub((clone $query)->reorder(), 'report_totals')
+            ->sum('balance');
+
+        $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
+        $rows = $paginator->getCollection()->map(function (Invoice $invoice) {
+            $daysOverdue = max(0, (int) $invoice->due_date?->diffInDays(now(), false));
+
+            return [
+                'invoice_number' => $invoice->invoice_number,
+                'student_name' => $invoice->student?->full_name ?? '-',
+                'admission_number' => $invoice->student?->admission_number,
+                'session_name' => $invoice->academicSession?->name,
+                'due_date' => $invoice->due_date?->format('Y-m-d'),
+                'days_overdue' => $daysOverdue,
+                'aging_bucket' => $this->overdueBucket($daysOverdue),
+                'overdue_group' => $this->overdueBucket($daysOverdue),
+                'amount_due' => (float) $invoice->amount_due,
+                'balance' => (float) $invoice->balance,
+            ];
+        });
+
+        return $this->result($paginator, $rows, [
+            'invoice_number' => 'Invoice',
+            'student_name' => 'Student',
+            'admission_number' => 'Admission No.',
+            'session_name' => 'Session',
+            'due_date' => 'Due Date',
+            'days_overdue' => 'Days Overdue',
+            'overdue_group' => 'Overdue Group',
+            'amount_due' => 'Invoice Amount',
+            'balance' => 'Overdue Balance',
+        ], ['overdue_balance' => $totalOutstanding]);
+    }
+
+    private function overdueBucket(int $daysOverdue): string
+    {
+        return match (true) {
+            $daysOverdue <= 0 => 'Current',
+            $daysOverdue <= 30 => '1-30 days',
+            $daysOverdue <= 60 => '31-60 days',
+            $daysOverdue <= 90 => '61-90 days',
+            default => '90+ days',
+        };
+    }
     private function creditReport(array $filters): array
     {
         $query = StudentLedgerEntry::query()
@@ -222,7 +280,7 @@ class FinanceReportsController extends Controller
             ->select('fee_template_id', 'invoice_type')
             ->selectRaw('COUNT(*) AS invoice_count')
             ->selectRaw('SUM(amount_due) AS invoiced')
-            ->selectRaw('SUM(COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)) AS collected')
+            ->selectRaw("SUM(COALESCE((SELECT SUM(invoice_payment_allocations.amount) FROM invoice_payment_allocations INNER JOIN payments ON payments.id = invoice_payment_allocations.payment_id WHERE invoice_payment_allocations.invoice_id = invoices.id AND payments.status = 'completed'), 0)) AS collected")
             ->selectRaw("SUM(CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END) AS outstanding")
             ->groupBy('fee_template_id', 'invoice_type')
             ->orderByDesc('invoiced');
@@ -337,7 +395,7 @@ class FinanceReportsController extends Controller
             ->selectRaw("snapshot_data->>'$.hostel_name' AS hostel_name")
             ->selectRaw('COUNT(DISTINCT student_id) AS students_count')
             ->selectRaw('SUM(amount_due) AS total_invoiced')
-            ->selectRaw('SUM(COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0)) AS collected')
+            ->selectRaw("SUM(COALESCE((SELECT SUM(invoice_payment_allocations.amount) FROM invoice_payment_allocations INNER JOIN payments ON payments.id = invoice_payment_allocations.payment_id WHERE invoice_payment_allocations.invoice_id = invoices.id AND payments.status = 'completed'), 0)) AS collected")
             ->selectRaw("SUM(CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END) AS outstanding")
             ->groupBy('hostel_name')
             ->orderByDesc('total_invoiced');

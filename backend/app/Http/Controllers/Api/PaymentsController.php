@@ -220,7 +220,10 @@ class PaymentsController extends Controller
         foreach ($invoices as $invoice) {
             if ($remaining <= 0) break;
 
-            $paidAmount = (float) InvoicePaymentAllocation::where('invoice_id', $invoice->id)->sum('amount');
+            $paidAmount = (float) InvoicePaymentAllocation::query()
+                ->where('invoice_id', $invoice->id)
+                ->whereHas('payment', fn ($query) => $query->where('status', 'completed'))
+                ->sum('amount');
             $outstanding = (float) $invoice->amount_due - $paidAmount;
             $outstanding = max(0, $outstanding);
 
@@ -249,7 +252,9 @@ class PaymentsController extends Controller
 
     private function transform(Payment $payment): array
     {
-        $allocated = (float) $payment->allocations->sum('amount');
+        $allocated = $payment->status === 'completed'
+            ? (float) $payment->allocations->sum('amount')
+            : 0.0;
         return [
             'id' => $payment->id,
             'student_id' => $payment->student_id,

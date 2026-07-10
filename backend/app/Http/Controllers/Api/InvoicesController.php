@@ -65,7 +65,7 @@ class InvoicesController extends Controller
         ];
 
         $invoices = Invoice::query()
-            ->with(['student.user', 'academicSession', 'paymentAllocations'])
+            ->with(['student.user', 'academicSession', 'paymentAllocations.payment'])
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->where('invoice_number', 'like', "%{$search}%")
@@ -130,7 +130,9 @@ class InvoicesController extends Controller
                     $remaining = (float) ($unallocatedCredit[$sid] ?? 0);
                     foreach ($invs as $inv) {
                         $alreadyPaid = $collection->firstWhere('id', $inv->id)
-                            ? (float) $collection->firstWhere('id', $inv->id)->paymentAllocations->sum('amount')
+                            ? (float) $collection->firstWhere('id', $inv->id)->paymentAllocations
+                                ->filter(fn ($allocation) => $allocation->payment?->status === 'completed')
+                                ->sum('amount')
                             : 0;
                         $balance = max(0, (float) $inv->amount_due - $alreadyPaid);
                         $alloc = min($balance, $remaining);
@@ -883,7 +885,7 @@ class InvoicesController extends Controller
             ->where('student_id', $student->id)
             ->where('status', '!=', 'cancelled')
             ->select('invoices.*')
-            ->selectRaw('COALESCE((SELECT SUM(amount) FROM invoice_payment_allocations WHERE invoice_id = invoices.id), 0) as paid_amount')
+            ->selectRaw("COALESCE((SELECT SUM(invoice_payment_allocations.amount) FROM invoice_payment_allocations INNER JOIN payments ON payments.id = invoice_payment_allocations.payment_id WHERE invoice_payment_allocations.invoice_id = invoices.id AND payments.status = 'completed'), 0) as paid_amount")
             ->selectRaw("CASE WHEN ({$this->balanceExpression()}) > 0 THEN ({$this->balanceExpression()}) ELSE 0 END as balance_due");
 
         $invoices = $baseQuery->get();
@@ -969,7 +971,9 @@ class InvoicesController extends Controller
     private function transform(Invoice $invoice, float $fifoCredit = 0): array
     {
         $amountDue = (float) $invoice->amount_due;
-        $allocatedPayments = (float) $invoice->paymentAllocations->sum('amount');
+        $allocatedPayments = (float) $invoice->paymentAllocations
+            ->filter(fn ($allocation) => $allocation->payment?->status === 'completed')
+            ->sum('amount');
         $paidAmount = $allocatedPayments + $fifoCredit;
 
         return [

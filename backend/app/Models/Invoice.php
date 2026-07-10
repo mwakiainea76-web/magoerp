@@ -122,7 +122,9 @@ class Invoice extends Model
     public function recalculateTotals(): static
     {
         $itemsTotal = (float) $this->items()->sum('total_amount');
-        $paidAmount = (float) $this->paymentAllocations()->sum('amount');
+        $paidAmount = (float) $this->paymentAllocations()
+            ->whereHas('payment', fn ($query) => $query->where('status', 'completed'))
+            ->sum('amount');
         $balanceDue = $itemsTotal - $paidAmount;
 
         $this->forceFill([

@@ -12,6 +12,7 @@ import { useLookupApi } from "@/hooks/useLookupApi";
 
 const primaryReports = [
   ["debtors", "Fee Balance"],
+  ["overdue_fees", "Overdue Fees"],
   ["collections", "Payments"],
   ["credits", "Credit Balances"],
 ];
@@ -24,7 +25,7 @@ const secondaryReports = [
 
 const moneyKeys = new Set([
   "total_invoiced", "balance", "credit", "signed_balance", "invoiced", "collected",
-  "outstanding", "amount",
+  "outstanding", "amount", "amount_due", "overdue_balance",
 ]);
 const money = (value) => `Ksh ${Number(value || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 

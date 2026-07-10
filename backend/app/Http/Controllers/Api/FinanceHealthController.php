@@ -71,19 +71,17 @@ class FinanceHealthController extends Controller
         ];
 
         // 4. Students Missing Fee Assignments
-        $enrolledStudents = CourseEnrolment::where('status', 'enrolled')
-            ->with('student')
-            ->get();
-        $missingFees = 0;
-        foreach ($enrolledStudents as $enrolment) {
-            $hasAssignment = CurriculumFeeAssignment::where('course_curriculum_id', $enrolment->course_curriculum_id)
-                ->where('is_approved', true)
-                ->where('dormant', false)
-                ->exists();
-            if (!$hasAssignment) {
-                $missingFees++;
-            }
-        }
+        $curriculaWithApprovedAssignments = CurriculumFeeAssignment::query()
+            ->where('is_approved', true)
+            ->where('dormant', false)
+            ->whereNotNull('course_curriculum_id')
+            ->pluck('course_curriculum_id')
+            ->unique();
+
+        $missingFees = CourseEnrolment::query()
+            ->where('status', 'enrolled')
+            ->whereNotIn('course_curriculum_id', $curriculaWithApprovedAssignments)
+            ->count();
         $checks[] = [
             'label' => 'Students With Fee Assignments',
             'status' => $missingFees === 0 ? 'pass' : 'warning',

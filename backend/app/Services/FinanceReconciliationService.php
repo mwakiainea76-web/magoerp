@@ -96,16 +96,12 @@ class FinanceReconciliationService
     {
         $issues = [];
 
-        $lineItemsTotal = (float) $invoice->items()->sum('total');
-        $adjustmentsTotal = (float) $invoice->adjustments()
-            ->whereNull('deleted_at')
-            ->get()
-            ->sum(fn ($adj) => in_array($adj->type, ['discount', 'waiver', 'bursary', 'helb', 'reversal'])
-                ? -$adj->amount
-                : $adj->amount);
-        $allocationsTotal = (float) $invoice->paymentAllocations()->sum('amount');
+        $lineItemsTotal = (float) $invoice->items()->sum('total_amount');
+        $allocationsTotal = (float) $invoice->paymentAllocations()
+            ->whereHas('payment', fn ($query) => $query->where('status', 'completed'))
+            ->sum('amount');
 
-        $expectedAmountDue = max(0, $lineItemsTotal + $adjustmentsTotal);
+        $expectedAmountDue = max(0, $lineItemsTotal);
         $expectedPaid = $allocationsTotal;
         $expectedBalance = max(0, $expectedAmountDue - $expectedPaid);
         $expectedStatus = $expectedBalance <= 0 ? 'paid' : ($expectedPaid > 0 ? 'partial' : 'issued');

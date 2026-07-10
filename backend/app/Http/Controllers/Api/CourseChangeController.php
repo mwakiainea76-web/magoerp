@@ -164,7 +164,9 @@ class CourseChangeController extends Controller
 
             $syncedSessions = [];
             foreach ($invoicesToReverse as $invoice) {
-                $paid = (float) $invoice->paymentAllocations()->sum('amount');
+                $paid = (float) $invoice->paymentAllocations()
+                    ->whereHas('payment', fn ($query) => $query->where('status', 'completed'))
+                    ->sum('amount');
                 $balanceDue = max(0, (float) $invoice->amount_due - $paid);
 
                 if ($balanceDue > 0) {
