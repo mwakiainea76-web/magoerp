@@ -1,7 +1,4 @@
-Finance System Flow
-====================
-
-                    SETUP -> INVOICING -> PAYMENTS -> ADJUSTMENTS -> REFUNDS -> REPORTS
+    SETUP -> INVOICING -> PAYMENTS -> ADJUSTMENTS -> REFUNDS -> REPORTS
 
 
 1. SETUP PHASE (Configuration)
