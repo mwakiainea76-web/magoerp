@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Banknote, Plus, RotateCcw, LoaderCircle, AlertTriangle, Search, FileX } from "lucide-react";
+import { ArrowLeft, Banknote, RotateCcw, LoaderCircle, AlertTriangle, Search } from "lucide-react";
 import { FormInput } from "@/components/FormInput";
 import { useStudentsApi } from "@/hooks/useStudentsApi";
 import { useStudentAccountApi } from "@/hooks/useStudentAccountApi";
-import { useInvoicesApi } from "@/hooks/useInvoicesApi";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
+import { useRefundsApi } from "@/hooks/useRefundsApi";
 import { toast } from "react-hot-toast";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -45,21 +45,21 @@ export function FinanceActionsPage() {
   const navigate = useNavigate();
   const studentsApi = useStudentsApi();
   const accountApi = useStudentAccountApi();
-  const invoicesApi = useInvoicesApi();
   const paymentsApi = usePaymentsApi();
+  const refundsApi = useRefundsApi();
 
   const [activeAction, setActiveAction] = useState("record");
 
   return (
     <section className="space-y-6">
       <div className="flex items-center gap-3">
-        <button type="button" onClick={() => navigate("/admin/finance/student-accounts")}
+        <button type="button" onClick={() => navigate("/finance/reports")}
           className="rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-50">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Finance Actions</h1>
-          <p className="text-[13px] text-slate-500">Issue invoices, record and reverse payments, reverse invoices</p>
+          <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Record Payments</h1>
+          <p className="text-[13px] text-slate-500">Record payments, reverse payments, and process refunds</p>
         </div>
       </div>
 
@@ -74,15 +74,6 @@ export function FinanceActionsPage() {
           <Banknote className="h-3.5 w-3.5" /> Record Payment
         </button>
         <button type="button"
-          onClick={() => setActiveAction("issue")}
-          className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[13px] font-medium transition ${
-            activeAction === "issue"
-              ? "border-emerald-600 bg-emerald-600 text-white"
-              : "border-slate-300 text-slate-600 hover:bg-slate-50"
-          }`}>
-          <Plus className="h-3.5 w-3.5" /> Issue Invoice
-        </button>
-        <button type="button"
           onClick={() => setActiveAction("reverse")}
           className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[13px] font-medium transition ${
             activeAction === "reverse"
@@ -92,20 +83,19 @@ export function FinanceActionsPage() {
           <RotateCcw className="h-3.5 w-3.5" /> Reverse Payment
         </button>
         <button type="button"
-          onClick={() => setActiveAction("reverse-invoice")}
+          onClick={() => setActiveAction("refund")}
           className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[13px] font-medium transition ${
-            activeAction === "reverse-invoice"
+            activeAction === "refund"
               ? "border-emerald-600 bg-emerald-600 text-white"
               : "border-slate-300 text-slate-600 hover:bg-slate-50"
           }`}>
-          <FileX className="h-3.5 w-3.5" /> Reverse Invoice
+          <RotateCcw className="h-3.5 w-3.5" /> Refund
         </button>
       </div>
 
       {activeAction === "record" && <RecordPaymentForm studentsApi={studentsApi} accountApi={accountApi} paymentsApi={paymentsApi} />}
-      {activeAction === "issue" && <IssueInvoiceForm studentsApi={studentsApi} accountApi={accountApi} invoicesApi={invoicesApi} />}
       {activeAction === "reverse" && <ReversePaymentForm studentsApi={studentsApi} accountApi={accountApi} paymentsApi={paymentsApi} />}
-      {activeAction === "reverse-invoice" && <ReverseInvoiceForm studentsApi={studentsApi} accountApi={accountApi} invoicesApi={invoicesApi} />}
+      {activeAction === "refund" && <RefundForm studentsApi={studentsApi} accountApi={accountApi} refundsApi={refundsApi} />}
     </section>
   );
 }
@@ -186,189 +176,6 @@ function AdmissionNumberLookup({ studentsApi, accountApi, onStudentReady, formLa
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function IssueInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
-  const uid = useId();
-  const submitRef = useRef(null);
-  const [studentData, setStudentData] = useState(null);
-  const [invoiceType, setInvoiceType] = useState("fee");
-  const [templates, setTemplates] = useState([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [templateItems, setTemplateItems] = useState([]);
-  const [penaltyDesc, setPenaltyDesc] = useState("");
-  const [penaltyAmount, setPenaltyAmount] = useState("");
-  const [dueDate, setDueDate] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 30);
-    return d.toISOString().split("T")[0];
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
-
-  function handleStudentReady(data) {
-    setStudentData(data);
-    setError("");
-    setFieldErrors({});
-    setInvoiceType("fee");
-    setSelectedTemplateId("");
-    setTemplateItems([]);
-    setPenaltyDesc("");
-    setPenaltyAmount("");
-    const d = new Date(); d.setDate(d.getDate() + 30);
-    setDueDate(d.toISOString().split("T")[0]);
-    if (data) {
-      invoicesApi.availableTemplates(data.student.id).then(res => {
-        setTemplates(res.data ?? []);
-      }).catch(() => {});
-    }
-  }
-
-  function handleTemplateChange(feeTemplateId) {
-    setSelectedTemplateId(feeTemplateId);
-    setTemplateItems(feeTemplateId ? (templates.find(t => t.fee_structure_id === feeTemplateId)?.items ?? []) : []);
-  }
-
-  function validate() {
-    const errs = {};
-    if (invoiceType === "penalty") {
-      if (!penaltyDesc.trim()) errs.penaltyDesc = "Description is required.";
-      if (!penaltyAmount || parseFloat(penaltyAmount) <= 0) errs.penaltyAmount = "Amount must be greater than zero.";
-    } else {
-      if (!selectedTemplateId) errs.selectedTemplateId = "Select a fee structure.";
-    }
-    if (!dueDate) errs.dueDate = "Due date is required.";
-    setFieldErrors(errs);
-    return Object.keys(errs).length === 0;
-  }
-
-  async function handleSubmit() {
-    if (!validate()) return;
-    setSubmitting(true);
-    setError("");
-    try {
-      if (invoiceType === "fee") {
-        const tpl = templates.find(t => t.fee_structure_id === selectedTemplateId);
-        await invoicesApi.create({
-          student_id: studentData.student.id,
-          fee_structure_id: selectedTemplateId,
-          idempotency_key: `issue:${studentData.student.id}:${uid}`,
-        });
-        toast.success(`Invoice issued from template "${tpl?.structure_name || ""}"`);
-      } else {
-        await invoicesApi.createCharge({
-          student_id: studentData.student.id,
-          charge_type: "penalty",
-          amount: parseFloat(penaltyAmount),
-          description: penaltyDesc.trim(),
-        });
-        toast.success("Penalty invoice issued.");
-      }
-    } catch (e) {
-      setError(getApiErrorMessage(e, "Failed to issue invoice."));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  const totalAmount = invoiceType === "fee"
-    ? templateItems.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
-    : (parseFloat(penaltyAmount) || 0);
-
-  const noTemplates = invoiceType === "fee" && templates.length === 0;
-
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-3">
-        <h2 className="text-[15px] font-semibold text-slate-900">Issue Invoice</h2>
-      </div>
-      <div className="space-y-5 p-5">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
-
-        <AdmissionNumberLookup
-          studentsApi={studentsApi}
-          accountApi={accountApi}
-          onStudentReady={handleStudentReady}
-        />
-
-        {studentData && (
-          <>
-            <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
-              <button type="button"
-                onClick={() => { setInvoiceType("fee"); setFieldErrors({}); }}
-                className={`flex-1 rounded-lg py-2 text-[13px] font-medium transition ${invoiceType === "fee" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-                Fee from template
-              </button>
-              <button type="button"
-                onClick={() => { setInvoiceType("penalty"); setFieldErrors({}); }}
-                className={`flex-1 rounded-lg py-2 text-[13px] font-medium transition ${invoiceType === "penalty" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-                Penalty / manual charge
-              </button>
-            </div>
-
-            {invoiceType === "fee" ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-[13px] font-medium text-slate-600">Fee Template</label>
-                  <select value={selectedTemplateId} onChange={e => handleTemplateChange(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500">
-                    <option value="">Select a template...</option>
-                    {templates.map(t => <option key={t.fee_structure_id} value={t.fee_structure_id}>{t.structure_name} ({t.structure_code})</option>)}
-                  </select>
-                  {fieldErrors.selectedTemplateId && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.selectedTemplateId}</p>}
-                </div>
-
-                {noTemplates && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-                    No approved fee assignment found for this student's curriculum/session/year.
-                    Set one up in Fee Structures first.
-                  </div>
-                )}
-
-                {templateItems.length > 0 && (
-                  <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-                    {templateItems.map((item, i) => (
-                      <div key={item.id || i} className="flex justify-between px-4 py-2 text-[13px]">
-                        <span className="text-slate-700">{item.name}</span>
-                        <span className="font-medium text-slate-900">{money(item.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div>
-                  <FormInput label="Due Date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} error={fieldErrors.dueDate} />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <FormInput label="Penalty Description" type="text" value={penaltyDesc} onChange={e => setPenaltyDesc(e.target.value)} placeholder="e.g. Late registration penalty" error={fieldErrors.penaltyDesc} />
-                </div>
-                <div>
-                  <FormInput label="Penalty Amount" type="number" step="0.01" min="0.01" value={penaltyAmount} onChange={e => setPenaltyAmount(e.target.value)} placeholder="0.00" error={fieldErrors.penaltyAmount} />
-                </div>
-                <div>
-                  <FormInput label="Due Date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} error={fieldErrors.dueDate} />
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-              <div className="text-[15px] font-semibold text-slate-900">
-                Total: <span className="text-emerald-700">{money(totalAmount)}</span>
-              </div>
-              <button type="button" ref={submitRef} onClick={handleSubmit} disabled={submitting || (invoiceType === "fee" && noTemplates)}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-                {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                Issue Invoice — {money(totalAmount)}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
     </div>
   );
 }
@@ -531,194 +338,6 @@ function RecordPaymentForm({ studentsApi, accountApi, paymentsApi }) {
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50">
                 {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
                 Record Payment — {money(parseFloat(amount) || 0)}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ReverseInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
-  const uid = useId();
-  const submitRef = useRef(null);
-  const [studentData, setStudentData] = useState(null);
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
-  const [reason, setReason] = useState("");
-  const [otherReason, setOtherReason] = useState("");
-  const [preview, setPreview] = useState(null);
-  const [confirmed, setConfirmed] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
-
-  function handleStudentReady(data) {
-    setStudentData(data);
-    setSelectedInvoiceId("");
-    setReason("");
-    setOtherReason("");
-    setPreview(null);
-    setConfirmed(false);
-    setError("");
-    setFieldErrors({});
-  }
-
-  useEffect(() => {
-    if (!selectedInvoiceId) { setPreview(null); return; }
-    invoicesApi.reversalPreview(selectedInvoiceId).then(res => {
-      setPreview(res.data);
-    }).catch(() => {
-      setPreview(null);
-    });
-  }, [selectedInvoiceId, invoicesApi]);
-
-  const reversibleInvoices = studentData?.invoices?.filter(
-    inv => inv.status === "issued" || inv.status === "partial"
-  ) || [];
-  const selectedInvoice = reversibleInvoices.find(inv => inv.id === selectedInvoiceId);
-
-  function validate() {
-    const errs = {};
-    if (!selectedInvoiceId) errs.selectedInvoiceId = "Select an invoice.";
-    if (!reason) errs.reason = "Select a reason.";
-    if (reason === "Other" && !otherReason.trim()) errs.otherReason = "Describe the reason.";
-    if (!confirmed) errs.confirmed = "You must confirm this action.";
-    setFieldErrors(errs);
-    return Object.keys(errs).length === 0;
-  }
-
-  async function handleSubmit() {
-    if (!validate()) return;
-    setSubmitting(true);
-    setError("");
-    try {
-      await invoicesApi.reverse(selectedInvoiceId, {
-        reason: reason === "Other" ? otherReason.trim() : reason,
-        idempotency_key: `reverse-invoice:${selectedInvoiceId}:${uid}`,
-      });
-      toast.success("Invoice reversed successfully.");
-      setSelectedInvoiceId("");
-      setReason("");
-      setOtherReason("");
-      setConfirmed(false);
-    } catch (e) {
-      setError(getApiErrorMessage(e, "Failed to reverse invoice."));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-3">
-        <h2 className="text-[15px] font-semibold text-slate-900">Reverse Invoice</h2>
-      </div>
-      <div className="space-y-5 p-5">
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
-
-        <AdmissionNumberLookup
-          studentsApi={studentsApi}
-          accountApi={accountApi}
-          onStudentReady={handleStudentReady}
-        />
-
-        {studentData && (
-          <>
-            <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">Invoice <span className="text-red-400">*</span></label>
-              <select value={selectedInvoiceId} onChange={e => setSelectedInvoiceId(e.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500">
-                <option value="">Select a reversible invoice...</option>
-                {reversibleInvoices.map(inv => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.invoice_number} — {money(inv.amount_due)} ({inv.status})
-                  </option>
-                ))}
-              </select>
-              {fieldErrors.selectedInvoiceId && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.selectedInvoiceId}</p>}
-              {reversibleInvoices.length === 0 && (
-                <p className="mt-1 text-[12px] text-amber-600">No reversible invoices for this student.</p>
-              )}
-            </div>
-
-            {selectedInvoice && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-[13px]">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Invoice</span>
-                  <span className="font-semibold text-slate-900">{selectedInvoice.invoice_number}</span>
-                </div>
-                <div className="mt-1 flex justify-between">
-                  <span className="text-slate-500">Amount</span>
-                  <span className="font-semibold text-slate-900">{money(selectedInvoice.amount_due)}</span>
-                </div>
-                <div className="mt-1 flex justify-between">
-                  <span className="text-slate-500">Status</span>
-                  <span className="capitalize text-slate-700">{selectedInvoice.status}</span>
-                </div>
-                {selectedInvoice.items_count > 0 && (
-                  <div className="mt-1 flex justify-between">
-                    <span className="text-slate-500">Items</span>
-                    <span className="text-slate-700">{selectedInvoice.items_count}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div>
-              <label className="mb-1 block text-[13px] font-medium text-slate-600">Reason <span className="text-red-400">*</span></label>
-              <select value={reason} onChange={e => setReason(e.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500">
-                <option value="">Select a reason...</option>
-                <option value="Wrongly issued">Wrongly issued</option>
-                <option value="Duplicate">Duplicate</option>
-                <option value="Student not enrolled">Student not enrolled</option>
-                <option value="Fee template changed">Fee template changed</option>
-                <option value="Other">Other</option>
-              </select>
-              {fieldErrors.reason && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.reason}</p>}
-            </div>
-
-            {reason === "Other" && (
-              <div>
-                <FormInput label="Reason" type="text" value={otherReason} onChange={e => setOtherReason(e.target.value)}
-                  placeholder="Describe why this invoice is being reversed..." error={fieldErrors.otherReason} />
-              </div>
-            )}
-
-            {preview && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-amber-700">
-                  <AlertTriangle className="h-3.5 w-3.5" /> This will
-                </div>
-                <div className="mt-2 space-y-1 text-[13px]">
-                  <div className="flex justify-between">
-                    <span className="text-amber-800">Reverse invoice {preview.invoice.invoice_number}</span>
-                    <span className="font-medium text-amber-900">{money(preview.reversal_amount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-amber-800">Status changes from <span className="capitalize">{preview.invoice.status}</span> to cancelled</span>
-                  </div>
-                </div>
-                <p className="mt-2 text-[13px] text-amber-800">{preview.impact}</p>
-              </div>
-            )}
-
-            <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
-              <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-              <span className="text-[13px] text-slate-600">I understand this will cancel the invoice and cannot be undone.</span>
-            </label>
-            {fieldErrors.confirmed && <p className="text-[12px] text-red-500">{fieldErrors.confirmed}</p>}
-
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-              <div className="text-[13px] text-slate-500">
-                {preview ? `Amount to reverse: ${money(preview.reversal_amount)}` : ""}
-              </div>
-              <button type="button" ref={submitRef} onClick={handleSubmit} disabled={submitting || !confirmed}
-                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-red-700 disabled:opacity-50">
-                {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                Reverse Invoice
               </button>
             </div>
           </>
@@ -904,6 +523,145 @@ function ReversePaymentForm({ studentsApi, accountApi, paymentsApi }) {
                 className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-red-700 disabled:opacity-50">
                 {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
                 Reverse Payment
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RefundForm({ studentsApi, accountApi, refundsApi }) {
+  const uid = useId();
+  const submitRef = useRef(null);
+  const [studentData, setStudentData] = useState(null);
+  const [creditBalance, setCreditBalance] = useState(null);
+  const [isFetchingCredit, setIsFetchingCredit] = useState(false);
+  const [invoiceId, setInvoiceId] = useState("");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  function handleStudentReady(data) {
+    setStudentData(data);
+    setCreditBalance(null);
+    setInvoiceId("");
+    setReason("");
+    setError("");
+    setFieldErrors({});
+    if (!data) return;
+    fetchCredit(data.student.id);
+  }
+
+  async function fetchCredit(studentId) {
+    setIsFetchingCredit(true);
+    try {
+      const res = await accountApi.overview(studentId);
+      const balance = res.data?.overall_balance ?? 0;
+      setCreditBalance(balance > 0 ? balance : 0);
+    } catch {
+      setCreditBalance(0);
+    } finally {
+      setIsFetchingCredit(false);
+    }
+  }
+
+  function validate() {
+    const errs = {};
+    if (!studentData) errs.student = "Look up a student first.";
+    if (!creditBalance || creditBalance <= 0) errs.credit = "No available credit to refund.";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  async function handleSubmit() {
+    if (!validate()) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await refundsApi.store({
+        student_id: studentData.student.id,
+        reason: reason.trim() || null,
+        invoice_id: invoiceId.trim() || null,
+      });
+      toast.success(`Refund of ${money(creditBalance)} processed.`);
+      setInvoiceId("");
+      setReason("");
+      setCreditBalance(null);
+      setStudentData(null);
+    } catch (e) {
+      setError(getApiErrorMessage(e, "Failed to process refund."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-5 py-3">
+        <h2 className="text-[15px] font-semibold text-slate-900">Process Refund</h2>
+      </div>
+      <div className="space-y-5 p-5">
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
+
+        <AdmissionNumberLookup
+          studentsApi={studentsApi}
+          accountApi={accountApi}
+          onStudentReady={handleStudentReady}
+        />
+
+        {studentData && (
+          <>
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+              <p className="text-[13px] text-sky-700">
+                Available Credit: <span className="font-semibold">
+                  {isFetchingCredit ? "Loading..." : creditBalance !== null ? money(creditBalance) : "N/A"}
+                </span>
+              </p>
+              {creditBalance !== null && creditBalance <= 0 && !isFetchingCredit && (
+                <p className="mt-1 text-[12px] text-sky-600">This student has no available credit to refund.</p>
+              )}
+            </div>
+
+            {creditBalance > 0 && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-[13px] font-medium text-slate-600">Refund Amount</label>
+                    <div className="flex h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900">
+                      {money(creditBalance)}
+                    </div>
+                  </div>
+                  <div>
+                    <FormInput label="Invoice (optional)" type="text" value={invoiceId}
+                      onChange={e => setInvoiceId(e.target.value)}
+                      placeholder="Leave blank for general refund" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[13px] font-medium text-slate-600">Reason</label>
+                  <textarea
+                    className="h-24 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-[14px] leading-5 text-slate-700 outline-none transition placeholder:text-[13px] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                    placeholder="Reason for refund..."
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+
+            {fieldErrors.credit && <p className="text-[12px] text-red-500">{fieldErrors.credit}</p>}
+
+            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+              <div className="text-[13px] text-slate-500">
+                {creditBalance > 0 ? `Refundable: ${money(creditBalance)}` : ""}
+              </div>
+              <button type="button" ref={submitRef} onClick={handleSubmit} disabled={submitting || !creditBalance || creditBalance <= 0}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                {submitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                Process Refund
               </button>
             </div>
           </>

@@ -13,8 +13,10 @@ import { useLookupApi } from "@/hooks/useLookupApi";
 const primaryReports = [
   ["debtors", "Fee Balance"],
   ["overdue_fees", "Overdue Fees"],
-  ["collections", "Payments"],
+  ["collections", "Collections"],
   ["credits", "Credit Balances"],
+  ["payments", "Payments"],
+  ["invoices", "Invoices"],
 ];
 
 const secondaryReports = [
@@ -26,6 +28,7 @@ const secondaryReports = [
 const moneyKeys = new Set([
   "total_invoiced", "balance", "credit", "signed_balance", "invoiced", "collected",
   "outstanding", "amount", "amount_due", "overdue_balance",
+  "paid_amount", "balance_due", "amount_collected",
 ]);
 const money = (value) => `Ksh ${Number(value || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -177,7 +180,7 @@ export function FinanceReportsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-950">Fee Reports</h1>
-          <p className="mt-1 text-sm text-slate-500">Operational, management, credit, penalty, refund and hostel reports.</p>
+          <p className="mt-1 text-sm text-slate-500">Operational, management, credit, penalty, refund, hostel, payment and invoice reports.</p>
         </div>
         <button type="button" onClick={exportCsv} disabled={exporting || loading}
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-700 px-4 text-sm font-medium text-white disabled:opacity-60">

@@ -20,8 +20,7 @@ export const financeNav = [
     label: "Invoicing",
     icon: FileText,
     children: [
-      { label: "Invoices", to: "/finance/invoices" },
-      { label: "Billing", to: "/finance/billing" },
+      { label: "Issue Invoice", to: "/finance/invoices/issue" },
       { label: "Cohort Billing", to: "/finance/cohort-billing" },
       { label: "Not Invoiced", to: "/finance/students-not-invoiced" },
     ],
@@ -30,8 +29,7 @@ export const financeNav = [
     label: "Payments",
     icon: Wallet,
     children: [
-      { label: "Payments", to: "/finance/payments" },
-      { label: "Actions", to: "/finance/actions" },
+      { label: "Record Payments", to: "/finance/actions" },
     ],
   },
   {

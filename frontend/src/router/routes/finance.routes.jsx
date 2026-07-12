@@ -8,11 +8,9 @@ const FeeStructureDetailPage = lazy(() => import("@/pages/finance/fee-structure/
 const CourseFeeAssignmentPage = lazy(() => import("@/pages/finance/CourseFeeAssignmentPage").then((m) => ({ default: m.CourseFeeAssignmentPage })));
 const CourseFeeAssignPage = lazy(() => import("@/pages/finance/CourseFeeAssignPage").then((m) => ({ default: m.CourseFeeAssignPage })));
 const AllFeeAssignmentsPage = lazy(() => import("@/pages/finance/fee-structure/AllFeeAssignmentsPage").then((m) => ({ default: m.AllFeeAssignmentsPage })));
-const BillingPage = lazy(() => import("@/pages/finance/fee-invoices/BillingPage").then((m) => ({ default: m.BillingPage })));
-const InvoicesPage = lazy(() => import("@/pages/finance/fee-invoices/InvoicesPage").then((m) => ({ default: m.InvoicesPage })));
+const InvoiceActionsPage = lazy(() => import("@/pages/finance/fee-invoices/InvoiceActionsPage").then((m) => ({ default: m.InvoiceActionsPage })));
 const CohortBillingPage = lazy(() => import("@/pages/finance/fee-invoices/CohortBillingPage").then((m) => ({ default: m.CohortBillingPage })));
 const StudentsNotInvoicedPage = lazy(() => import("@/pages/finance/fee-invoices/StudentsNotInvoicedPage").then((m) => ({ default: m.StudentsNotInvoicedPage })));
-const PaymentsPage = lazy(() => import("@/pages/finance/payment/PaymentsPage").then((m) => ({ default: m.PaymentsPage })));
 const FinanceActionsPage = lazy(() => import("@/pages/finance/payment/FinanceActionsPage").then((m) => ({ default: m.FinanceActionsPage })));
 const StudentAccountsPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountsPage").then((m) => ({ default: m.StudentAccountsPage })));
 const StudentAccountDetailPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountDetailPage").then((m) => ({ default: m.StudentAccountDetailPage })));
@@ -37,11 +35,9 @@ export const FinanceRoutes = (
     <Route path="/finance/course-fee" element={<CourseFeeAssignmentPage />} />
     <Route path="/finance/course-fee/:templateId/assign" element={<CourseFeeAssignPage />} />
     <Route path="/finance/fee-assignments" element={<AllFeeAssignmentsPage />} />
-    <Route path="/finance/billing" element={<BillingPage />} />
-    <Route path="/finance/invoices" element={<InvoicesPage />} />
+    <Route path="/finance/invoices/issue" element={<InvoiceActionsPage />} />
     <Route path="/finance/cohort-billing" element={<CohortBillingPage />} />
     <Route path="/finance/students-not-invoiced" element={<StudentsNotInvoicedPage />} />
-    <Route path="/finance/payments" element={<PaymentsPage />} />
     <Route path="/finance/actions" element={<FinanceActionsPage />} />
     <Route path="/finance/student-accounts" element={<StudentAccountsPage />} />
     <Route path="/finance/student-accounts/:studentId" element={<StudentAccountDetailPage />} />
