@@ -3,6 +3,10 @@
 @source "../.flowbite-react/class-list.json";
 @import "@fontsource/plus-jakarta-sans";
 
+img {
+  border-radius: 0.375rem;
+}
+
 html,
 body,
 #root {
