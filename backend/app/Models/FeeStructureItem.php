@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class FeeTemplateItem extends Model
+class FeeStructureItem extends Model
 {
     use HasUuids;
 
@@ -15,7 +15,7 @@ class FeeTemplateItem extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'fee_template_id',
+        'fee_structure_id',
         'name',
         'amount',
         'description',
@@ -32,9 +32,9 @@ class FeeTemplateItem extends Model
         ];
     }
 
-    public function feeTemplate(): BelongsTo
+    public function feeStructure(): BelongsTo
     {
-        return $this->belongsTo(FeeTemplate::class, 'fee_template_id');
+        return $this->belongsTo(FeeStructure::class, 'fee_structure_id');
     }
 
     public function creator(): BelongsTo

@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('fee_assignment_audits', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->uuid('curriculum_fee_assignment_id');
+            $table->uuid('curriculum_fee_structure_id');
             $table->uuid('modified_by')->nullable();
             $table->string('field', 50);
             $table->decimal('old_value', 12, 2)->nullable();
@@ -18,8 +18,8 @@ return new class extends Migration
             $table->text('reason')->nullable();
             $table->timestamps();
 
-            $table->foreign('curriculum_fee_assignment_id')
-                ->references('id')->on('curriculum_fee_assignments')
+            $table->foreign('curriculum_fee_structure_id')
+                ->references('id')->on('curriculum_fee_structures')
                 ->cascadeOnDelete();
 
             $table->foreign('modified_by')
@@ -27,8 +27,8 @@ return new class extends Migration
                 ->nullOnDelete();
 
             $table->index(
-                ['curriculum_fee_assignment_id', 'created_at'],
-                'fee_assignment_audits_assignment_date_idx',
+                ['curriculum_fee_structure_id', 'created_at'],
+                'fee_assignment_audits_structure_date_idx',
             );            $table->index(['created_at', 'field'], 'fee_assignment_audits_date_field_idx');
 
         });

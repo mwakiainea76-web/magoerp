@@ -24,16 +24,16 @@ export const feeTemplateItemSchema = yup.object({
   is_active: yup.boolean().required(),
 });
 
-export const defaultFeeTemplateItemValues = {
+export const defaultFeeStructureItemValues = {
   name: "",
   amount: "",
   description: "",
   is_active: true,
 };
 
-export function normalizeFeeTemplateItemPayload(values, templateId) {
+export function normalizeFeeStructureItemPayload(values, templateId) {
   return {
-    fee_template_id: templateId,
+    fee_structure_id: templateId,
     name: values.name.trim(),
     amount: Number(values.amount),
     description: values.description?.trim() || null,
@@ -41,8 +41,8 @@ export function normalizeFeeTemplateItemPayload(values, templateId) {
   };
 }
 
-export function FeeTemplateItemForm({
-  formId = "fee-template-item-form",
+export function FeeStructureItemForm({
+  formId = "fee-structure-item-form",
   onSubmit,
   register,
   errors,

@@ -9,9 +9,9 @@ use App\Models\AcademicYear;
 use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
-use App\Models\CurriculumFeeAssignment;
-use App\Models\FeeTemplate;
-use App\Models\FeeTemplateItem;
+use App\Models\CurriculumFeeStructure;
+use App\Models\FeeStructure;
+use App\Models\FeeStructureItem;
 use App\Models\Invoice;
 use App\Models\InvoicePaymentAllocation;
 use App\Models\InvoiceLineItem;
@@ -245,11 +245,11 @@ class FinanceIntegrityTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.summary.total_collected', 400);
     }
-    public function test_assigning_a_fee_template_does_not_mark_it_as_issued_before_invoicing(): void
+    public function test_assigning_a_fee_structure_does_not_mark_it_as_issued_before_invoicing(): void
     {
         $session = AcademicSession::factory()->create();
         $courseCurriculum = CourseCurriculum::factory()->create();
-        $template = FeeTemplate::create([
+        $template = FeeStructure::create([
             'code' => 'ASSIGN-001',
             'name' => 'Assignable fees',
             'type' => 'fees',
@@ -257,7 +257,7 @@ class FinanceIntegrityTest extends TestCase
             'is_issued' => false,
         ]);
 
-        $assignmentId = $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
+        $assignmentId = $this->postJson("/api/fee-structures/{$template->id}/course-assignments", [
             'course_curriculum_id' => $courseCurriculum->id,
             'academic_session_id' => $session->id,
             'year_level' => 1,
@@ -268,23 +268,23 @@ class FinanceIntegrityTest extends TestCase
 
         $this->assertFalse($template->fresh()->is_issued);
 
-        $this->putJson("/api/fee-templates/{$template->id}/course-assignments/{$assignmentId}", [
+        $this->putJson("/api/fee-structures/{$template->id}/course-assignments/{$assignmentId}", [
             'is_approved' => true,
         ])->assertOk()
             ->assertJsonPath('data.is_approved', true);
     }
 
-    public function test_fee_template_components_must_have_a_positive_amount(): void
+    public function test_fee_structure_components_must_have_a_positive_amount(): void
     {
-        $template = FeeTemplate::create([
+        $template = FeeStructure::create([
             'code' => 'POSITIVE-001',
             'name' => 'Positive fees',
             'type' => 'fees',
             'is_active' => true,
         ]);
 
-        $this->postJson('/api/fee-template-items', [
-            'fee_template_id' => $template->id,
+        $this->postJson('/api/fee-structure-items', [
+            'fee_structure_id' => $template->id,
             'name' => 'Invalid zero fee',
             'amount' => 0,
             'is_active' => true,
@@ -311,7 +311,7 @@ class FinanceIntegrityTest extends TestCase
             'id' => $penaltyInvoiceId,
             'student_id' => $student->id,
             'invoice_type' => 'penalty',
-            'fee_template_id' => null,
+            'fee_structure_id' => null,
             'amount_due' => 200,
         ]);
     }
@@ -388,7 +388,7 @@ class FinanceIntegrityTest extends TestCase
         $engineeringCourse = Course::factory()->create(['name' => 'Electrical Engineering']);
         $businessMapping = CourseCurriculum::factory()->create(['course_id' => $businessCourse->id]);
         $engineeringMapping = CourseCurriculum::factory()->create(['course_id' => $engineeringCourse->id]);
-        $template = FeeTemplate::create([
+        $template = FeeStructure::create([
             'code' => 'FILTERED-ASSIGNMENTS',
             'name' => 'Filterable assignments',
             'type' => 'fees',
@@ -396,9 +396,9 @@ class FinanceIntegrityTest extends TestCase
         ]);
 
         foreach ([$businessMapping, $engineeringMapping] as $mapping) {
-            CurriculumFeeAssignment::create([
+            CurriculumFeeStructure::create([
                 'course_curriculum_id' => $mapping->id,
-                'fee_template_id' => $template->id,
+                'fee_structure_id' => $template->id,
                 'issuance_type' => 'per_year',
                 'dormant' => true,
                 'split_amount' => 3000,
@@ -409,14 +409,14 @@ class FinanceIntegrityTest extends TestCase
             ]);
         }
 
-        $this->getJson("/api/fee-templates/{$template->id}/course-assignments?q=Business&per_page=1")
+        $this->getJson("/api/fee-structures/{$template->id}/course-assignments?q=Business&per_page=1")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.course_name', 'Diploma in Business Management')
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('meta.current_page', 1);
 
-        $this->getJson("/api/fee-templates/{$template->id}/course-assignments?per_page=1&page=2")
+        $this->getJson("/api/fee-structures/{$template->id}/course-assignments?per_page=1&page=2")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('meta.total', 2)
@@ -443,20 +443,20 @@ class FinanceIntegrityTest extends TestCase
             'module' => 5,
             'status' => 'enrolled',
         ]);
-        $template = FeeTemplate::create([
+        $template = FeeStructure::create([
             'code' => 'DEPARTMENT-FEE',
             'name' => 'Department shared fee',
             'type' => 'fees',
             'is_active' => true,
         ]);
-        FeeTemplateItem::create([
-            'fee_template_id' => $template->id,
+        FeeStructureItem::create([
+            'fee_structure_id' => $template->id,
             'name' => 'Shared department charge',
             'amount' => 2500,
             'is_active' => true,
         ]);
 
-        $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
+        $this->postJson("/api/fee-structures/{$template->id}/course-assignments", [
             'assignment_scope' => 'department',
             'department_id' => $mapping->course->department_id,
             'issuance_type' => 'per_session',
@@ -490,25 +490,25 @@ class FinanceIntegrityTest extends TestCase
             'module' => 10,
             'status' => 'enrolled',
         ]);
-        $template = FeeTemplate::create([
+        $template = FeeStructure::create([
             'code' => 'ALL-YEARS-FEE',
             'name' => 'All years fee',
             'type' => 'fees',
             'is_active' => true,
         ]);
-        FeeTemplateItem::create([
-            'fee_template_id' => $template->id,
+        FeeStructureItem::create([
+            'fee_structure_id' => $template->id,
             'name' => 'Course fee',
             'amount' => 4000,
             'is_active' => true,
         ]);
-        CurriculumFeeAssignment::create([
+        CurriculumFeeStructure::create([
             'course_curriculum_id' => $mapping->id,
-            'fee_template_id' => $template->id,
+            'fee_structure_id' => $template->id,
             'academic_session_id' => null,
             'issuance_type' => 'per_session',
             'dormant' => false,
-            'year_level' => CurriculumFeeAssignment::ALL_YEAR_LEVELS,
+            'year_level' => CurriculumFeeStructure::ALL_YEAR_LEVELS,
             'session_number' => 1,
             'is_approved' => true,
         ]);
@@ -520,14 +520,14 @@ class FinanceIntegrityTest extends TestCase
     public function test_per_session_assignment_uses_progression_session_without_an_academic_session(): void
     {
         $mapping = CourseCurriculum::factory()->create();
-        $template = FeeTemplate::create([
+        $template = FeeStructure::create([
             'code' => 'SESSION-PROGRESSION',
             'name' => 'Progression session fee',
             'type' => 'fees',
             'is_active' => true,
         ]);
 
-        $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
+        $this->postJson("/api/fee-structures/{$template->id}/course-assignments", [
             'course_curriculum_id' => $mapping->id,
             'issuance_type' => 'per_session',
             'year_level' => 2,
@@ -561,10 +561,10 @@ class FinanceIntegrityTest extends TestCase
             AcademicSession::factory()->inactive()->for($year, 'year')->create(['start_date' => '2028-05-01', 'end_date' => '2028-08-01']),
         ]);
         $courseCurriculum = CourseCurriculum::factory()->create();
-        $template = FeeTemplate::create(['code' => 'YEARLY-001', 'name' => 'Annual tuition', 'type' => 'fees', 'is_active' => true]);
-        FeeTemplateItem::create(['fee_template_id' => $template->id, 'name' => 'Tuition', 'amount' => 10001, 'is_active' => true]);
+        $template = FeeStructure::create(['code' => 'YEARLY-001', 'name' => 'Annual tuition', 'type' => 'fees', 'is_active' => true]);
+        FeeStructureItem::create(['fee_structure_id' => $template->id, 'name' => 'Tuition', 'amount' => 10001, 'is_active' => true]);
 
-        $parentId = $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
+        $parentId = $this->postJson("/api/fee-structures/{$template->id}/course-assignments", [
             'course_curriculum_id' => $courseCurriculum->id,
             'academic_year_id' => $year->id,
             'issuance_type' => 'per_year',
@@ -573,10 +573,10 @@ class FinanceIntegrityTest extends TestCase
             'is_approved' => true,
         ])->assertCreated()->json('data.id');
 
-        $portions = CurriculumFeeAssignment::where('parent_assignment_id', $parentId)->orderBy('session_number')->get();
+        $portions = CurriculumFeeStructure::where('parent_assignment_id', $parentId)->orderBy('session_number')->get();
         $this->assertCount(3, $portions);
         $this->assertSame(10001.0, (float) $portions->sum('split_amount'));
-        $this->assertTrue($portions->every(fn (CurriculumFeeAssignment $portion) => $portion->dormant));
+        $this->assertTrue($portions->every(fn (CurriculumFeeStructure $portion) => $portion->dormant));
 
         $sessions[1]->update(['is_active' => true]);
         $this->assertFalse($portions[1]->fresh()->dormant);
@@ -592,23 +592,23 @@ class FinanceIntegrityTest extends TestCase
             AcademicSession::factory()->inactive()->for($year, 'year')->create(['start_date' => '2029-09-01']),
         ]);
         $mapping = CourseCurriculum::factory()->create();
-        $template = FeeTemplate::create(['code' => 'YEARLY-EDIT', 'name' => 'Editable annual fee', 'type' => 'fees', 'is_active' => true]);
-        FeeTemplateItem::create(['fee_template_id' => $template->id, 'name' => 'Annual fee', 'amount' => 9000, 'is_active' => true]);
-        $parentId = $this->postJson("/api/fee-templates/{$template->id}/course-assignments", [
+        $template = FeeStructure::create(['code' => 'YEARLY-EDIT', 'name' => 'Editable annual fee', 'type' => 'fees', 'is_active' => true]);
+        FeeStructureItem::create(['fee_structure_id' => $template->id, 'name' => 'Annual fee', 'amount' => 9000, 'is_active' => true]);
+        $parentId = $this->postJson("/api/fee-structures/{$template->id}/course-assignments", [
             'course_curriculum_id' => $mapping->id,
             'academic_year_id' => $year->id,
             'issuance_type' => 'per_year',
             'year_level' => 1,
             'is_approved' => true,
         ])->assertCreated()->json('data.id');
-        $portion = CurriculumFeeAssignment::where('parent_assignment_id', $parentId)->where('session_number', 2)->firstOrFail();
+        $portion = CurriculumFeeStructure::where('parent_assignment_id', $parentId)->where('session_number', 2)->firstOrFail();
 
-        $this->putJson("/api/fee-templates/{$template->id}/course-assignments/{$portion->id}", [
+        $this->putJson("/api/fee-structures/{$template->id}/course-assignments/{$portion->id}", [
             'split_amount' => 3500,
             'reason' => 'Sponsor requested revised future split',
         ])->assertOk();
 
-        $this->assertSame(9000.0, (float) CurriculumFeeAssignment::where('parent_assignment_id', $parentId)->sum('split_amount'));
-        $this->assertDatabaseHas('fee_assignment_audits', ['curriculum_fee_assignment_id' => $portion->id, 'old_value' => '3000', 'new_value' => '3500']);
+        $this->assertSame(9000.0, (float) CurriculumFeeStructure::where('parent_assignment_id', $parentId)->sum('split_amount'));
+        $this->assertDatabaseHas('fee_assignment_audits', ['curriculum_fee_structure_id' => $portion->id, 'old_value' => '3000', 'new_value' => '3500']);
     }
 }

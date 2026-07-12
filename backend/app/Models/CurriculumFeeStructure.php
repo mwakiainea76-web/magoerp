@@ -7,13 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class CurriculumFeeAssignment extends Model
+class CurriculumFeeStructure extends Model
 {
     use HasUuids;
 
     public const ALL_YEAR_LEVELS = 0;
 
-    protected $table = 'curriculum_fee_assignments';
+    protected $table = 'curriculum_fee_structures';
 
     protected $keyType = 'string';
 
@@ -22,7 +22,7 @@ class CurriculumFeeAssignment extends Model
     protected $fillable = [
         'course_curriculum_id',
         'department_id',
-        'fee_template_id',
+        'fee_structure_id',
         'academic_session_id',
         'issuance_type',
         'parent_assignment_id',
@@ -55,9 +55,9 @@ class CurriculumFeeAssignment extends Model
         return $this->belongsTo(CourseCurriculum::class);
     }
 
-    public function feeTemplate(): BelongsTo
+    public function feeStructure(): BelongsTo
     {
-        return $this->belongsTo(FeeTemplate::class, 'fee_template_id');
+        return $this->belongsTo(FeeStructure::class, 'fee_structure_id');
     }
 
     public function department(): BelongsTo
@@ -82,7 +82,7 @@ class CurriculumFeeAssignment extends Model
 
     public function audits(): HasMany
     {
-        return $this->hasMany(FeeAssignmentAudit::class, 'curriculum_fee_assignment_id');
+        return $this->hasMany(FeeAssignmentAudit::class, 'curriculum_fee_structure_id');
     }
 
     public function creator(): BelongsTo

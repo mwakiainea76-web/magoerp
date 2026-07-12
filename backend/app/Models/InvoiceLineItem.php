@@ -15,7 +15,7 @@ class InvoiceLineItem extends Model
 
     protected $fillable = [
         'invoice_id',
-        'fee_template_item_id',
+        'fee_structure_item_id',
         'name',
         'description',
         'amount',
@@ -39,8 +39,8 @@ class InvoiceLineItem extends Model
         return $this->belongsTo(Invoice::class);
     }
 
-    public function feeTemplateItem(): BelongsTo
+    public function feeStructureItem(): BelongsTo
     {
-        return $this->belongsTo(FeeTemplateItem::class, 'fee_template_item_id');
+        return $this->belongsTo(FeeStructureItem::class, 'fee_structure_item_id');
     }
 }

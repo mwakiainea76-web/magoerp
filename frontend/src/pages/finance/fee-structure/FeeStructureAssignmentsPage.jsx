@@ -11,7 +11,7 @@ import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
-import { useCurriculumFeeAssignmentsApi } from "@/hooks/useCurriculumFeeAssignmentsApi";
+import { useCurriculumFeeStructuresApi } from "@/hooks/useCurriculumFeeStructuresApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 import { initialMeta } from "@/lib/styles";
@@ -31,7 +31,7 @@ const schema = yup.object({
 
 export function FeeTemplateAssignmentsPage() {
   const { templateId } = useParams();
-  const assignmentsApi = useCurriculumFeeAssignmentsApi();
+  const assignmentsApi = useCurriculumFeeStructuresApi();
   const sessionsApi = useAcademicSessionsApi();
   const lookupApi = useLookupApi();
   const [assignments, setAssignments] = useState([]);
@@ -83,9 +83,9 @@ export function FeeTemplateAssignmentsPage() {
       setMeta(assignmentResponse.meta ?? initialMeta);
       setSessions(sessionResponse.data ?? []);
       setTemplate({
-        name: assignmentResponse.fee_template_name ?? "",
-        amount: Number(assignmentResponse.fee_template_total_amount ?? 0),
-        items: Number(assignmentResponse.fee_template_total_items ?? 0),
+        name: assignmentResponse.fee_structure_name ?? "",
+        amount: Number(assignmentResponse.fee_structure_total_amount ?? 0),
+        items: Number(assignmentResponse.fee_structure_total_items ?? 0),
       });
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Failed to load fee assignments."));
@@ -203,7 +203,7 @@ export function FeeTemplateAssignmentsPage() {
           <h1 className="text-xl font-semibold text-slate-950">Fee Template: {template.name}</h1>
           <p className="mt-1 text-sm text-slate-500">{template.items} items Ã‚Â· {money(template.amount)}</p>
         </div>
-        <Link to="/admin/finance/fee-templates" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><ArrowLeft className="size-4" />Back</Link>
+        <Link to="/admin/finance/fee-structures" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><ArrowLeft className="size-4" />Back</Link>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

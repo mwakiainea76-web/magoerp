@@ -23,7 +23,7 @@ use App\Http\Controllers\Api\CourseCurriculaController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\CurriculaController;
 use App\Http\Controllers\Api\DepartmentsController;
-use App\Http\Controllers\Api\CurriculumFeeAssignmentsController;
+use App\Http\Controllers\Api\CurriculumFeeStructuresController;
 use App\Http\Controllers\Api\FeeStructureController;
 use App\Http\Controllers\Api\StudentAccountController;
 use App\Http\Controllers\Api\CohortBillingController;
@@ -31,8 +31,8 @@ use App\Http\Controllers\Api\FinanceHealthController;
 use App\Http\Controllers\Api\HostelsController;
 use App\Http\Controllers\Api\HostelRoomsController;
 use App\Http\Controllers\Api\LectureRoomsController;
-use App\Http\Controllers\Api\FeeTemplateItemsController;
-use App\Http\Controllers\Api\FeeTemplatesController;
+use App\Http\Controllers\Api\FeeStructureItemsController;
+use App\Http\Controllers\Api\FeeStructuresController;
 
 use App\Http\Controllers\Api\InvoicesController;
 use App\Http\Controllers\Api\StudentLedgerController;
@@ -125,18 +125,18 @@ Route::middleware([
         Route::get('/payments/export', [FinanceDataExportsController::class, 'payments'])->middleware('throttle:6,1');
         Route::get('/ledger/export', [FinanceDataExportsController::class, 'ledger'])->middleware('throttle:6,1');
 
-        Route::apiResource('fee-templates', FeeTemplatesController::class)
-            ->parameters(['fee-templates' => 'fee_template']);
+        Route::apiResource('fee-structures', FeeStructuresController::class)
+            ->parameters(['fee-structures' => 'fee_structure']);
 
-        Route::apiResource('fee-template-items', FeeTemplateItemsController::class)
-            ->parameters(['fee-template-items' => 'fee_template_item']);
+        Route::apiResource('fee-structure-items', FeeStructureItemsController::class)
+            ->parameters(['fee-structure-items' => 'fee_structure_item']);
 
-        Route::get('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'index']);
-        Route::post('/fee-templates/{fee_template}/course-assignments', [CurriculumFeeAssignmentsController::class, 'store']);
-        Route::put('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'update']);
-        Route::delete('/fee-templates/{fee_template}/course-assignments/{curriculum_fee_assignment}', [CurriculumFeeAssignmentsController::class, 'destroy']);
+        Route::get('/fee-structures/{fee_structure}/course-assignments', [CurriculumFeeStructuresController::class, 'index']);
+        Route::post('/fee-structures/{fee_structure}/course-assignments', [CurriculumFeeStructuresController::class, 'store']);
+        Route::put('/fee-structures/{fee_structure}/course-assignments/{curriculum_fee_structure}', [CurriculumFeeStructuresController::class, 'update']);
+        Route::delete('/fee-structures/{fee_structure}/course-assignments/{curriculum_fee_structure}', [CurriculumFeeStructuresController::class, 'destroy']);
 
-        Route::get('/course-assignments', [CurriculumFeeAssignmentsController::class, 'search']);
+        Route::get('/course-assignments', [CurriculumFeeStructuresController::class, 'search']);
 
         Route::get('/students/{student}/financial-statement/download', [InvoicesController::class, 'statementDownload']);
         Route::post('/invoices', [InvoicesController::class, 'store']);
@@ -146,7 +146,7 @@ Route::middleware([
         Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
         Route::get('/invoices/{invoice}/reversal-preview', [InvoicesController::class, 'reversalPreview']);
         Route::post('/invoices/{invoice}/reverse', [InvoicesController::class, 'reverse']);
-        Route::get('/students/{student}/fee-templates', [InvoicesController::class, 'availableTemplates']);
+        Route::get('/students/{student}/fee-structures', [InvoicesController::class, 'availableTemplates']);
         Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
         Route::get('/students/{student}/financial-statement', [InvoicesController::class, 'studentStatement']);
         Route::post('/payments', [PaymentsController::class, 'store']);
@@ -161,10 +161,10 @@ Route::middleware([
         // Fee Structure Wizard
         Route::get('/fee-structures', [FeeStructureController::class, 'index']);
         Route::post('/fee-structures', [FeeStructureController::class, 'store']);
-        Route::get('/fee-structures/{fee_template}', [FeeStructureController::class, 'show']);
+        Route::get('/fee-structures/{fee_structure}', [FeeStructureController::class, 'show']);
         Route::post('/fee-structures/clone', [FeeStructureController::class, 'clone']);
-        Route::post('/fee-structures/{fee_template}/publish', [FeeStructureController::class, 'publish']);
-        Route::post('/fee-structures/{fee_template}/archive', [FeeStructureController::class, 'archive']);
+        Route::post('/fee-structures/{fee_structure}/publish', [FeeStructureController::class, 'publish']);
+        Route::post('/fee-structures/{fee_structure}/archive', [FeeStructureController::class, 'archive']);
         Route::post('/fee-structures/preview', [FeeStructureController::class, 'preview']);
 
         // Student Accounts

@@ -228,7 +228,7 @@ function IssueInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
 
   function handleTemplateChange(feeTemplateId) {
     setSelectedTemplateId(feeTemplateId);
-    setTemplateItems(feeTemplateId ? (templates.find(t => t.fee_template_id === feeTemplateId)?.items ?? []) : []);
+    setTemplateItems(feeTemplateId ? (templates.find(t => t.fee_structure_id === feeTemplateId)?.items ?? []) : []);
   }
 
   function validate() {
@@ -237,7 +237,7 @@ function IssueInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
       if (!penaltyDesc.trim()) errs.penaltyDesc = "Description is required.";
       if (!penaltyAmount || parseFloat(penaltyAmount) <= 0) errs.penaltyAmount = "Amount must be greater than zero.";
     } else {
-      if (!selectedTemplateId) errs.selectedTemplateId = "Select a fee template.";
+      if (!selectedTemplateId) errs.selectedTemplateId = "Select a fee structure.";
     }
     if (!dueDate) errs.dueDate = "Due date is required.";
     setFieldErrors(errs);
@@ -250,13 +250,13 @@ function IssueInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
     setError("");
     try {
       if (invoiceType === "fee") {
-        const tpl = templates.find(t => t.fee_template_id === selectedTemplateId);
+        const tpl = templates.find(t => t.fee_structure_id === selectedTemplateId);
         await invoicesApi.create({
           student_id: studentData.student.id,
-          fee_template_id: selectedTemplateId,
+          fee_structure_id: selectedTemplateId,
           idempotency_key: `issue:${studentData.student.id}:${uid}`,
         });
-        toast.success(`Invoice issued from template "${tpl?.template_name || ""}"`);
+        toast.success(`Invoice issued from template "${tpl?.structure_name || ""}"`);
       } else {
         await invoicesApi.createCharge({
           student_id: studentData.student.id,
@@ -315,7 +315,7 @@ function IssueInvoiceForm({ studentsApi, accountApi, invoicesApi }) {
                   <select value={selectedTemplateId} onChange={e => handleTemplateChange(e.target.value)}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500">
                     <option value="">Select a template...</option>
-                    {templates.map(t => <option key={t.fee_template_id} value={t.fee_template_id}>{t.template_name} ({t.template_code})</option>)}
+                    {templates.map(t => <option key={t.fee_structure_id} value={t.fee_structure_id}>{t.structure_name} ({t.structure_code})</option>)}
                   </select>
                   {fieldErrors.selectedTemplateId && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.selectedTemplateId}</p>}
                 </div>

@@ -6,9 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Models\AcademicSession;
 use App\Models\CourseCurriculum;
-use App\Models\CurriculumFeeAssignment;
-use App\Models\FeeTemplate;
-use App\Models\FeeTemplateItem;
+use App\Models\CurriculumFeeStructure;
+use App\Models\FeeStructure;
+use App\Models\FeeStructureItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +19,7 @@ class FeeStructureController extends Controller
     use PaginationMeta;
 
     /**
-     * List fee structures (FeeTemplates) with version info.
+     * List fee structures (FeeStructures) with version info.
      */
     public function index(Request $request): JsonResponse
     {
@@ -29,7 +29,7 @@ class FeeStructureController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
         $courseCurriculumId = (string) $request->string('course_curriculum_id', '');
 
-        $query = FeeTemplate::query()
+        $query = FeeStructure::query()
             ->with(['items' => fn($q) => $q->where('is_active', true)])
             ->withCount('items as active_items_count');
 
@@ -47,9 +47,9 @@ class FeeStructureController extends Controller
 
         $templates = $query->orderBy('created_at', 'desc')->paginate($perPage)->withQueryString();
 
-        $collection = $templates->getCollection()->map(function (FeeTemplate $template) {
+        $collection = $templates->getCollection()->map(function (FeeStructure $template) {
             $totalAmount = $template->items->sum('amount');
-            $assignmentsCount = CurriculumFeeAssignment::where('fee_template_id', $template->id)
+            $assignmentsCount = CurriculumFeeStructure::where('fee_structure_id', $template->id)
                 ->whereNull('parent_assignment_id')->count();
 
             return [
@@ -84,170 +84,59 @@ class FeeStructureController extends Controller
         abort_unless($request->user()?->can('finance.update'), 403);
 
         $validated = $request->validate([
-            // Step 1: General Information
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:50', 'unique:fee_templates,code'],
+            'code' => ['required', 'string', 'max:50', 'unique:fee_structures,code'],
             'description' => ['nullable', 'string', 'max:2000'],
-
-            // Step 2: Fee Items
             'items' => ['required', 'array', 'min:1'],
             'items.*.name' => ['required', 'string', 'max:255'],
             'items.*.amount' => ['required', 'numeric', 'min:0.01'],
             'items.*.description' => ['nullable', 'string', 'max:2000'],
-
-            // Step 3: Assignment
-            'academic_session_id' => ['required', 'uuid', Rule::exists('academic_sessions', 'id')],
-            'assignment_scope' => ['required', Rule::in(['course', 'department', 'all'])],
-            'course_curriculum_id' => ['required_if:assignment_scope,course', 'nullable', 'uuid', Rule::exists('course_curricula', 'id')],
-            'department_id' => ['required_if:assignment_scope,department', 'nullable', 'uuid', Rule::exists('departments', 'id')],
-            'year_level' => ['required', 'integer', 'min:0', 'max:4'],
-            'issuance_type' => ['required', Rule::in(['per_session', 'per_year'])],
-            'session_number' => ['required_if:issuance_type,per_session', 'nullable', 'integer', 'min:1', 'max:4'],
-            'split_ratios' => ['nullable', 'array'],
-            'split_ratios.*' => ['numeric', 'min:0.01', 'max:100'],
-
-            // Step 4: Action
             'action' => ['required', Rule::in(['draft', 'publish'])],
         ]);
 
         $userId = $request->user()->id;
-        $isPublished = $validated['action'] === 'publish';
-        $session = AcademicSession::findOrFail($validated['academic_session_id']);
 
-        // Resolve assignment IDs based on scope
-        $courseCurriculumId = $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null;
-        $departmentId = $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null;
+        $template = FeeStructure::create([
+            'code' => $validated['code'],
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'type' => 'academic',
+            'is_active' => true,
+            'is_issued' => $validated['action'] === 'publish',
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
 
-        return DB::transaction(function () use ($validated, $userId, $isPublished, $session, $courseCurriculumId, $departmentId, $request) {
-            // Create Fee Template
-            $template = FeeTemplate::create([
-                'code' => $validated['code'],
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'type' => 'academic',
+        foreach ($validated['items'] as $item) {
+            FeeStructureItem::create([
+                'fee_structure_id' => $template->id,
+                'name' => $item['name'],
+                'amount' => $item['amount'],
+                'description' => $item['description'] ?? null,
                 'is_active' => true,
-                'is_issued' => $isPublished,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
+        }
 
-            // Create Fee Template Items
-            $totalAmount = 0;
-            foreach ($validated['items'] as $item) {
-                FeeTemplateItem::create([
-                    'fee_template_id' => $template->id,
-                    'name' => $item['name'],
-                    'amount' => $item['amount'],
-                    'description' => $item['description'] ?? null,
-                    'is_active' => true,
-                    'created_by' => $userId,
-                    'updated_by' => $userId,
-                ]);
-                $totalAmount += (float) $item['amount'];
-            }
-
-            // Create Curriculum Fee Assignments
-            if ($validated['issuance_type'] === 'per_session') {
-                CurriculumFeeAssignment::create([
-                    'course_curriculum_id' => $courseCurriculumId,
-                    'department_id' => $departmentId,
-                    'fee_template_id' => $template->id,
-                    'academic_session_id' => $session->id,
-                    'issuance_type' => 'per_session',
-                    'dormant' => false,
-                    'split_amount' => $totalAmount,
-                    'split_ratio' => 100,
-                    'year_level' => $validated['year_level'],
-                    'session_number' => $validated['session_number'],
-                    'is_approved' => $isPublished,
-                    'approved_by' => $isPublished ? $userId : null,
-                    'approved_at' => $isPublished ? now() : null,
-                    'created_by' => $userId,
-                    'updated_by' => $userId,
-                ]);
-            } else {
-                // per_year - create parent + child assignments
-                $academicYear = $session->year;
-                $sessions = $academicYear->sessions()->orderBy('start_date')->get();
-
-                if ($sessions->isEmpty()) {
-                    abort(422, 'The selected academic year has no sessions.');
-                }
-
-                $hasCustomRatios = isset($validated['split_ratios']);
-                $ratios = $validated['split_ratios'] ?? $this->equalRatios($sessions->count());
-
-                if (count($ratios) !== $sessions->count() || abs(array_sum($ratios) - 100) > 0.01) {
-                    abort(422, 'Split ratios must cover all sessions and total exactly 100%.');
-                }
-
-                $parent = CurriculumFeeAssignment::create([
-                    'course_curriculum_id' => $courseCurriculumId,
-                    'department_id' => $departmentId,
-                    'fee_template_id' => $template->id,
-                    'academic_session_id' => null,
-                    'issuance_type' => 'per_year',
-                    'dormant' => false,
-                    'split_amount' => $totalAmount,
-                    'split_ratio' => 100,
-                    'year_level' => $validated['year_level'],
-                    'session_number' => 0,
-                    'is_approved' => $isPublished,
-                    'approved_by' => $isPublished ? $userId : null,
-                    'approved_at' => $isPublished ? now() : null,
-                    'created_by' => $userId,
-                    'updated_by' => $userId,
-                ]);
-
-                $allocated = 0.0;
-                foreach ($sessions as $index => $s) {
-                    $amount = $index === $sessions->count() - 1
-                        ? round($totalAmount - $allocated, 2)
-                        : round($hasCustomRatios
-                            ? $totalAmount * (float) $ratios[$index] / 100
-                            : $totalAmount / $sessions->count(), 2);
-                    $allocated += $amount;
-
-                    CurriculumFeeAssignment::create([
-                        'course_curriculum_id' => $courseCurriculumId,
-                        'department_id' => $departmentId,
-                        'fee_template_id' => $template->id,
-                        'academic_session_id' => $s->id,
-                        'issuance_type' => 'per_year',
-                        'parent_assignment_id' => $parent->id,
-                        'dormant' => false,
-                        'split_amount' => $amount,
-                        'split_ratio' => round($amount / $totalAmount * 100, 2),
-                        'year_level' => $validated['year_level'],
-                        'session_number' => $index + 1,
-                        'is_approved' => $isPublished,
-                        'approved_by' => $isPublished ? $userId : null,
-                        'approved_at' => $isPublished ? now() : null,
-                        'created_by' => $userId,
-                        'updated_by' => $userId,
-                    ]);
-                }
-            }
-
-            return response()->json([
-                'message' => $isPublished
-                    ? 'Fee structure published successfully.'
-                    : 'Fee structure saved as draft.',
-                'data' => ['id' => $template->id, 'name' => $template->name, 'code' => $template->code],
-            ], 201);
-        });
+        return response()->json([
+            'message' => $validated['action'] === 'publish'
+                ? 'Fee structure published successfully.'
+                : 'Fee structure saved as draft.',
+            'data' => ['id' => $template->id, 'name' => $template->name, 'code' => $template->code],
+        ], 201);
     }
 
     /**
      * Show fee structure details (used for cloning/editing).
      */
-    public function show(Request $request, FeeTemplate $fee_template): JsonResponse
+    public function show(Request $request, FeeStructure $fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $fee_template->load(['items' => fn($q) => $q->where('is_active', true)]);
+        $fee_structure->load(['items' => fn($q) => $q->where('is_active', true)]);
 
-        $assignment = CurriculumFeeAssignment::where('fee_template_id', $fee_template->id)
+        $assignment = CurriculumFeeStructure::where('fee_structure_id', $fee_structure->id)
             ->whereNull('parent_assignment_id')
             ->with(['courseCurriculum.course', 'courseCurriculum.curriculum', 'childAssignments.academicSession'])
             ->first();
@@ -255,13 +144,13 @@ class FeeStructureController extends Controller
         return response()->json([
             'status_code' => 200,
             'data' => [
-                'id' => $fee_template->id,
-                'code' => $fee_template->code,
-                'name' => $fee_template->name,
-                'description' => $fee_template->description,
-                'is_issued' => (bool) $fee_template->is_issued,
-                'is_active' => (bool) $fee_template->is_active,
-                'items' => $fee_template->items->map(fn($i) => [
+                'id' => $fee_structure->id,
+                'code' => $fee_structure->code,
+                'name' => $fee_structure->name,
+                'description' => $fee_structure->description,
+                'is_issued' => (bool) $fee_structure->is_issued,
+                'is_active' => (bool) $fee_structure->is_active,
+                'items' => $fee_structure->items->map(fn($i) => [
                     'id' => $i->id,
                     'name' => $i->name,
                     'amount' => (float) $i->amount,
@@ -286,8 +175,8 @@ class FeeStructureController extends Controller
                         'split_ratio' => (float) $c->split_ratio,
                     ]),
                 ] : null,
-                'created_at' => $fee_template->created_at,
-                'updated_at' => $fee_template->updated_at,
+                'created_at' => $fee_structure->created_at,
+                'updated_at' => $fee_structure->updated_at,
             ],
         ]);
     }
@@ -300,9 +189,9 @@ class FeeStructureController extends Controller
         abort_unless($request->user()?->can('finance.update'), 403);
 
         $validated = $request->validate([
-            'source_fee_template_id' => ['required', 'uuid', Rule::exists('fee_templates', 'id')],
+            'source_fee_structure_id' => ['required', 'uuid', Rule::exists('fee_structures', 'id')],
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:50', 'unique:fee_templates,code'],
+            'code' => ['required', 'string', 'max:50', 'unique:fee_structures,code'],
             'academic_session_id' => ['required', 'uuid', Rule::exists('academic_sessions', 'id')],
             'assignment_scope' => ['required', Rule::in(['course', 'department', 'all'])],
             'course_curriculum_id' => ['required_if:assignment_scope,course', 'nullable', 'uuid', Rule::exists('course_curricula', 'id')],
@@ -313,8 +202,8 @@ class FeeStructureController extends Controller
             'action' => ['required', Rule::in(['draft', 'publish'])],
         ]);
 
-        $source = FeeTemplate::with(['items' => fn($q) => $q->where('is_active', true)])
-            ->findOrFail($validated['source_fee_template_id']);
+        $source = FeeStructure::with(['items' => fn($q) => $q->where('is_active', true)])
+            ->findOrFail($validated['source_fee_structure_id']);
 
         $userId = $request->user()->id;
         $isPublished = $validated['action'] === 'publish';
@@ -325,7 +214,7 @@ class FeeStructureController extends Controller
 
         return DB::transaction(function () use ($validated, $source, $userId, $isPublished, $session, $courseCurriculumId, $departmentId) {
             // Clone template
-            $template = FeeTemplate::create([
+            $template = FeeStructure::create([
                 'code' => $validated['code'],
                 'name' => $validated['name'],
                 'description' => $source->description,
@@ -339,8 +228,8 @@ class FeeStructureController extends Controller
             // Clone items
             $totalAmount = 0;
             foreach ($source->items as $item) {
-                FeeTemplateItem::create([
-                    'fee_template_id' => $template->id,
+                FeeStructureItem::create([
+                    'fee_structure_id' => $template->id,
                     'name' => $item->name,
                     'amount' => $item->amount,
                     'description' => $item->description,
@@ -353,10 +242,10 @@ class FeeStructureController extends Controller
 
             // Create assignment (same logic as store)
             if ($validated['issuance_type'] === 'per_session') {
-                CurriculumFeeAssignment::create([
+                CurriculumFeeStructure::create([
                     'course_curriculum_id' => $courseCurriculumId,
                     'department_id' => $departmentId,
-                    'fee_template_id' => $template->id,
+                    'fee_structure_id' => $template->id,
                     'academic_session_id' => $session->id,
                     'issuance_type' => 'per_session',
                     'dormant' => false,
@@ -382,21 +271,21 @@ class FeeStructureController extends Controller
     /**
      * Publish a draft fee structure.
      */
-    public function publish(Request $request, FeeTemplate $fee_template): JsonResponse
+    public function publish(Request $request, FeeStructure $fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.update'), 403);
 
-        if ($fee_template->is_issued) {
+        if ($fee_structure->is_issued) {
             return response()->json(['message' => 'Fee structure is already published.'], 422);
         }
 
-        DB::transaction(function () use ($fee_template, $request) {
-            $fee_template->update([
+        DB::transaction(function () use ($fee_structure, $request) {
+            $fee_structure->update([
                 'is_issued' => true,
                 'updated_by' => $request->user()->id,
             ]);
 
-            CurriculumFeeAssignment::where('fee_template_id', $fee_template->id)
+            CurriculumFeeStructure::where('fee_structure_id', $fee_structure->id)
                 ->whereNull('parent_assignment_id')
                 ->update([
                     'is_approved' => true,
@@ -411,11 +300,11 @@ class FeeStructureController extends Controller
     /**
      * Archive a fee structure.
      */
-    public function archive(Request $request, FeeTemplate $fee_template): JsonResponse
+    public function archive(Request $request, FeeStructure $fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.update'), 403);
 
-        $fee_template->update([
+        $fee_structure->update([
             'is_active' => false,
             'updated_by' => $request->user()->id,
         ]);

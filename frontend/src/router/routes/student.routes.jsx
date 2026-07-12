@@ -10,7 +10,7 @@ const MyUnitsPage = lazy(() => import("@/pages/units/MyUnitsPage").then((module)
 const CreateSupportRequestPage = lazy(() => import("@/pages/support-requests/CreateSupportRequestPage").then((module) => ({ default: module.CreateSupportRequestPage })));
 const MySupportRequestsPage = lazy(() => import("@/pages/support-requests/MySupportRequestsPage").then((module) => ({ default: module.MySupportRequestsPage })));
 const MyHostelPage = lazy(() => import("@/pages/hostels/MyHostelPage").then((module) => ({ default: module.MyHostelPage })));
-const StudentFeeStatementPage = lazy(() => import("@/pages/finance/StudentFeeStatementPage").then((module) => ({ default: module.StudentFeeStatementPage })));
+const StudentFeeStatementPage = lazy(() => import("@/pages/finance/student-accounts/StudentFeeStatementPage").then((module) => ({ default: module.StudentFeeStatementPage })));
 
 export const StudentRoutes = (
   <>

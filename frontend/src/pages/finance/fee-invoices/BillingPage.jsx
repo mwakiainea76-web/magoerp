@@ -60,7 +60,7 @@ const paymentSchema = yup.object({
 
 const feeSchema = yup.object({
   fee_student_id: yup.string().required("Select a student"),
-  fee_template_id: yup.string().required("Select a fee template"),
+  fee_structure_id: yup.string().required("Select a fee structure"),
   fee_description: yup.string().nullable(),
 });
 
@@ -115,7 +115,7 @@ export function BillingPage() {
   });
   const feeForm = useForm({
     resolver: yupResolver(feeSchema),
-    defaultValues: { fee_student_id: "", fee_template_id: "", fee_description: "" },
+    defaultValues: { fee_student_id: "", fee_structure_id: "", fee_description: "" },
   });
   const penaltyForm = useForm({
     resolver: yupResolver(penaltySchema),
@@ -181,7 +181,7 @@ export function BillingPage() {
   }
 
   function resetFeeForm() {
-    feeForm.reset({ fee_student_id: "", fee_template_id: "", fee_description: "" });
+    feeForm.reset({ fee_student_id: "", fee_structure_id: "", fee_description: "" });
     setSelectedFeeStudent(null);
     setFormError("");
   }
@@ -251,7 +251,7 @@ export function BillingPage() {
     try {
       await invoicesApi.store({
         student_id: data.fee_student_id,
-        fee_template_id: data.fee_template_id,
+        fee_structure_id: data.fee_structure_id,
       });
       toast.success("Invoice created successfully.");
       closeActiveForm();

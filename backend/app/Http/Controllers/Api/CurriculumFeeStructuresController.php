@@ -6,26 +6,26 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 use App\Models\AcademicSession;
 use App\Models\AcademicYear;
-use App\Models\CurriculumFeeAssignment;
-use App\Models\FeeTemplate;
+use App\Models\CurriculumFeeStructure;
+use App\Models\FeeStructure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
-class CurriculumFeeAssignmentsController extends Controller
+class CurriculumFeeStructuresController extends Controller
 {
     use PaginationMeta;
 
-    public function index(Request $request, FeeTemplate $fee_template): JsonResponse
+    public function index(Request $request, FeeStructure $fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
         $search = trim((string) $request->string('q', ''));
         $perPage = max(1, min((int) $request->integer('per_page', 10), 100));
 
-        $query = CurriculumFeeAssignment::query()
-            ->where('fee_template_id', $fee_template->id)
+        $query = CurriculumFeeStructure::query()
+            ->where('fee_structure_id', $fee_structure->id)
             ->whereNull('parent_assignment_id')
             ->with($this->loadRelations());
 
@@ -48,12 +48,12 @@ class CurriculumFeeAssignmentsController extends Controller
             ->withQueryString();
 
         $collection = $assignments->getCollection()
-            ->map(fn (CurriculumFeeAssignment $assignment) => $this->transform($assignment))
+            ->map(fn (CurriculumFeeStructure $assignment) => $this->transform($assignment))
             ->values();
 
         $hasItems = $collection->isNotEmpty()
-            || CurriculumFeeAssignment::query()
-                ->where('fee_template_id', $fee_template->id)
+            || CurriculumFeeStructure::query()
+                ->where('fee_structure_id', $fee_structure->id)
                 ->whereNull('parent_assignment_id')
                 ->exists();
 
@@ -61,23 +61,23 @@ class CurriculumFeeAssignmentsController extends Controller
             'status_code' => 200,
             'data' => $collection,
             'meta' => $this->paginationMeta($assignments, ['q' => $search]),
-            'fee_template_name' => $fee_template->name,
-            'fee_template_code' => $fee_template->code,
-            'fee_template_is_issued' => $fee_template->is_issued,
-            'fee_template_is_assigned' => $hasItems,
-            'fee_template_is_locked' => $fee_template->is_issued || $hasItems,
-            'fee_template_total_amount' => (float) $fee_template->items()->where('is_active', true)->sum('amount'),
-            'fee_template_total_items' => (int) $fee_template->items()->where('is_active', true)->count(),
+            'fee_structure_name' => $fee_structure->name,
+            'fee_structure_code' => $fee_structure->code,
+            'fee_structure_is_issued' => $fee_structure->is_issued,
+            'fee_structure_is_assigned' => $hasItems,
+            'fee_structure_is_locked' => $fee_structure->is_issued || $hasItems,
+            'fee_structure_total_amount' => (float) $fee_structure->items()->where('is_active', true)->sum('amount'),
+            'fee_structure_total_items' => (int) $fee_structure->items()->where('is_active', true)->count(),
         ]);
     }
 
-    public function store(Request $request, FeeTemplate $fee_template): JsonResponse
+    public function store(Request $request, FeeStructure $fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.update'), 403);
 
-        if ($fee_template->is_issued) {
+        if ($fee_structure->is_issued) {
             return response()->json([
-                'message' => 'This fee template has already been used for invoicing and cannot receive new assignments.',
+                'message' => 'This fee structure has already been used for invoicing and cannot receive new assignments.',
             ], 422);
         }
 
@@ -101,13 +101,13 @@ class CurriculumFeeAssignmentsController extends Controller
         ]);
 
         return $validated['issuance_type'] === 'per_year'
-            ? $this->createPerYearAssignments($request, $fee_template, $validated)
-            : $this->createPerSessionAssignment($request, $fee_template, $validated);
+            ? $this->createPerYearAssignments($request, $fee_structure, $validated)
+            : $this->createPerSessionAssignment($request, $fee_structure, $validated);
     }
 
-    private function createPerSessionAssignment(Request $request, FeeTemplate $template, array $validated): JsonResponse
+    private function createPerSessionAssignment(Request $request, FeeStructure $template, array $validated): JsonResponse
     {
-        $duplicate = CurriculumFeeAssignment::query()
+        $duplicate = CurriculumFeeStructure::query()
             ->whereNull('parent_assignment_id')
             ->where('issuance_type', 'per_session')
             ->where('academic_session_id', $validated['academic_session_id'] ?? null)
@@ -129,10 +129,10 @@ class CurriculumFeeAssignmentsController extends Controller
         $session = !empty($validated['academic_session_id'])
             ? AcademicSession::find($validated['academic_session_id'])
             : null;
-        $assignment = CurriculumFeeAssignment::create([
+        $assignment = CurriculumFeeStructure::create([
             'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
             'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
-            'fee_template_id' => $template->id,
+            'fee_structure_id' => $template->id,
             'academic_session_id' => $session?->id,
             'issuance_type' => 'per_session',
             'parent_assignment_id' => null,
@@ -154,7 +154,7 @@ class CurriculumFeeAssignmentsController extends Controller
         ], 201);
     }
 
-    private function createPerYearAssignments(Request $request, FeeTemplate $template, array $validated): JsonResponse
+    private function createPerYearAssignments(Request $request, FeeStructure $template, array $validated): JsonResponse
     {
         $academicYear = AcademicYear::findOrFail($validated['academic_year_id']);
         $sessions = $academicYear->sessions()->orderBy('start_date')->orderBy('code')->get();
@@ -165,7 +165,7 @@ class CurriculumFeeAssignmentsController extends Controller
             ], 422);
         }
 
-        $existing = CurriculumFeeAssignment::query()
+        $existing = CurriculumFeeStructure::query()
             ->whereNull('parent_assignment_id')
             ->where('issuance_type', 'per_year')
             ->where(function ($query) use ($validated) {
@@ -184,7 +184,7 @@ class CurriculumFeeAssignmentsController extends Controller
 
         $totalAmount = (float) $template->items()->where('is_active', true)->sum('amount');
         if ($totalAmount <= 0) {
-            return response()->json(['message' => 'The fee template must contain positive active fee items.'], 422);
+            return response()->json(['message' => 'The fee structure must contain positive active fee items.'], 422);
         }
 
         $hasCustomRatios = isset($validated['split_ratios']);
@@ -197,10 +197,10 @@ class CurriculumFeeAssignmentsController extends Controller
 
         $approved = $request->boolean('is_approved', true);
         $parent = DB::transaction(function () use ($request, $template, $validated, $sessions, $ratios, $totalAmount, $approved, $hasCustomRatios) {
-            $parent = CurriculumFeeAssignment::create([
+            $parent = CurriculumFeeStructure::create([
                 'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
                 'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
-                'fee_template_id' => $template->id,
+                'fee_structure_id' => $template->id,
                 'academic_session_id' => null,
                 'issuance_type' => 'per_year',
                 'parent_assignment_id' => null,
@@ -228,10 +228,10 @@ class CurriculumFeeAssignmentsController extends Controller
                     ? (float) $ratios[$index]
                     : round($amount / $totalAmount * 100, 2);
 
-                CurriculumFeeAssignment::create([
+                CurriculumFeeStructure::create([
                     'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
                     'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
-                    'fee_template_id' => $template->id,
+                    'fee_structure_id' => $template->id,
                     'academic_session_id' => $session->id,
                     'issuance_type' => 'per_year',
                     'parent_assignment_id' => $parent->id,
@@ -257,13 +257,13 @@ class CurriculumFeeAssignmentsController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, FeeTemplate $fee_template, CurriculumFeeAssignment $curriculum_fee_assignment): JsonResponse
+    public function update(Request $request, FeeStructure $fee_structure, CurriculumFeeStructure $curriculum_fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.update'), 403);
-        abort_if($curriculum_fee_assignment->fee_template_id !== $fee_template->id, 404);
+        abort_if($curriculum_fee_structure->fee_structure_id !== $fee_structure->id, 404);
 
-        if ($curriculum_fee_assignment->parent_assignment_id && $curriculum_fee_assignment->dormant) {
-            return $this->updateDormantPortion($request, $curriculum_fee_assignment);
+        if ($curriculum_fee_structure->parent_assignment_id && $curriculum_fee_structure->dormant) {
+            return $this->updateDormantPortion($request, $curriculum_fee_structure);
         }
 
         $validated = $request->validate(['is_approved' => ['required', 'boolean']]);
@@ -275,20 +275,20 @@ class CurriculumFeeAssignmentsController extends Controller
             'updated_by' => $request->user()->id,
         ];
 
-        DB::transaction(function () use ($curriculum_fee_assignment, $values) {
-            $curriculum_fee_assignment->update($values);
-            if ($curriculum_fee_assignment->issuance_type === 'per_year' && !$curriculum_fee_assignment->parent_assignment_id) {
-                $curriculum_fee_assignment->childAssignments()->update($values);
+        DB::transaction(function () use ($curriculum_fee_structure, $values) {
+            $curriculum_fee_structure->update($values);
+            if ($curriculum_fee_structure->issuance_type === 'per_year' && !$curriculum_fee_structure->parent_assignment_id) {
+                $curriculum_fee_structure->childAssignments()->update($values);
             }
         });
 
         return response()->json([
             'message' => $approved ? 'Fee assignment approved.' : 'Fee assignment approval revoked.',
-            'data' => $this->transform($curriculum_fee_assignment->fresh()->load($this->loadRelations())),
+            'data' => $this->transform($curriculum_fee_structure->fresh()->load($this->loadRelations())),
         ]);
     }
 
-    private function updateDormantPortion(Request $request, CurriculumFeeAssignment $portion): JsonResponse
+    private function updateDormantPortion(Request $request, CurriculumFeeStructure $portion): JsonResponse
     {
         $validated = $request->validate([
             'split_amount' => ['required', 'numeric', 'min:0.01'],
@@ -303,7 +303,7 @@ class CurriculumFeeAssignmentsController extends Controller
             return response()->json(['message' => 'The dormant portion amount has not changed.'], 422);
         }
 
-        $sibling = CurriculumFeeAssignment::query()
+        $sibling = CurriculumFeeStructure::query()
             ->where('parent_assignment_id', $portion->parent_assignment_id)
             ->where('id', '!=', $portion->id)
             ->where('dormant', true)
@@ -359,10 +359,10 @@ class CurriculumFeeAssignmentsController extends Controller
         $academicYearId = $request->string('academic_year_id', '');
         $academicSessionId = $request->string('academic_session_id', '');
 
-        $query = CurriculumFeeAssignment::query()
+        $query = CurriculumFeeStructure::query()
             ->whereNull('parent_assignment_id')
             ->where('issuance_type', 'per_year')
-            ->with(array_merge($this->loadRelations(), ['feeTemplate:id,code,name']));
+            ->with(array_merge($this->loadRelations(), ['feeStructure:id,code,name']));
 
         if ($search !== '') {
             $like = '%' . $search . '%';
@@ -373,7 +373,7 @@ class CurriculumFeeAssignmentsController extends Controller
                     ->orWhere('code', 'like', $like))
                   ->orWhereHas('department', fn ($dq) => $dq->where('name', 'like', $like)
                     ->orWhere('code', 'like', $like))
-                  ->orWhereHas('feeTemplate', fn ($fq) => $fq->where('name', 'like', $like)
+                  ->orWhereHas('feeStructure', fn ($fq) => $fq->where('name', 'like', $like)
                     ->orWhere('code', 'like', $like));
             });
         }
@@ -398,7 +398,7 @@ class CurriculumFeeAssignmentsController extends Controller
             ->withQueryString();
 
         $collection = $assignments->getCollection()
-            ->map(fn (CurriculumFeeAssignment $assignment) => $this->transform($assignment))
+            ->map(fn (CurriculumFeeStructure $assignment) => $this->transform($assignment))
             ->values();
 
         return response()->json([
@@ -408,10 +408,10 @@ class CurriculumFeeAssignmentsController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, FeeTemplate $fee_template, CurriculumFeeAssignment $curriculum_fee_assignment): JsonResponse
+    public function destroy(Request $request, FeeStructure $fee_structure, CurriculumFeeStructure $curriculum_fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
-        abort_if($curriculum_fee_assignment->fee_template_id !== $fee_template->id, 404);
+        abort_if($curriculum_fee_structure->fee_structure_id !== $fee_structure->id, 404);
 
         return response()->json([
             'message' => 'Fee assignments cannot be deleted after creation. Create a replacement template instead.',
@@ -433,7 +433,7 @@ class CurriculumFeeAssignmentsController extends Controller
         return $ratios;
     }
 
-    private function transform(CurriculumFeeAssignment $assignment): array
+    private function transform(CurriculumFeeStructure $assignment): array
     {
         $mapping = $assignment->courseCurriculum;
         $department = $assignment->department;
@@ -447,8 +447,8 @@ class CurriculumFeeAssignmentsController extends Controller
             'course_code' => $mapping?->course?->code,
             'course_name' => $mapping?->course?->name,
             'assignment_target_name' => $department?->name ?? $mapping?->course?->name,
-            'fee_template_id' => $assignment->fee_template_id,
-            'fee_template_name' => $assignment->feeTemplate?->name,
+            'fee_structure_id' => $assignment->fee_structure_id,
+            'fee_structure_name' => $assignment->feeStructure?->name,
             'course_curriculum_name' => $mapping?->curriculum
                 ? trim($mapping->curriculum->code.' '.$mapping->curriculum->name)
                 : null,
@@ -463,7 +463,7 @@ class CurriculumFeeAssignmentsController extends Controller
             'is_approved' => (bool) $assignment->is_approved,
             'approved_at' => $assignment->approved_at,
             'child_assignments' => $assignment->relationLoaded('childAssignments')
-                ? $assignment->childAssignments->map(fn (CurriculumFeeAssignment $child) => [
+                ? $assignment->childAssignments->map(fn (CurriculumFeeStructure $child) => [
                     'id' => $child->id,
                     'academic_session_id' => $child->academic_session_id,
                     'academic_session_name' => $child->academicSession?->name,

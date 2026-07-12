@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreFeeTemplateRequest;
-use App\Http\Requests\UpdateFeeTemplateRequest;
-use App\Models\CurriculumFeeAssignment;
-use App\Models\FeeTemplate;
+use App\Http\Requests\StoreFeeStructureRequest;
+use App\Http\Requests\UpdateFeeStructureRequest;
+use App\Models\CurriculumFeeStructure;
+use App\Models\FeeStructure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\Traits\PaginationMeta;
 
-class FeeTemplatesController extends Controller
+class FeeStructuresController extends Controller
 {
     use PaginationMeta;
     public function index(Request $request): JsonResponse
@@ -31,7 +31,7 @@ class FeeTemplatesController extends Controller
             'updated_at' => 'updated_at',
         ];
 
-        $templates = FeeTemplate::query()
+        $templates = FeeStructure::query()
             ->withCount('items')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
@@ -47,7 +47,7 @@ class FeeTemplatesController extends Controller
             ->withQueryString();
 
         return response()->json([
-            'data' => $templates->getCollection()->map(fn (FeeTemplate $template) => $this->transform($template))->values(),
+            'data' => $templates->getCollection()->map(fn (FeeStructure $template) => $this->transform($template))->values(),
             'meta' => $this->paginationMeta($templates, [
                 'q' => $search,
                 'status' => $status,
@@ -57,9 +57,9 @@ class FeeTemplatesController extends Controller
         ]);
     }
 
-    public function store(StoreFeeTemplateRequest $request): JsonResponse
+    public function store(StoreFeeStructureRequest $request): JsonResponse
     {
-        $template = FeeTemplate::create([
+        $template = FeeStructure::create([
             'code' => $request->input('code'),
             'name' => $request->input('name'),
             'type' => $request->input('type', 'fees'),
@@ -71,63 +71,63 @@ class FeeTemplatesController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Fee template created successfully.',
+            'message' => 'Fee structure created successfully.',
             'data' => $this->transform($template),
         ], 201);
     }
 
-    public function show(Request $request, FeeTemplate $fee_template): JsonResponse
+    public function show(Request $request, FeeStructure $fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $fee_template->loadCount('items');
+        $fee_structure->loadCount('items');
 
         return response()->json([
-            'data' => $this->transform($fee_template),
+            'data' => $this->transform($fee_structure),
         ]);
     }
 
-    public function update(UpdateFeeTemplateRequest $request, FeeTemplate $fee_template): JsonResponse
+    public function update(UpdateFeeStructureRequest $request, FeeStructure $fee_structure): JsonResponse
     {
-        if ($this->isLocked($fee_template)) {
+        if ($this->isLocked($fee_structure)) {
             return response()->json([
                 'status_code' => 422,
-                'message' => 'This fee template has already been assigned or issued. It cannot be modified.',
+                'message' => 'This fee structure has already been assigned or issued. It cannot be modified.',
             ], 422);
         }
 
-        $fee_template->update([
+        $fee_structure->update([
             ...$request->validated(),
             'updated_by' => $request->user()?->id,
         ]);
 
-        $fee_template->loadCount('items');
+        $fee_structure->loadCount('items');
 
         return response()->json([
-            'message' => 'Fee template updated successfully.',
-            'data' => $this->transform($fee_template),
+            'message' => 'Fee structure updated successfully.',
+            'data' => $this->transform($fee_structure),
         ]);
     }
 
-    public function destroy(Request $request, FeeTemplate $fee_template): JsonResponse
+    public function destroy(Request $request, FeeStructure $fee_structure): JsonResponse
     {
         abort_unless($request->user()?->can('finance.delete'), 403);
 
-        if ($this->isLocked($fee_template)) {
+        if ($this->isLocked($fee_structure)) {
             return response()->json([
                 'status_code' => 422,
-                'message' => 'This fee template has already been assigned or issued. It cannot be deleted.',
+                'message' => 'This fee structure has already been assigned or issued. It cannot be deleted.',
             ], 422);
         }
 
-        $fee_template->delete();
+        $fee_structure->delete();
 
         return response()->json([
-            'message' => 'Fee template deleted successfully.',
+            'message' => 'Fee structure deleted successfully.',
         ]);
     }
 
-    private function transform(FeeTemplate $template): array
+    private function transform(FeeStructure $template): array
     {
         $isAssigned = $this->isAssigned($template);
         $isLocked = $isAssigned || (bool) $template->is_issued;
@@ -150,14 +150,14 @@ class FeeTemplatesController extends Controller
         ];
     }
 
-    private function isAssigned(FeeTemplate $template): bool
+    private function isAssigned(FeeStructure $template): bool
     {
-        return CurriculumFeeAssignment::query()
-            ->where('fee_template_id', $template->id)
+        return CurriculumFeeStructure::query()
+            ->where('fee_structure_id', $template->id)
             ->exists();
     }
 
-    private function isLocked(FeeTemplate $template): bool
+    private function isLocked(FeeStructure $template): bool
     {
         return (bool) $template->is_issued || $this->isAssigned($template);
     }

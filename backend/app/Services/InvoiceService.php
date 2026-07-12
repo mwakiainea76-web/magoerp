@@ -7,7 +7,7 @@ use App\Enums\StudentStatus;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\CourseCurriculum;
-use App\Models\CurriculumFeeAssignment;
+use App\Models\CurriculumFeeStructure;
 use App\Models\Hostel;
 use App\Models\Invoice;
 use App\Models\InvoiceLineItem;
@@ -80,10 +80,10 @@ class InvoiceService
                 return $existingInvoice;
             }
 
-            $assignment = CurriculumFeeAssignment::query()
+            $assignment = CurriculumFeeStructure::query()
                 ->when(
                     $invoiceTemplateId,
-                    fn ($q) => $q->whereHas('feeTemplate', fn ($q) => $q->where('id', $invoiceTemplateId))
+                    fn ($q) => $q->whereHas('feeStructure', fn ($q) => $q->where('id', $invoiceTemplateId))
                 )
                 ->where(function ($query) use ($courseCurriculumId, $departmentId) {
                     $query->where('course_curriculum_id', $courseCurriculumId);
@@ -100,24 +100,24 @@ class InvoiceService
                         ->orWhereHas('academicSession', fn ($sessionQuery) => $sessionQuery
                             ->where('academic_year_id', $targetSession->academic_year_id));
                 })
-                ->whereIn('year_level', [$billingYearLevel, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
+                ->whereIn('year_level', [$billingYearLevel, CurriculumFeeStructure::ALL_YEAR_LEVELS])
                 ->where('session_number', $billingSessionNumber)
                 ->where('is_approved', true)
-                ->with(['feeTemplate.items' => fn ($q) => $q->where('is_active', true)->where('amount', '>', 0)])
+                ->with(['feeStructure.items' => fn ($q) => $q->where('is_active', true)->where('amount', '>', 0)])
                 ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])
                 ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$billingYearLevel])
                 ->orderByRaw('academic_session_id = ? desc', [$targetSession->id])
                 ->first();
 
-            if (!$assignment?->feeTemplate) {
+            if (!$assignment?->feeStructure) {
                 throw ValidationException::withMessages([
-                    'fee_template' => 'No approved fee template is assigned to this course for the current session, year level, and session number.',
+                    'fee_structure' => 'No approved fee structure is assigned to this course for the current session, year level, and session number.',
                 ]);
             }
 
-            if ($assignment->feeTemplate->items->isEmpty()) {
+            if ($assignment->feeStructure->items->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'fee_template' => 'The assigned fee template has no active fee components.',
+                    'fee_structure' => 'The assigned fee structure has no active fee components.',
                 ]);
             }
 
@@ -125,7 +125,7 @@ class InvoiceService
                 'invoice_number'      => Invoice::generateInvoiceNumber(),
                 'student_id'          => $student->id,
                 'academic_session_id' => $targetSession->id,
-                'fee_template_id'     => $assignment->fee_template_id,
+                'fee_structure_id'     => $assignment->fee_structure_id,
                 'invoice_type'        => 'fees',
                 'status'              => 'issued',
                 'issue_date'          => now()->toDateString(),
@@ -136,7 +136,7 @@ class InvoiceService
                 'created_by'          => $createdBy,
             ]);
 
-            $templateItems = $assignment->feeTemplate->items->values();
+            $templateItems = $assignment->feeStructure->items->values();
             $templateTotal = (float) $templateItems->sum('amount');
             $invoiceTotal = $assignment->issuance_type === 'per_year'
                 ? (float) $assignment->split_amount
@@ -151,15 +151,15 @@ class InvoiceService
 
                 InvoiceLineItem::create([
                     'invoice_id' => $invoice->id,
-                    'fee_template_item_id' => $item->id,
+                    'fee_structure_item_id' => $item->id,
                     'name' => $item->name,
                     'description' => $item->description,
                     'amount' => $lineAmount,
                     'quantity' => 1,
                     'total_amount' => $lineAmount,
                     'snapshot_data' => [
-                        'template_code' => $assignment->feeTemplate->code,
-                        'template_name' => $assignment->feeTemplate->name,
+                        'template_code' => $assignment->feeStructure->code,
+                        'template_name' => $assignment->feeStructure->name,
                         'item_name' => $item->name,
                         'template_item_amount' => (float) $item->amount,
                         'billed_item_amount' => $lineAmount,
@@ -175,8 +175,8 @@ class InvoiceService
                 ]);
             }
 
-            if (!$assignment->feeTemplate->is_issued) {
-                $assignment->feeTemplate->update(['is_issued' => true]);
+            if (!$assignment->feeStructure->is_issued) {
+                $assignment->feeStructure->update(['is_issued' => true]);
             }
 
             $invoice->recalculateTotals();
@@ -261,7 +261,7 @@ class InvoiceService
 
             InvoiceLineItem::create([
                 'invoice_id'           => $invoice->id,
-                'fee_template_item_id' => null,
+                'fee_structure_item_id' => null,
                 'name'                 => "Hostel Accommodation — {$hostel->name}",
                 'description'          => null,
                 'amount'               => (float) $hostel->session_fee_amount,
@@ -415,7 +415,7 @@ class InvoiceService
                 'invoice_number' => Invoice::generateInvoiceNumber(),
                 'student_id' => $student->id,
                 'academic_session_id' => $targetSession->id,
-                'fee_template_id' => null,
+                'fee_structure_id' => null,
                 'invoice_type' => $chargeType,
                 'status' => 'issued',
                 'issue_date' => now()->toDateString(),
@@ -428,7 +428,7 @@ class InvoiceService
 
             InvoiceLineItem::create([
                 'invoice_id' => $invoice->id,
-                'fee_template_item_id' => null,
+                'fee_structure_item_id' => null,
                 'name' => $label,
                 'description' => $description,
                 'amount' => $amount,

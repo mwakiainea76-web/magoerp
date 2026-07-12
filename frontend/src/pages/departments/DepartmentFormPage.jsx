@@ -2,7 +2,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
@@ -11,7 +11,8 @@ import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { useDepartmentsApi } from "@/hooks/useDepartmentsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
-import { bodyTextClassName, labelClassName, inputTextClassName, fieldClassName, textAreaClassName } from "@/lib/styles";
+import { getApiErrorMessage } from "@/lib/api/authClient";
+import { bodyTextClassName, labelClassName, textAreaClassName } from "@/lib/styles";
 
 const departmentSchema = yup.object({
   code: yup
@@ -40,7 +41,6 @@ function normalizePayload(values) {
 
 export function DepartmentFormPage() {
   const { departmentId } = useParams();
-  const navigate = useNavigate();
   const departmentsApi = useDepartmentsApi();
   const lookupApi = useLookupApi();
   const isEdit = Boolean(departmentId);

@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
-use App\Models\CurriculumFeeAssignment;
-use App\Models\FeeTemplate;
+use App\Models\CurriculumFeeStructure;
+use App\Models\FeeStructure;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\StudentAccountBalance;
@@ -27,8 +27,8 @@ class FinanceHealthController extends Controller
         $checks = [];
 
         // 1. Fee Structures Published
-        $publishedStructures = FeeTemplate::where('is_issued', true)->count();
-        $totalStructures = FeeTemplate::count();
+        $publishedStructures = FeeStructure::where('is_issued', true)->count();
+        $totalStructures = FeeStructure::count();
         $checks[] = [
             'label' => 'Fee Structures Published',
             'status' => $publishedStructures > 0 ? 'pass' : 'warning',
@@ -54,7 +54,7 @@ class FinanceHealthController extends Controller
         }
 
         // 3. Programmes Missing Fee Structures
-        $curriculaWithFees = CurriculumFeeAssignment::where('is_approved', true)
+        $curriculaWithFees = CurriculumFeeStructure::where('is_approved', true)
             ->where('dormant', false)
             ->pluck('course_curriculum_id')
             ->unique();
@@ -71,7 +71,7 @@ class FinanceHealthController extends Controller
         ];
 
         // 4. Students Missing Fee Assignments
-        $curriculaWithApprovedAssignments = CurriculumFeeAssignment::query()
+        $curriculaWithApprovedAssignments = CurriculumFeeStructure::query()
             ->where('is_approved', true)
             ->where('dormant', false)
             ->whereNotNull('course_curriculum_id')
@@ -210,7 +210,7 @@ class FinanceHealthController extends Controller
         ];
 
         // Published fee structures
-        $publishedCount = FeeTemplate::where('is_issued', true)->count();
+        $publishedCount = FeeStructure::where('is_issued', true)->count();
         $issues[] = [
             'check' => 'Published Fee Structures',
             'status' => $publishedCount > 0 ? 'pass' : 'fail',
@@ -219,7 +219,7 @@ class FinanceHealthController extends Controller
         ];
 
         // Assignments complete
-        $assignmentsCount = CurriculumFeeAssignment::where('is_approved', true)
+        $assignmentsCount = CurriculumFeeStructure::where('is_approved', true)
             ->where('dormant', false)
             ->count();
         $issues[] = [

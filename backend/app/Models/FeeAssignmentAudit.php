@@ -17,7 +17,7 @@ class FeeAssignmentAudit extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'curriculum_fee_assignment_id',
+        'curriculum_fee_structure_id',
         'modified_by',
         'field',
         'old_value',
@@ -35,7 +35,7 @@ class FeeAssignmentAudit extends Model
 
     public function assignment(): BelongsTo
     {
-        return $this->belongsTo(CurriculumFeeAssignment::class, 'curriculum_fee_assignment_id');
+        return $this->belongsTo(CurriculumFeeStructure::class, 'curriculum_fee_structure_id');
     }
 
     public function modifier(): BelongsTo

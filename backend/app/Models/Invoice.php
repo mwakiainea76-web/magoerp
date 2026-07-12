@@ -25,7 +25,7 @@ class Invoice extends Model
         'course_curriculum_id',
         'course_id',
         'department_id',
-        'fee_template_id',
+        'fee_structure_id',
         'invoice_type',
         'status',
         'issue_date',

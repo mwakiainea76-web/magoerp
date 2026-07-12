@@ -30,26 +30,25 @@ const CurriculumMappingsPage = lazy(() => import("@/pages/curriculums/Curriculum
 const CurriculumsPage = lazy(() => import("@/pages/curriculums/CurriculumsPage").then((module) => ({ default: module.CurriculumsPage })));
 const DepartmentFormPage = lazy(() => import("@/pages/departments/DepartmentFormPage").then((module) => ({ default: module.DepartmentFormPage })));
 const DepartmentsPage = lazy(() => import("@/pages/departments/DepartmentsPage").then((module) => ({ default: module.DepartmentsPage })));
-const BillingPage = lazy(() => import("@/pages/finance/BillingPage").then((module) => ({ default: module.BillingPage })));
+const BillingPage = lazy(() => import("@/pages/finance/fee-invoices/BillingPage").then((module) => ({ default: module.BillingPage })));
 const FinanceDashboardPage = lazy(() => import("@/pages/finance/FinanceDashboardPage").then((module) => ({ default: module.FinanceDashboardPage })));
 const FinanceReportsPage = lazy(() => import("@/pages/finance/FinanceReportsPage").then((module) => ({ default: module.FinanceReportsPage })));
-const InvoicesPage = lazy(() => import("@/pages/finance/InvoicesPage").then((module) => ({ default: module.InvoicesPage })));
+const InvoicesPage = lazy(() => import("@/pages/finance/fee-invoices/InvoicesPage").then((module) => ({ default: module.InvoicesPage })));
 const LedgerPage = lazy(() => import("@/pages/finance/LedgerPage").then((module) => ({ default: module.LedgerPage })));
-const PaymentsPage = lazy(() => import("@/pages/finance/PaymentsPage").then((module) => ({ default: module.PaymentsPage })));
-const StudentFeeStatementPage = lazy(() => import("@/pages/finance/StudentFeeStatementPage").then((module) => ({ default: module.StudentFeeStatementPage })));
-const AllFeeAssignmentsPage = lazy(() => import("@/pages/feeTemplates/AllFeeAssignmentsPage").then((module) => ({ default: module.AllFeeAssignmentsPage })));
-const FeeTemplateAssignmentsPage = lazy(() => import("@/pages/feeTemplates/FeeTemplateAssignmentsPage").then((module) => ({ default: module.FeeTemplateAssignmentsPage })));
-const FeeTemplateFormPage = lazy(() => import("@/pages/feeTemplates/FeeTemplateFormPage").then((module) => ({ default: module.FeeTemplateFormPage })));
-const FeeTemplateItemsPage = lazy(() => import("@/pages/feeTemplates/FeeTemplateItemsPage").then((module) => ({ default: module.FeeTemplateItemsPage })));
-const FeeTemplatesPage = lazy(() => import("@/pages/feeTemplates/FeeTemplatesPage").then((module) => ({ default: module.FeeTemplatesPage })));
-const FeeStructureDetailPage = lazy(() => import("@/pages/finance/FeeStructureDetailPage").then((module) => ({ default: module.FeeStructureDetailPage })));
-const FeeStructureListPage = lazy(() => import("@/pages/finance/FeeStructureListPage").then((module) => ({ default: module.FeeStructureListPage })));
-const FeeStructureWizardPage = lazy(() => import("@/pages/finance/FeeStructureWizardPage").then((module) => ({ default: module.FeeStructureWizardPage })));
-const StudentAccountsPage = lazy(() => import("@/pages/finance/StudentAccountsPage").then((module) => ({ default: module.StudentAccountsPage })));
-const StudentAccountDetailPage = lazy(() => import("@/pages/finance/StudentAccountDetailPage").then((module) => ({ default: module.StudentAccountDetailPage })));
-const FinanceActionsPage = lazy(() => import("@/pages/finance/FinanceActionsPage").then((module) => ({ default: module.FinanceActionsPage })));
-const CohortBillingPage = lazy(() => import("@/pages/finance/CohortBillingPage").then((module) => ({ default: module.CohortBillingPage })));
+const PaymentsPage = lazy(() => import("@/pages/finance/payment/PaymentsPage").then((module) => ({ default: module.PaymentsPage })));
+const StudentFeeStatementPage = lazy(() => import("@/pages/finance/student-accounts/StudentFeeStatementPage").then((module) => ({ default: module.StudentFeeStatementPage })));
+const AllFeeAssignmentsPage = lazy(() => import("@/pages/finance/fee-structure/AllFeeAssignmentsPage").then((module) => ({ default: module.AllFeeAssignmentsPage })));
+const FeeStructureAssignmentsPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureAssignmentsPage").then((module) => ({ default: module.FeeStructureAssignmentsPage })));
+const FeeStructureItemsPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureItemsPage").then((module) => ({ default: module.FeeStructureItemsPage })));
+const FeeStructureDetailPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureDetailPage").then((module) => ({ default: module.FeeStructureDetailPage })));
+const FeeStructureListPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureListPage").then((module) => ({ default: module.FeeStructureListPage })));
+const FeeStructureWizardPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureWizardPage").then((module) => ({ default: module.FeeStructureWizardPage })));
+const StudentAccountsPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountsPage").then((module) => ({ default: module.StudentAccountsPage })));
+const StudentAccountDetailPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountDetailPage").then((module) => ({ default: module.StudentAccountDetailPage })));
+const FinanceActionsPage = lazy(() => import("@/pages/finance/payment/FinanceActionsPage").then((module) => ({ default: module.FinanceActionsPage })));
+const CohortBillingPage = lazy(() => import("@/pages/finance/fee-invoices/CohortBillingPage").then((module) => ({ default: module.CohortBillingPage })));
 const CourseFeeAssignmentPage = lazy(() => import("@/pages/finance/CourseFeeAssignmentPage").then((module) => ({ default: module.CourseFeeAssignmentPage })));
+const CourseFeeAssignPage = lazy(() => import("@/pages/finance/CourseFeeAssignPage").then((module) => ({ default: module.CourseFeeAssignPage })));
 const FinanceHealthPage = lazy(() => import("@/pages/finance/FinanceHealthPage").then((module) => ({ default: module.FinanceHealthPage })));
 const FinanceReadinessPage = lazy(() => import("@/pages/finance/FinanceReadinessPage").then((module) => ({ default: module.FinanceReadinessPage })));
 const FinanceSettingsPage = lazy(() => import("@/pages/finance/FinanceSettingsPage").then((module) => ({ default: module.FinanceSettingsPage })));
@@ -78,7 +77,7 @@ const CourseChangePage = lazy(() => import("@/pages/students/CourseChangePage").
 const CourseTransfersPage = lazy(() => import("@/pages/students/CourseTransfersPage").then((module) => ({ default: module.CourseTransfersPage })));
 const StudentFormPage = lazy(() => import("@/pages/students/StudentFormPage").then((module) => ({ default: module.StudentFormPage })));
 const StudentsPage = lazy(() => import("@/pages/students/StudentsPage").then((module) => ({ default: module.StudentsPage })));
-const StudentsNotInvoicedPage = lazy(() => import("@/pages/finance/StudentsNotInvoicedPage").then((module) => ({ default: module.StudentsNotInvoicedPage })));
+const StudentsNotInvoicedPage = lazy(() => import("@/pages/finance/fee-invoices/StudentsNotInvoicedPage").then((module) => ({ default: module.StudentsNotInvoicedPage })));
 const UnitFormPage = lazy(() => import("@/pages/units/UnitFormPage").then((module) => ({ default: module.UnitFormPage })));
 const UnitsPage = lazy(() => import("@/pages/units/UnitsPage").then((module) => ({ default: module.UnitsPage })));
 
@@ -137,13 +136,11 @@ export const AdminRoutes = (
     <Route path="/admin/finance/ledger" element={<LedgerPage />} />
     <Route path="/admin/finance/billing" element={<BillingPage />} />
     <Route path="/admin/finance/invoices" element={<InvoicesPage />} />
-    <Route path="/admin/finance/fee-templates" element={<FeeTemplatesPage />} />
-    <Route path="/admin/finance/fee-templates/create" element={<FeeTemplateFormPage />} />
-    <Route path="/admin/finance/fee-templates/:templateId/edit" element={<FeeTemplateFormPage />} />
-    <Route path="/admin/finance/fee-templates/:templateId/assign" element={<FeeTemplateAssignmentsPage />} />
+    <Route path="/admin/finance/fee-structures/:templateId/assign" element={<FeeStructureAssignmentsPage />} />
     <Route path="/admin/finance/fee-assignments" element={<AllFeeAssignmentsPage />} />
     <Route path="/admin/finance/course-fee" element={<CourseFeeAssignmentPage />} />
-    <Route path="/admin/finance/fee-templates/items" element={<FeeTemplateItemsPage />} />
+    <Route path="/admin/finance/course-fee/:templateId/assign" element={<CourseFeeAssignPage />} />
+    <Route path="/admin/finance/fee-structures/items" element={<FeeStructureItemsPage />} />
     <Route path="/admin/staffs" element={<StaffsPage />} />
     <Route path="/admin/staffs/create" element={<StaffFormPage />} />
     <Route path="/admin/staffs/reset-password" element={<PasswordResetPage mode="staff" />} />

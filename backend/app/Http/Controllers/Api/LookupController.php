@@ -12,7 +12,7 @@ use App\Models\Curriculum;
 use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\Departments;
-use App\Models\FeeTemplate;
+use App\Models\FeeStructure;
 use App\Models\Role;
 use App\Models\staffs;
 use App\Models\Student;
@@ -283,7 +283,7 @@ class LookupController extends Controller
     {
         abort_unless($request->user()?->can('finance.view'), 403);
 
-        $templates = FeeTemplate::query()
+        $templates = FeeStructure::query()
             ->where('is_active', true)
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
@@ -295,7 +295,7 @@ class LookupController extends Controller
             ->orderBy('name')
             ->limit($limit)
             ->get()
-            ->map(fn (FeeTemplate $template) => [
+            ->map(fn (FeeStructure $template) => [
                 'id' => $template->id,
                 'label' => trim($template->code . ' ' . $template->name),
             ])

@@ -9,8 +9,8 @@ use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
 use App\Models\AcademicYear;
 use App\Models\CourseEnrolment;
-use App\Models\CurriculumFeeAssignment;
-use App\Models\FeeTemplate;
+use App\Models\CurriculumFeeStructure;
+use App\Models\FeeStructure;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\InvoicePaymentAllocation;
@@ -256,7 +256,7 @@ class InvoicesController extends Controller
         $courseCurriculum = CourseCurriculum::query()->with('course:id,department_id')->find($courseCurriculumId);
         $departmentId = $courseCurriculum?->course?->department_id;
 
-        $templates = CurriculumFeeAssignment::query()
+        $templates = CurriculumFeeStructure::query()
             ->where(function ($query) use ($courseCurriculumId, $departmentId) {
                 $query->where('course_curriculum_id', $courseCurriculumId);
                 if ($departmentId) {
@@ -267,25 +267,25 @@ class InvoicesController extends Controller
                 }
             })
             ->where('is_approved', true)
-            ->whereHas('feeTemplate', fn ($q) => $q->where('is_active', true))
-            ->with(['feeTemplate' => function ($q) {
+            ->whereHas('feeStructure', fn ($q) => $q->where('is_active', true))
+            ->with(['feeStructure' => function ($q) {
                 $q->where('is_active', true)
                     ->with(['activeItems' => function ($q) {
                         $q->where('amount', '>', 0);
                     }]);
             }])
             ->get()
-            ->filter(fn ($cit) => $cit->feeTemplate && $cit->feeTemplate->activeItems->isNotEmpty())
+            ->filter(fn ($cit) => $cit->feeStructure && $cit->feeStructure->activeItems->isNotEmpty())
             ->values()
             ->map(fn ($cit) => [
                 'id' => $cit->id,
-                'fee_template_id' => $cit->feeTemplate->id,
-                'template_code' => $cit->feeTemplate->code,
-                'template_name' => $cit->feeTemplate->name,
+                'fee_structure_id' => $cit->feeStructure->id,
+                'template_code' => $cit->feeStructure->code,
+                'template_name' => $cit->feeStructure->name,
                 'year_level' => $cit->year_level,
                 'session_number' => $cit->session_number,
-                'total_amount' => (float) $cit->feeTemplate->activeItems->sum('amount'),
-                'items' => $cit->feeTemplate->activeItems->map(fn ($i) => [
+                'total_amount' => (float) $cit->feeStructure->activeItems->sum('amount'),
+                'items' => $cit->feeStructure->activeItems->map(fn ($i) => [
                     'id' => $i->id,
                     'name' => $i->name,
                     'amount' => (float) $i->amount,
@@ -629,7 +629,7 @@ class InvoicesController extends Controller
         if ($includeDormant && $sessionIds !== [] && $enrolment?->course_curriculum_id) {
             $studentYearLevel = $latestSessionEnrolment?->year_of_study ?? 1;
             $departmentId = $enrolment->courseCurriculum?->course?->department_id;
-            $dormantFees = CurriculumFeeAssignment::query()
+            $dormantFees = CurriculumFeeStructure::query()
                 ->where(function ($query) use ($enrolment, $departmentId) {
                     $query->where('course_curriculum_id', $enrolment->course_curriculum_id);
                     if ($departmentId) {
@@ -639,22 +639,22 @@ class InvoicesController extends Controller
                         });
                     }
                 })
-                ->whereIn('year_level', [$studentYearLevel, CurriculumFeeAssignment::ALL_YEAR_LEVELS])
+                ->whereIn('year_level', [$studentYearLevel, CurriculumFeeStructure::ALL_YEAR_LEVELS])
                 ->where('issuance_type', 'per_year')
                 ->where('is_approved', true)
                 ->where('dormant', true)
                 ->whereIn('academic_session_id', $sessionIds)
-                ->with(['academicSession:id,name,code', 'feeTemplate:id,code,name'])
+                ->with(['academicSession:id,name,code', 'feeStructure:id,code,name'])
                 ->orderByRaw('course_curriculum_id = ? desc', [$enrolment->course_curriculum_id])
                 ->orderByRaw('CASE WHEN year_level = ? THEN 0 ELSE 1 END', [$studentYearLevel])
                 ->get()
                 ->unique('academic_session_id')
-                ->map(fn (CurriculumFeeAssignment $assignment) => [
+                ->map(fn (CurriculumFeeStructure $assignment) => [
                     'assignment_id' => $assignment->id,
                     'session_id' => $assignment->academic_session_id,
                     'session_name' => $assignment->academicSession?->name,
                     'session_code' => $assignment->academicSession?->code,
-                    'template_name' => $assignment->feeTemplate?->name,
+                    'template_name' => $assignment->feeStructure?->name,
                     'amount' => (float) $assignment->split_amount,
                     'status' => 'dormant',
                 ])
@@ -819,7 +819,7 @@ class InvoicesController extends Controller
 
         $validated = $request->validate([
             'student_id' => ['required', 'string', 'exists:students,id'],
-            'fee_template_id' => ['nullable', 'string', 'exists:fee_templates,id'],
+            'fee_structure_id' => ['nullable', 'string', 'exists:fee_structures,id'],
         ]);
 
         $student = Student::findOrFail($validated['student_id']);
@@ -829,7 +829,7 @@ class InvoicesController extends Controller
                 $student,
                 $request->user()?->id,
                 null,
-                $validated['fee_template_id'] ?? null,
+                $validated['fee_structure_id'] ?? null,
             );
         } catch (ValidationException $e) {
             return response()->json([

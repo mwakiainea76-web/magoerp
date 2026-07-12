@@ -23,11 +23,11 @@ import { useFeeTemplateItemsApi } from "@/hooks/useFeeTemplateItemsApi";
 import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 import {
-  defaultFeeTemplateItemValues,
-  FeeTemplateItemForm,
-  feeTemplateItemSchema,
-  normalizeFeeTemplateItemPayload,
-} from "@/pages/feeTemplates/FeeTemplateItemForm";
+  defaultFeeStructureItemValues,
+  FeeStructureItemForm,
+  feeStructureItemSchema,
+  normalizeFeeStructureItemPayload,
+} from "./FeeStructureItemForm";
 
 function formatCurrency(amount) {
   return `Ksh ${Number(amount || 0).toLocaleString(undefined, {
@@ -36,7 +36,7 @@ function formatCurrency(amount) {
   })}`;
 }
 
-export function FeeTemplateItemsPage() {
+export function FeeStructureItemsPage() {
   const itemsApi = useFeeTemplateItemsApi();
   const templatesApi = useFeeTemplatesApi();
   const [searchParams] = useSearchParams();
@@ -116,7 +116,7 @@ export function FeeTemplateItemsPage() {
 
       try {
         const response = await itemsApi.list({
-          fee_template_id: templateId,
+          fee_structure_id: templateId,
           page,
           per_page: perPage,
         });

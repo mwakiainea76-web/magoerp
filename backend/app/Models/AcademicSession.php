@@ -47,7 +47,7 @@ class AcademicSession extends Model
 
         static::saved(function (AcademicSession $session) {
             if ($session->is_active && $session->wasChanged('is_active')) {
-                CurriculumFeeAssignment::query()
+                CurriculumFeeStructure::query()
                     ->where('academic_session_id', $session->id)
                     ->where('dormant', true)
                     ->update(['dormant' => false]);

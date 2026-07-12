@@ -15,7 +15,7 @@ import {
 import toast from "react-hot-toast";
 
 import { useStudentDashboardApi } from "@/hooks/useStudentDashboardApi";
-import { useCurriculumFeeAssignmentsApi } from "@/hooks/useCurriculumFeeAssignmentsApi";
+import { useCurriculumFeeStructuresApi } from "@/hooks/useCurriculumFeeStructuresApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const currency = (amount) => {
@@ -31,7 +31,7 @@ const currency = (amount) => {
 
 export function StudentDashboard() {
   const { dashboard, registerSession, registerUnits } = useStudentDashboardApi();
-  const feeAssignmentsApi = useCurriculumFeeAssignmentsApi();
+  const feeAssignmentsApi = useCurriculumFeeStructuresApi();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -98,7 +98,7 @@ export function StudentDashboard() {
 
     setActivatingFee(true);
     try {
-      await feeAssignmentsApi.update(assignment.fee_template_id, assignment.id, { is_approved: true });
+      await feeAssignmentsApi.update(assignment.fee_structure_id, assignment.id, { is_approved: true });
       toast.success("Fee assignment activated. You can register the session now.");
       setRegisterErrors(null);
       await loadDashboard();
@@ -586,7 +586,7 @@ export function StudentDashboard() {
                   {data?.pending_fee_assignment?.can_activate ? (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
                       <p className="text-sm font-medium text-amber-900">
-                        {data.pending_fee_assignment.fee_template_name ?? "Fee assignment"} is assigned but not active.
+                        {data.pending_fee_assignment.fee_structure_name ?? "Fee assignment"} is assigned but not active.
                       </p>
                       <button
                         type="button"

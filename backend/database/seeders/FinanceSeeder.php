@@ -5,11 +5,11 @@ namespace Database\Seeders;
 use App\Models\AcademicSession;
 use App\Models\Course;
 use App\Models\CourseCurriculum;
-use App\Models\CurriculumFeeAssignment;
+use App\Models\CurriculumFeeStructure;
 use App\Models\Invoice;
 use App\Models\InvoiceLineItem;
-use App\Models\FeeTemplate;
-use App\Models\FeeTemplateItem;
+use App\Models\FeeStructure;
+use App\Models\FeeStructureItem;
 use App\Models\StudentLedgerEntry;
 use App\Models\Payment;
 use App\Models\InvoicePaymentAllocation;
@@ -20,7 +20,7 @@ class FinanceSeeder extends Seeder
 {
     public function run(): void
     {
-        $template = FeeTemplate::updateOrCreate(
+        $template = FeeStructure::updateOrCreate(
             ['code' => 'DIP-FULL-2025'],
             [
                 'name' => 'Diploma Full Fee 2025',
@@ -39,8 +39,8 @@ class FinanceSeeder extends Seeder
 
         $createdItems = [];
         foreach ($items as $item) {
-            $createdItems[] = FeeTemplateItem::updateOrCreate(
-                ['fee_template_id' => $template->id, 'name' => $item['name']],
+            $createdItems[] = FeeStructureItem::updateOrCreate(
+                ['fee_structure_id' => $template->id, 'name' => $item['name']],
                 ['amount' => $item['amount'], 'is_active' => true]
             );
         }
@@ -55,14 +55,14 @@ class FinanceSeeder extends Seeder
             $totalYears = $course->duration_months ? intdiv($course->duration_months, 12) : 1;
             for ($year = 1; $year <= $totalYears; $year++) {
                 for ($sessionNum = 1; $sessionNum <= 2; $sessionNum++) {
-                    CurriculumFeeAssignment::updateOrCreate(
+                    CurriculumFeeStructure::updateOrCreate(
                         [
                             'course_curriculum_id' => $courseCurriculum->id,
                             'year_level' => $year,
                             'session_number' => $sessionNum,
                         ],
                         [
-                            'fee_template_id' => $template->id,
+                            'fee_structure_id' => $template->id,
                             'academic_session_id' => $session?->id,
                             'is_approved' => true,
                         ]
@@ -89,7 +89,7 @@ class FinanceSeeder extends Seeder
 
             foreach ($createdItems as $templateItem) {
                 InvoiceLineItem::updateOrCreate(
-                    ['invoice_id' => $invoice->id, 'fee_template_item_id' => $templateItem->id],
+                    ['invoice_id' => $invoice->id, 'fee_structure_item_id' => $templateItem->id],
                     [
                         'name' => $templateItem->name,
                         'amount' => $templateItem->amount,

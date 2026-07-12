@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\CourseCurriculum;
-use App\Models\CurriculumFeeAssignment;
+use App\Models\CurriculumFeeStructure;
 use App\Models\AcademicSessionEnrolment;
-use App\Models\FeeTemplate;
+use App\Models\FeeStructure;
 use App\Models\Student;
 use App\Models\Invoice;
 use App\Services\InvoiceService;
@@ -42,23 +42,23 @@ class CohortBillingController extends Controller
         $curriculum = CourseCurriculum::with('course')->findOrFail($validated['course_curriculum_id']);
 
         // Find fee structure
-        $assignment = CurriculumFeeAssignment::where('course_curriculum_id', $validated['course_curriculum_id'])
+        $assignment = CurriculumFeeStructure::where('course_curriculum_id', $validated['course_curriculum_id'])
             ->where('academic_session_id', $session->id)
             ->where('year_level', $validated['year_level'])
             ->where('dormant', false)
             ->where('is_approved', true)
-            ->with('feeTemplate.items')
+            ->with('feeStructure.items')
             ->first();
 
         if (!$assignment) {
             // Try per_year parent
-            $assignment = CurriculumFeeAssignment::where('course_curriculum_id', $validated['course_curriculum_id'])
+            $assignment = CurriculumFeeStructure::where('course_curriculum_id', $validated['course_curriculum_id'])
                 ->whereNull('academic_session_id')
                 ->where('year_level', $validated['year_level'])
                 ->where('issuance_type', 'per_year')
                 ->where('dormant', false)
                 ->where('is_approved', true)
-                ->with('feeTemplate.items')
+                ->with('feeStructure.items')
                 ->first();
         }
 
@@ -81,13 +81,13 @@ class CohortBillingController extends Controller
         $skipped = [];
 
         if ($assignment) {
-            $template = $assignment->feeTemplate;
+            $template = $assignment->feeStructure;
             $amountPerStudent = (float) ($template?->items()->where('is_active', true)->sum('amount') ?? 0);
 
             foreach ($students as $enrolment) {
                 $existingInvoice = Invoice::where('student_id', $enrolment->student_id)
                     ->where('academic_session_id', $session->id)
-                    ->where('fee_template_id', $template?->id)
+                    ->where('fee_structure_id', $template?->id)
                     ->exists();
 
                 if ($existingInvoice) {
@@ -116,7 +116,7 @@ class CohortBillingController extends Controller
                 'will_generate' => $willGenerate,
                 'total_amount' => round($totalAmount, 2),
                 'has_fee_structure' => $assignment !== null,
-                'fee_structure_name' => $assignment?->feeTemplate?->name,
+                'fee_structure_name' => $assignment?->feeStructure?->name,
                 'skipped' => $skipped,
             ],
         ]);

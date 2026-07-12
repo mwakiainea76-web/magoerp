@@ -47,7 +47,7 @@ export function IssueInvoiceModal({ open, onClose, studentId, invoicesApi, onSuc
 
   function handleTemplateChange(feeTemplateId) {
     setSelectedTemplateId(feeTemplateId);
-    setTemplateItems(feeTemplateId ? (templates.find(t => t.fee_template_id === feeTemplateId)?.items ?? []) : []);
+    setTemplateItems(feeTemplateId ? (templates.find(t => t.fee_structure_id === feeTemplateId)?.items ?? []) : []);
   }
 
   function validate() {
@@ -56,7 +56,7 @@ export function IssueInvoiceModal({ open, onClose, studentId, invoicesApi, onSuc
       if (!penaltyDesc.trim()) errs.penaltyDesc = "Description is required.";
       if (!penaltyAmount || parseFloat(penaltyAmount) <= 0) errs.penaltyAmount = "Amount must be greater than zero.";
     } else {
-      if (!selectedTemplateId) errs.selectedTemplateId = "Select a fee template.";
+      if (!selectedTemplateId) errs.selectedTemplateId = "Select a fee structure.";
     }
     if (!dueDate) errs.dueDate = "Due date is required.";
     setFieldErrors(errs);
@@ -70,13 +70,13 @@ export function IssueInvoiceModal({ open, onClose, studentId, invoicesApi, onSuc
 
     try {
       if (invoiceType === "fee") {
-        const tpl = templates.find(t => t.fee_template_id === selectedTemplateId);
+        const tpl = templates.find(t => t.fee_structure_id === selectedTemplateId);
         await invoicesApi.create({
           student_id: studentId,
-          fee_template_id: selectedTemplateId,
+          fee_structure_id: selectedTemplateId,
           idempotency_key: `issue:${studentId}:${uid}`,
         });
-        onSuccess?.(`Invoice issued from template "${tpl?.template_name || ""}"`);
+        onSuccess?.(`Invoice issued from template "${tpl?.structure_name || ""}"`);
       } else {
         await invoicesApi.createCharge({
           student_id: studentId,
@@ -124,7 +124,7 @@ export function IssueInvoiceModal({ open, onClose, studentId, invoicesApi, onSuc
               <select value={selectedTemplateId} onChange={e => handleTemplateChange(e.target.value)}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-emerald-500">
                 <option value="">Select a template...</option>
-                {templates.map(t => <option key={t.fee_template_id} value={t.fee_template_id}>{t.template_name} ({t.template_code})</option>)}
+                {templates.map(t => <option key={t.fee_structure_id} value={t.fee_structure_id}>{t.structure_name} ({t.structure_code})</option>)}
               </select>
               {fieldErrors.selectedTemplateId && <p className="mt-1 text-[12px] text-red-500">{fieldErrors.selectedTemplateId}</p>}
             </div>

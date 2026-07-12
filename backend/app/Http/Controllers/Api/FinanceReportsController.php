@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\FeeTemplate;
+use App\Models\FeeStructure;
 use App\Models\Invoice;
 use App\Models\Refund;
 use App\Models\Student;
@@ -277,20 +277,20 @@ class FinanceReportsController extends Controller
     {
         $balance = $this->balanceExpression();
         $query = $this->invoiceScope(Invoice::query(), $filters)
-            ->select('fee_template_id', 'invoice_type')
+            ->select('fee_structure_id', 'invoice_type')
             ->selectRaw('COUNT(*) AS invoice_count')
             ->selectRaw('SUM(amount_due) AS invoiced')
             ->selectRaw("SUM(COALESCE((SELECT SUM(invoice_payment_allocations.amount) FROM invoice_payment_allocations INNER JOIN payments ON payments.id = invoice_payment_allocations.payment_id WHERE invoice_payment_allocations.invoice_id = invoices.id AND payments.status = 'completed'), 0)) AS collected")
             ->selectRaw("SUM(CASE WHEN ({$balance}) > 0 THEN ({$balance}) ELSE 0 END) AS outstanding")
-            ->groupBy('fee_template_id', 'invoice_type')
+            ->groupBy('fee_structure_id', 'invoice_type')
             ->orderByDesc('invoiced');
         $collectionTotals = DB::query()->fromSub((clone $query)->reorder(), 'report_totals')
             ->selectRaw('COALESCE(SUM(invoiced), 0) AS invoiced, COALESCE(SUM(collected), 0) AS collected, COALESCE(SUM(outstanding), 0) AS outstanding')
             ->first();
         $paginator = $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
-        $templates = FeeTemplate::query()->whereIn('id', $paginator->getCollection()->pluck('fee_template_id')->filter())->pluck('name', 'id');
+        $templates = FeeStructure::query()->whereIn('id', $paginator->getCollection()->pluck('fee_structure_id')->filter())->pluck('name', 'id');
         $rows = $paginator->getCollection()->map(fn ($row) => [
-            'fee_type' => $templates[$row->fee_template_id] ?? str($row->invoice_type)->headline()->toString(),
+            'fee_type' => $templates[$row->fee_structure_id] ?? str($row->invoice_type)->headline()->toString(),
             'invoice_count' => (int) $row->invoice_count,
             'invoiced' => (float) $row->invoiced,
             'collected' => (float) $row->collected,

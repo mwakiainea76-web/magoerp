@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAcademicSessionRequest;
 use App\Http\Requests\UpdateAcademicSessionRequest;
 use App\Models\AcademicSession;
-use App\Models\CurriculumFeeAssignment;
+use App\Models\CurriculumFeeStructure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -108,7 +108,7 @@ class AcademicSessionsController extends Controller
 
         // Auto-activate dormant fee portions when a session becomes active
         if ($wasActivated && $academic_session->is_active) {
-            $activated = CurriculumFeeAssignment::query()
+            $activated = CurriculumFeeStructure::query()
                 ->where('academic_session_id', $academic_session->id)
                 ->where('dormant', true)
                 ->where('issuance_type', 'per_year')

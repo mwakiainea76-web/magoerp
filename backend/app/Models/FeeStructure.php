@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class FeeTemplate extends Model
+class FeeStructure extends Model
 {
     use HasUuids;
 
@@ -36,17 +36,17 @@ class FeeTemplate extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(FeeTemplateItem::class, 'fee_template_id');
+        return $this->hasMany(FeeStructureItem::class, 'fee_structure_id');
     }
 
     public function activeItems(): HasMany
     {
-        return $this->hasMany(FeeTemplateItem::class, 'fee_template_id')->where('is_active', true);
+        return $this->hasMany(FeeStructureItem::class, 'fee_structure_id')->where('is_active', true);
     }
 
     public function assignments(): HasMany
     {
-        return $this->hasMany(CurriculumFeeAssignment::class, 'fee_template_id');
+        return $this->hasMany(CurriculumFeeStructure::class, 'fee_structure_id');
     }
 
     public function creator(): BelongsTo

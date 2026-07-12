@@ -5,7 +5,7 @@ import { BillingFormShell } from "./BillingFormShell";
 const textareaClassName = "h-24 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-[14px] leading-5 text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-[13px] placeholder:text-[#a8b6c7] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
 
 export function BillingFeeForm({ action, form, onSubmit, onCancel, isSaving, formError, selectedStudent, setSelectedStudent, fetchStudents, feeTemplates, isLoadingTemplates, formatCurrency }) {
-  const selectedTemplateId = form.watch("fee_template_id");
+  const selectedTemplateId = form.watch("fee_structure_id");
   const selectedTemplate = feeTemplates.find((template) => template.id === selectedTemplateId);
 
   return (
@@ -42,11 +42,11 @@ export function BillingFeeForm({ action, form, onSubmit, onCancel, isSaving, for
             <SearchSelect
               options={feeTemplates.map((template) => ({ ...template, label: `${template.code} - ${template.name}` }))}
               value={selectedTemplateId}
-              onChange={(id) => form.setValue("fee_template_id", id, { shouldValidate: true })}
+              onChange={(id) => form.setValue("fee_structure_id", id, { shouldValidate: true })}
               placeholder={isLoadingTemplates ? "Loading..." : "Search fee template"}
               emptyMessage="No fee templates found"
             />
-            {form.formState.errors.fee_template_id?.message ? <p className="mt-1 text-sm text-red-600">{form.formState.errors.fee_template_id.message}</p> : null}
+            {form.formState.errors.fee_structure_id?.message ? <p className="mt-1 text-sm text-red-600">{form.formState.errors.fee_structure_id.message}</p> : null}
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">

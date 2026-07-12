@@ -171,7 +171,7 @@ export function CurriculumMappingsPage() {
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Finance</span>
           <Link
-            to="/admin/finance/fee-templates"
+            to="/admin/finance/fee-structures"
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
           >
             <Link2 className="h-4 w-4" />

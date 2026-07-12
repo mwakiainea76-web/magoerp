@@ -6,13 +6,13 @@ import toast from "react-hot-toast";
 import { FormInput } from "@/components/FormInput";
 import { SearchSelect } from "@/components/SearchSelect";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
-import { useCurriculumFeeAssignmentsApi } from "@/hooks/useCurriculumFeeAssignmentsApi";
+import { useCurriculumFeeStructuresApi } from "@/hooks/useCurriculumFeeStructuresApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const money = (amount) => `Ksh ${Number(amount || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function AllFeeAssignmentsPage() {
-  const api = useCurriculumFeeAssignmentsApi();
+  const api = useCurriculumFeeStructuresApi();
   const sessionsApi = useAcademicSessionsApi();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +90,7 @@ export function AllFeeAssignmentsPage() {
   async function activateAssignment(assignment) {
     setActivationId(assignment.id);
     try {
-      await api.update(assignment.fee_template_id, assignment.id, { is_approved: true });
+      await api.update(assignment.fee_structure_id, assignment.id, { is_approved: true });
       toast.success("Fee assignment activated.");
       await load(search, page, { academic_year_id: academicYearId, academic_session_id: academicSessionId });
     } catch (error) {
@@ -104,9 +104,9 @@ export function AllFeeAssignmentsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-slate-950">Fee Assignments</h1>
-          <p className="mt-1 text-sm text-slate-500">All course fee assignments across fee templates.</p>
+          <p className="mt-1 text-sm text-slate-500">All course fee assignments across fee structures.</p>
         </div>
-        <Link to="/admin/finance/fee-templates" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><FileText className="size-4" />Fee Templates</Link>
+        <Link to="/admin/finance/fee-structures" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><FileText className="size-4" />Fee Structures</Link>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -147,7 +147,7 @@ export function AllFeeAssignmentsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-slate-900">
-                        <Link to={`/admin/finance/fee-templates/${assignment.fee_template_id}/assign`} className="hover:text-emerald-700">{assignment.fee_template_name || "Unknown Template"}</Link>
+                        <Link to={`/admin/finance/fee-structures/${assignment.fee_structure_id}/assign`} className="hover:text-emerald-700">{assignment.fee_structure_name || "Unknown Structure"}</Link>
                         <span className="mx-1.5 text-slate-300">·</span>
                         {assignment.assignment_target_name}
                         <span className="mx-1.5 text-slate-300">·</span>
