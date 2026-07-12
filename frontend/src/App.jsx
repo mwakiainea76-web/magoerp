@@ -14,6 +14,7 @@ const LoginPage = lazy(() =>
 
 const ROUTE_LOADERS_BY_ROLE = {
   admin: () => import("@/router/routes/admin.routes").then((module) => module.AdminRoutes),
+  finance: () => import("@/router/routes/finance.routes").then((module) => module.FinanceRoutes),
   trainer: () => import("@/router/routes/trainer.routes").then((module) => module.TrainerRoutes),
   student: () => import("@/router/routes/student.routes").then((module) => module.StudentRoutes),
 };

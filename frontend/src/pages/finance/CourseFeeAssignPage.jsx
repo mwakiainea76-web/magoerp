@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { ArrowLeft, Eye, Send } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -149,6 +149,49 @@ export function CourseFeeAssignPage() {
     }
   }
 
+function AssignmentFormContent({ lookups, preview, loadingPreview, saving, error, onGeneratePreview, onSave }) {
+  const { watch } = useFormContext();
+  const v = watch();
+
+  const canPreview = Boolean(
+    v.academic_session_id &&
+    v.year_level !== "" &&
+    (v.assignment_scope !== "course" || v.course_curriculum_id) &&
+    (v.assignment_scope !== "department" || v.department_id) &&
+    (v.issuance_type !== "per_session" || v.session_number)
+  );
+
+  return (
+    <div className="space-y-6">
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>
+      )}
+
+      <AssignmentStep lookups={lookups} />
+
+      <div className="flex justify-center">
+        <button type="button" onClick={onGeneratePreview} disabled={!canPreview || loadingPreview}
+          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2 text-[13px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+          <Eye className="h-4 w-4" /> {loadingPreview ? "Generating..." : "Generate Preview"}
+        </button>
+      </div>
+
+      {preview && <ReviewStep lookups={lookups} preview={preview} />}
+
+      <div className="flex items-center justify-end gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+        <button type="button" onClick={() => onSave("draft")} disabled={saving}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+          Save Draft
+        </button>
+        <button type="button" onClick={() => onSave("publish")} disabled={saving || !preview}
+          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+          <Send className="h-4 w-4" /> {saving ? "Publishing..." : "Publish"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
   if (loading) {
     return (
       <section className="space-y-6">
@@ -199,33 +242,15 @@ export function CourseFeeAssignPage() {
       </div>
 
       <FormProvider {...form}>
-        <div className="space-y-6">
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>
-          )}
-
-          <AssignmentStep lookups={lookups} />
-
-          <div className="flex justify-center">
-            <button type="button" onClick={generatePreview} disabled={loadingPreview}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2 text-[13px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-              <Eye className="h-4 w-4" /> {loadingPreview ? "Generating..." : "Generate Preview"}
-            </button>
-          </div>
-
-          {preview && <ReviewStep lookups={lookups} preview={preview} />}
-
-          <div className="flex items-center justify-end gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <button type="button" onClick={() => handleSave("draft")} disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-              Save Draft
-            </button>
-            <button type="button" onClick={() => handleSave("publish")} disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-              <Send className="h-4 w-4" /> {saving ? "Publishing..." : "Publish"}
-            </button>
-          </div>
-        </div>
+        <AssignmentFormContent
+          lookups={lookups}
+          preview={preview}
+          loadingPreview={loadingPreview}
+          saving={saving}
+          error={error}
+          onGeneratePreview={generatePreview}
+          onSave={handleSave}
+        />
       </FormProvider>
     </section>
   );

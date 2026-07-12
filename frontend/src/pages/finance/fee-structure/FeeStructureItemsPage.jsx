@@ -19,8 +19,8 @@ import {
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
-import { useFeeTemplateItemsApi } from "@/hooks/useFeeTemplateItemsApi";
-import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
+import { useFeeStructureItemsApi } from "@/hooks/useFeeStructureItemsApi";
+import { useFeeStructuresApi } from "@/hooks/useFeeStructuresApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 import {
   defaultFeeStructureItemValues,
@@ -37,8 +37,8 @@ function formatCurrency(amount) {
 }
 
 export function FeeStructureItemsPage() {
-  const itemsApi = useFeeTemplateItemsApi();
-  const templatesApi = useFeeTemplatesApi();
+  const itemsApi = useFeeStructureItemsApi();
+  const templatesApi = useFeeStructuresApi();
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get("templateId") ?? "";
 
@@ -66,8 +66,8 @@ export function FeeStructureItemsPage() {
     setError: setFormFieldError,
     formState: { errors },
   } = useForm({
-    resolver: yupResolver(feeTemplateItemSchema),
-    defaultValues: defaultFeeTemplateItemValues,
+    resolver: yupResolver(feeStructureItemSchema),
+    defaultValues: defaultFeeStructureItemValues,
   });
 
   useEffect(() => {
@@ -165,7 +165,7 @@ export function FeeStructureItemsPage() {
     setEditingItemId(null);
     setEditingItem(null);
     setFormError("");
-    reset(defaultFeeTemplateItemValues);
+    reset(defaultFeeStructureItemValues);
     setIsFormLoading(false);
     setIsFormModalOpen(true);
   }
@@ -202,7 +202,7 @@ export function FeeStructureItemsPage() {
     setEditingItem(null);
     setFormError("");
     setIsFormLoading(false);
-    reset(defaultFeeTemplateItemValues);
+    reset(defaultFeeStructureItemValues);
   }
 
   async function onSubmitForm(data) {
@@ -215,7 +215,7 @@ export function FeeStructureItemsPage() {
     setFormError("");
 
     try {
-      const payload = normalizeFeeTemplateItemPayload(data, templateId);
+      const payload = normalizeFeeStructureItemPayload(data, templateId);
 
       if (editingItemId) {
         await itemsApi.update(editingItemId, payload);
@@ -228,7 +228,7 @@ export function FeeStructureItemsPage() {
       setEditingItemId(null);
       setEditingItem(null);
       setIsFormLoading(false);
-      reset(defaultFeeTemplateItemValues);
+      reset(defaultFeeStructureItemValues);
       setPage(1);
       setReloadKey((current) => current + 1);
     } catch (saveError) {
@@ -406,7 +406,7 @@ export function FeeStructureItemsPage() {
         size="lg"
       >
         <ModalBody>
-          <FeeTemplateItemForm
+          <FeeStructureItemForm
             formId="fee-template-item-form"
             onSubmit={handleSubmit(onSubmitForm)}
             register={register}
@@ -443,4 +443,4 @@ export function FeeStructureItemsPage() {
   );
 }
 
-export default FeeTemplateItemsPage;
+export default FeeStructureItemsPage;

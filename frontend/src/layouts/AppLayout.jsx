@@ -4,7 +4,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
 import { useAuthApi } from "@/hooks/useAuthApi";
-import { getSidebarLinks } from "@/support/navigation";
+import { getFinanceSidebarLinks, getSidebarLinks } from "@/support/navigation";
 import { useAuthStore } from "@/store/authStore";
 
 function ContentRouteLoader() {
@@ -34,7 +34,9 @@ export function AppLayout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const role = user?.role ?? "student";
-  const links = getSidebarLinks(role);
+  const isFinancePath = location.pathname.startsWith("/finance");
+  const allLinks = role === "admin" && isFinancePath ? getFinanceSidebarLinks() : getSidebarLinks(role);
+  const links = allLinks.filter((item) => role === "admin" || item.label !== "Back to Admin");
 
   useEffect(() => {
     setIsNavbarOpen(false);

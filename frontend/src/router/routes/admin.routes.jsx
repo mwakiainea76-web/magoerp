@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { lazy } from "react";
 import { Route } from "react-router";
+import { FinanceRoutes } from "./finance.routes";
 
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AccessRoleFormPage = lazy(() => import("@/pages/access/AccessRoleFormPage").then((module) => ({ default: module.AccessRoleFormPage })));
@@ -30,28 +31,6 @@ const CurriculumMappingsPage = lazy(() => import("@/pages/curriculums/Curriculum
 const CurriculumsPage = lazy(() => import("@/pages/curriculums/CurriculumsPage").then((module) => ({ default: module.CurriculumsPage })));
 const DepartmentFormPage = lazy(() => import("@/pages/departments/DepartmentFormPage").then((module) => ({ default: module.DepartmentFormPage })));
 const DepartmentsPage = lazy(() => import("@/pages/departments/DepartmentsPage").then((module) => ({ default: module.DepartmentsPage })));
-const BillingPage = lazy(() => import("@/pages/finance/fee-invoices/BillingPage").then((module) => ({ default: module.BillingPage })));
-const FinanceDashboardPage = lazy(() => import("@/pages/finance/FinanceDashboardPage").then((module) => ({ default: module.FinanceDashboardPage })));
-const FinanceReportsPage = lazy(() => import("@/pages/finance/FinanceReportsPage").then((module) => ({ default: module.FinanceReportsPage })));
-const InvoicesPage = lazy(() => import("@/pages/finance/fee-invoices/InvoicesPage").then((module) => ({ default: module.InvoicesPage })));
-const LedgerPage = lazy(() => import("@/pages/finance/LedgerPage").then((module) => ({ default: module.LedgerPage })));
-const PaymentsPage = lazy(() => import("@/pages/finance/payment/PaymentsPage").then((module) => ({ default: module.PaymentsPage })));
-const StudentFeeStatementPage = lazy(() => import("@/pages/finance/student-accounts/StudentFeeStatementPage").then((module) => ({ default: module.StudentFeeStatementPage })));
-const AllFeeAssignmentsPage = lazy(() => import("@/pages/finance/fee-structure/AllFeeAssignmentsPage").then((module) => ({ default: module.AllFeeAssignmentsPage })));
-const FeeStructureAssignmentsPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureAssignmentsPage").then((module) => ({ default: module.FeeStructureAssignmentsPage })));
-const FeeStructureItemsPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureItemsPage").then((module) => ({ default: module.FeeStructureItemsPage })));
-const FeeStructureDetailPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureDetailPage").then((module) => ({ default: module.FeeStructureDetailPage })));
-const FeeStructureListPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureListPage").then((module) => ({ default: module.FeeStructureListPage })));
-const FeeStructureWizardPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureWizardPage").then((module) => ({ default: module.FeeStructureWizardPage })));
-const StudentAccountsPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountsPage").then((module) => ({ default: module.StudentAccountsPage })));
-const StudentAccountDetailPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountDetailPage").then((module) => ({ default: module.StudentAccountDetailPage })));
-const FinanceActionsPage = lazy(() => import("@/pages/finance/payment/FinanceActionsPage").then((module) => ({ default: module.FinanceActionsPage })));
-const CohortBillingPage = lazy(() => import("@/pages/finance/fee-invoices/CohortBillingPage").then((module) => ({ default: module.CohortBillingPage })));
-const CourseFeeAssignmentPage = lazy(() => import("@/pages/finance/CourseFeeAssignmentPage").then((module) => ({ default: module.CourseFeeAssignmentPage })));
-const CourseFeeAssignPage = lazy(() => import("@/pages/finance/CourseFeeAssignPage").then((module) => ({ default: module.CourseFeeAssignPage })));
-const FinanceHealthPage = lazy(() => import("@/pages/finance/FinanceHealthPage").then((module) => ({ default: module.FinanceHealthPage })));
-const FinanceReadinessPage = lazy(() => import("@/pages/finance/FinanceReadinessPage").then((module) => ({ default: module.FinanceReadinessPage })));
-const FinanceSettingsPage = lazy(() => import("@/pages/finance/FinanceSettingsPage").then((module) => ({ default: module.FinanceSettingsPage })));
 const AdminSupportRequestDetailPage = lazy(() => import("@/pages/support-requests/AdminSupportRequestDetailPage").then((module) => ({ default: module.AdminSupportRequestDetailPage })));
 const AdminSupportRequestsPage = lazy(() => import("@/pages/support-requests/AdminSupportRequestsPage").then((module) => ({ default: module.AdminSupportRequestsPage })));
 const HostelAllocationsPage = lazy(() => import("@/pages/hostels/HostelAllocationsPage").then((module) => ({ default: module.HostelAllocationsPage })));
@@ -77,7 +56,6 @@ const CourseChangePage = lazy(() => import("@/pages/students/CourseChangePage").
 const CourseTransfersPage = lazy(() => import("@/pages/students/CourseTransfersPage").then((module) => ({ default: module.CourseTransfersPage })));
 const StudentFormPage = lazy(() => import("@/pages/students/StudentFormPage").then((module) => ({ default: module.StudentFormPage })));
 const StudentsPage = lazy(() => import("@/pages/students/StudentsPage").then((module) => ({ default: module.StudentsPage })));
-const StudentsNotInvoicedPage = lazy(() => import("@/pages/finance/fee-invoices/StudentsNotInvoicedPage").then((module) => ({ default: module.StudentsNotInvoicedPage })));
 const UnitFormPage = lazy(() => import("@/pages/units/UnitFormPage").then((module) => ({ default: module.UnitFormPage })));
 const UnitsPage = lazy(() => import("@/pages/units/UnitsPage").then((module) => ({ default: module.UnitsPage })));
 
@@ -116,31 +94,6 @@ export const AdminRoutes = (
     <Route path="/admin/academic-calendar/sessions" element={<AcademicSessionsPage />} />
     <Route path="/admin/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
     <Route path="/admin/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
-    <Route path="/admin/finance/overview" element={<FinanceDashboardPage />} />
-    <Route path="/admin/finance/fee-structures" element={<FeeStructureListPage />} />
-    <Route path="/admin/finance/fee-structures/create" element={<FeeStructureWizardPage />} />
-    <Route path="/admin/finance/fee-structures/:templateId" element={<FeeStructureDetailPage />} />
-    <Route path="/admin/finance/fee-structures/:templateId/edit" element={<FeeStructureWizardPage />} />
-    <Route path="/admin/finance/student-accounts" element={<StudentAccountsPage />} />
-    <Route path="/admin/finance/student-accounts/:studentId" element={<StudentAccountDetailPage />} />
-    <Route path="/admin/finance/actions" element={<FinanceActionsPage />} />
-    <Route path="/admin/finance/students-not-invoiced" element={<StudentsNotInvoicedPage />} />
-    <Route path="/admin/finance/cohort-billing" element={<CohortBillingPage />} />
-    <Route path="/admin/finance/payments" element={<PaymentsPage />} />
-    <Route path="/admin/finance/reports" element={<FinanceReportsPage />} />
-    <Route path="/admin/finance/statement" element={<StudentFeeStatementPage role="admin" />} />
-    <Route path="/admin/finance/statement/:studentId" element={<StudentFeeStatementPage role="admin" />} />
-    <Route path="/admin/finance/health" element={<FinanceHealthPage />} />
-    <Route path="/admin/finance/readiness" element={<FinanceReadinessPage />} />
-    <Route path="/admin/finance/settings" element={<FinanceSettingsPage />} />
-    <Route path="/admin/finance/ledger" element={<LedgerPage />} />
-    <Route path="/admin/finance/billing" element={<BillingPage />} />
-    <Route path="/admin/finance/invoices" element={<InvoicesPage />} />
-    <Route path="/admin/finance/fee-structures/:templateId/assign" element={<FeeStructureAssignmentsPage />} />
-    <Route path="/admin/finance/fee-assignments" element={<AllFeeAssignmentsPage />} />
-    <Route path="/admin/finance/course-fee" element={<CourseFeeAssignmentPage />} />
-    <Route path="/admin/finance/course-fee/:templateId/assign" element={<CourseFeeAssignPage />} />
-    <Route path="/admin/finance/fee-structures/items" element={<FeeStructureItemsPage />} />
     <Route path="/admin/staffs" element={<StaffsPage />} />
     <Route path="/admin/staffs/create" element={<StaffFormPage />} />
     <Route path="/admin/staffs/reset-password" element={<PasswordResetPage mode="staff" />} />
@@ -178,5 +131,6 @@ export const AdminRoutes = (
     <Route path="/admin/hostel-allocations" element={<HostelAllocationsPage />} />
     <Route path="/admin/system-configurations" element={<SystemConfigurationsPage />} />
     <Route path="/admin/institution-details" element={<InstitutionDetailsPage />} />
+    {FinanceRoutes}
   </>
 );

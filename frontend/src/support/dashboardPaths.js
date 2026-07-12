@@ -1,5 +1,6 @@
 ﻿export const dashboardPathByRole = {
   admin: "/admin/dashboard",
+  finance: "/finance/overview",
   trainer: "/trainer/dashboard",
   student: "/student",
 };

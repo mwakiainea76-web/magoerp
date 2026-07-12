@@ -12,7 +12,7 @@ import { BillingPaymentForm } from "./BillingPaymentForm";
 import { BillingPenaltyForm } from "./BillingPenaltyForm";
 import { BillingRefundForm } from "./BillingRefundForm";
 import { useInvoicesApi } from "@/hooks/useInvoicesApi";
-import { useFeeTemplatesApi } from "@/hooks/useFeeTemplatesApi";
+import { useFeeStructuresApi } from "@/hooks/useFeeStructuresApi";
 import { usePaymentsApi } from "@/hooks/usePaymentsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { useRefundsApi } from "@/hooks/useRefundsApi";
@@ -93,7 +93,7 @@ export function BillingPage() {
   const paymentsApi = usePaymentsApi();
   const refundsApi = useRefundsApi();
   const lookupApi = useLookupApi();
-  const feeTemplatesApi = useFeeTemplatesApi();
+  const feeTemplatesApi = useFeeStructuresApi();
 
   const [activeAction, setActiveAction] = useState("payment");
   const [isSaving, setIsSaving] = useState(false);

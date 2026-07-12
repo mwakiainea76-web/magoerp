@@ -7,7 +7,7 @@ import {
   textAreaClassName,
 } from "@/lib/styles";
 
-export const feeTemplateItemSchema = yup.object({
+export const feeStructureItemSchema = yup.object({
   name: yup
     .string()
     .required("Component name is required")

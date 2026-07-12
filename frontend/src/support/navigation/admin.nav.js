@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Award, BookOpen, Building2, CalendarClock, ClipboardCheck, GraduationCap, KeyRound, Landmark, LayoutDashboard, Settings2, ShieldCheck, Users } from "lucide-react";
+import { ArrowRightLeft, Award, BookOpen, Building2, CalendarClock, ClipboardCheck, GraduationCap, Landmark, LayoutDashboard, Settings2, ShieldCheck, Users } from "lucide-react";
 import { dashboardPathByRole } from "@/support/dashboardPaths";
 
 export const adminNav = [
@@ -107,20 +107,8 @@ export const adminNav = [
   },
   {
     label: "Finance",
+    to: "/finance/overview",
     icon: Landmark,
-    children: [
-      { label: "Overview", to: "/admin/finance/overview" },
-      { label: "Fee Structures", to: "/admin/finance/fee-structures" },
-      { label: "Course Fee", to: "/admin/finance/course-fee" },
-      { label: "Student Accounts", to: "/admin/finance/student-accounts" },
-      { label: "Not Invoiced", to: "/admin/finance/students-not-invoiced" },
-      { label: "Actions", to: "/admin/finance/actions" },
-      { label: "Payments", to: "/admin/finance/payments" },
-      { label: "Reports", to: "/admin/finance/reports" },
-      { label: "Finance Health", to: "/admin/finance/health" },
-      { label: "Readiness", to: "/admin/finance/readiness" },
-      { label: "Settings", to: "/admin/finance/settings" },
-    ],
   },
   {
     label: "Hostels",
