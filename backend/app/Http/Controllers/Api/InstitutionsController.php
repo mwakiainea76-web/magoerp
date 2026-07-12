@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateInstitutionRequest;
 use App\Models\Institution;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class InstitutionsController extends Controller
 {
@@ -53,12 +54,17 @@ class InstitutionsController extends Controller
 
     public function store(StoreInstitutionRequest $request): JsonResponse
     {
-        $institution = Institution::create([
-            ...$request->validated(),
-            'is_active' => $request->boolean('is_active', true),
-            'created_by' => $request->user()?->id,
-            'updated_by' => $request->user()?->id,
-        ]);
+        $data = $request->validated();
+
+        if ($request->hasFile('logo')) {
+            $data['logo'] = $request->file('logo')->store('logos', 'public');
+        }
+
+        $data['is_active'] = $request->boolean('is_active', true);
+        $data['created_by'] = $request->user()?->id;
+        $data['updated_by'] = $request->user()?->id;
+
+        $institution = Institution::create($data);
 
         return response()->json([
             'message' => 'Institution created successfully.',
@@ -79,6 +85,20 @@ class InstitutionsController extends Controller
     {
         $data = $request->validated();
 
+        if ($request->hasFile('logo')) {
+            if ($institution->logo) {
+                Storage::disk('public')->delete($institution->logo);
+            }
+            $data['logo'] = $request->file('logo')->store('logos', 'public');
+        } elseif ($request->boolean('remove_logo')) {
+            if ($institution->logo) {
+                Storage::disk('public')->delete($institution->logo);
+            }
+            $data['logo'] = null;
+        } else {
+            unset($data['logo']);
+        }
+
         if ($request->has('is_active')) {
             $data['is_active'] = $request->boolean('is_active');
         }
@@ -97,10 +117,24 @@ class InstitutionsController extends Controller
     {
         abort_unless($request->user()?->can('institution.delete'), 403);
 
+        if ($institution->logo) {
+            Storage::disk('public')->delete($institution->logo);
+        }
+
         $institution->delete();
 
         return response()->json([
             'message' => 'Institution deleted successfully.',
+        ]);
+    }
+
+    public function logo(): JsonResponse
+    {
+        $institution = Institution::where('is_active', true)->first()
+            ?? Institution::first();
+
+        return response()->json([
+            'logo_url' => $this->logoUrl($institution),
         ]);
     }
 
@@ -114,6 +148,14 @@ class InstitutionsController extends Controller
         ]);
     }
 
+    private function logoUrl(?Institution $institution): ?string
+    {
+        if (! $institution?->logo) {
+            return null;
+        }
+        return request()->getSchemeAndHttpHost() . '/storage/' . $institution->logo;
+    }
+
     private function transformInstitution(Institution $institution): array
     {
         return [
@@ -125,6 +167,8 @@ class InstitutionsController extends Controller
             'email' => $institution->email,
             'website' => $institution->website,
             'motto' => $institution->motto,
+            'logo' => $institution->logo,
+            'logo_url' => $this->logoUrl($institution),
             'facebook' => $institution->facebook,
             'twitter' => $institution->twitter,
             'instagram' => $institution->instagram,

@@ -12,12 +12,18 @@ export function useInstitutionApi() {
         const response = await authClient.get(`/institutions/${id}`);
         return response.data;
       },
-      create: async (payload) => {
-        const response = await authClient.post("/institutions", payload);
-        return response.data;
-      },
-      update: async (id, payload) => {
-        const response = await authClient.put(`/institutions/${id}`, payload);
+      save: async (payload, id = null) => {
+        const formData = new FormData();
+        for (const [key, value] of Object.entries(payload)) {
+          formData.append(key, value ?? "");
+        }
+        if (id) {
+          formData.append("_method", "PUT");
+        }
+        const url = id ? `/institutions/${id}` : "/institutions";
+        const response = await authClient.post(url, formData, {
+          headers: { "Content-Type": null },
+        });
         return response.data;
       },
     }),

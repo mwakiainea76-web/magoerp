@@ -1034,8 +1034,8 @@ class StudentMarksController extends Controller
                 'certification_authority' => $authority?->name,
                 'certification_level' => $course?->level?->name,
             ],
-            'institution_name' => config('institution.name'),
-            'institution' => config('institution'),
+            'institution_name' => $institutionData['name'] ?? null,
+            'institution' => $institutionData,
             'student_meta' => [
                 'admission_year' => $firstSessionEnrolment?->enrolled_at?->format('Y'),
                 'class_name' => $targetEnrolment->academicSession?->name,

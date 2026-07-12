@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <title>Transcript - {{ $student['admission_number'] ?? 'Student' }}</title>
 @php
-    $logoPath = resource_path('pdf-logo.jpg');
-    $logoDataUri = is_file($logoPath)
-        ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath))
+    $logoPath = $institution['logo_path'] ?? null;
+    $logoDataUri = $logoPath && is_file($logoPath)
+        ? 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($logoPath))
         : null;
     $transcript = collect($transcript ?? [])->values();
 @endphp

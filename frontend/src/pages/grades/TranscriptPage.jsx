@@ -380,9 +380,10 @@ export function TranscriptPage({ role = "admin" }) {
             <article className="flex min-h-[297mm] flex-col px-[12mm] py-[10mm] text-black">
               <header className="text-center">
                 <img
-                  src={logo}
+                  src={institution?.logo_url || logo}
                   alt="Institution logo"
                   className="mx-auto h-10 object-contain"
+                  onError={(e) => { e.target.style.display = 'none'; }}
                 />
 
                 {institution?.postal_address ? (

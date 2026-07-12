@@ -149,7 +149,7 @@ export function StudentFeeStatementPage({ role = "admin" }) {
               <p className="mb-[2.5mm] text-[7pt] text-slate-500">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
 
               <header className="text-center">
-                <img src={logo} alt="Institution logo" className="mx-auto mb-[2.5mm] max-h-[18mm] max-w-[54mm] object-contain" />
+                <img src={institution?.logo_url || logo} alt="Institution logo" className="mx-auto mb-[2.5mm] max-h-[18mm] max-w-[54mm] object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
                 {institution.name ? (
                   <p className="text-[11pt] font-bold uppercase tracking-[0.02em] text-black">{institution.name}</p>
                 ) : null}

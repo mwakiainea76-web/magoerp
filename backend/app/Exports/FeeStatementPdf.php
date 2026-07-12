@@ -13,8 +13,6 @@ class FeeStatementPdf
     private const MT = 28.0;
     private const MB = 34.0;
     private const CW = self::PW - self::ML - self::MR;
-    private const LOGO_PATH = __DIR__ . '/../../resources/pdf-logo.jpg';
-
     private const FONT = 3;
     private const BOLD = 4;
 
@@ -66,12 +64,13 @@ class FeeStatementPdf
 
     private function registerLogo(): void
     {
-        if (! is_file(self::LOGO_PATH)) {
+        $logoPath = $this->data['institution']['logo_path'] ?? null;
+        if (! $logoPath || ! is_file($logoPath)) {
             return;
         }
 
-        $info = @getimagesize(self::LOGO_PATH);
-        $bytes = @file_get_contents(self::LOGO_PATH);
+        $info = @getimagesize($logoPath);
+        $bytes = @file_get_contents($logoPath);
         if ($info === false || $bytes === false) {
             return;
         }

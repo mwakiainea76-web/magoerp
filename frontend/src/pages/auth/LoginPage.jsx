@@ -1,16 +1,16 @@
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import * as yup from "yup";
 
-import logo from "@/assets/logo.PNG";
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { useAuthApi } from "@/hooks/useAuthApi";
 import { useAuthStore } from "@/store/authStore";
 import { getDashboardPath } from "@/support/dashboardPaths";
+import { authClient } from "@/lib/api/authClient";
 
 const loginSchema = yup.object({
   username: yup.string().required("Username is required"),
@@ -29,6 +29,16 @@ export function LoginPage() {
   const setAuth = useAuthStore((state) => state.setAuth);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(null);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+
+  useEffect(() => {
+    authClient.get("/institution/logo").then((res) => {
+      const url = res?.data?.logo_url;
+      if (url) setLogoUrl(url);
+    }).catch(() => {});
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -88,11 +98,20 @@ export function LoginPage() {
     <section className="mx-auto w-full max-w-md overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
       <div className="px-6 py-7 sm:px-8 sm:py-8">
         <div className="mb-6 text-center">
-          <img
-            src={logo}
-            alt="MAGO TVTC"
-            className="mx-auto h-12 object-contain"
-          />
+          <div className="relative mx-auto h-12 w-44">
+            {!logoLoaded && (
+              <div className="h-full w-full animate-pulse rounded bg-slate-200" />
+            )}
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt="Institution logo"
+                className={`mx-auto h-full object-contain ${logoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity`}
+                onLoad={() => setLogoLoaded(true)}
+                onError={() => setLogoLoaded(true)}
+              />
+            )}
+          </div>
           <h1 className="mt-3 text-2xl font-semibold text-slate-800">
             Welcome Back
           </h1>

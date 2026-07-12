@@ -19,6 +19,7 @@ class Institution extends Model
         'email',
         'website',
         'motto',
+        'logo',
         'facebook',
         'twitter',
         'instagram',

@@ -53,6 +53,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/institution/logo', [InstitutionsController::class, 'logo']);
 
 Route::middleware([
     'api_token_cookie',

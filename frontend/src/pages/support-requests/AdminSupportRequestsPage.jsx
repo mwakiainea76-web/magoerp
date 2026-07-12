@@ -38,8 +38,8 @@ export function AdminSupportRequestsPage() {
         const res = await api.adminIndex(params);
 
         if (mounted) {
-          setRequests(res.data ?? []);
-          setMeta(res.meta ?? initialMeta);
+          setRequests(res.data?.data ?? []);
+          setMeta(res.data?.meta ?? initialMeta);
         }
       } catch (e) {
         if (mounted) setError(getApiErrorMessage(e, "Failed to load requests."));

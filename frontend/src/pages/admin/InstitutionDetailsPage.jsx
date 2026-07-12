@@ -1,8 +1,9 @@
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import * as yup from "yup";
+import { Upload, X } from "lucide-react";
 
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
@@ -76,6 +77,10 @@ export function InstitutionDetailsPage() {
   const [pageError, setPageError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState(null);
+  const [logoRemoved, setLogoRemoved] = useState(false);
+  const fileInputRef = useRef(null);
 
   const isEdit = institutionId !== null;
 
@@ -117,6 +122,10 @@ export function InstitutionDetailsPage() {
         const data = res.data;
         if (data) {
           setInstitutionId(data.id);
+          setLogoRemoved(false);
+          if (data.logo_url) {
+            setLogoPreviewUrl(data.logo_url);
+          }
           reset({
             name: data.name ?? "",
             code: data.code ?? "",
@@ -147,6 +156,27 @@ export function InstitutionDetailsPage() {
     return () => { isMounted = false; };
   }, [api, reset]);
 
+  function handleLogoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setLogoPreviewUrl(event.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleRemoveLogo() {
+    setLogoFile(null);
+    setLogoPreviewUrl(null);
+    setLogoRemoved(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
   async function onSubmit(data) {
     setIsSaving(true);
     setPageError("");
@@ -154,13 +184,26 @@ export function InstitutionDetailsPage() {
     try {
       const payload = normalizePayload(data);
 
-      if (isEdit) {
-        await api.update(institutionId, payload);
-        toast.success("Institution details updated successfully.");
-      } else {
-        const res = await api.create(payload);
+      if (logoFile) {
+        payload.logo = logoFile;
+      }
+      if (logoRemoved) {
+        payload.remove_logo = "1";
+      }
+
+      const res = await api.save(payload, isEdit ? institutionId : null);
+      if (!isEdit) {
         setInstitutionId(res.data.id);
-        toast.success("Institution created successfully.");
+      }
+
+      toast.success("Institution details saved successfully.");
+      setLogoRemoved(false);
+
+      const refreshed = await api.active();
+      if (refreshed?.data?.logo_url) {
+        setLogoPreviewUrl(refreshed.data.logo_url);
+      } else {
+        setLogoPreviewUrl(null);
       }
     } catch (saveError) {
       const validationErrors = saveError?.response?.data?.errors;
@@ -199,6 +242,53 @@ export function InstitutionDetailsPage() {
                 {pageError}
               </div>
             ) : null}
+
+            {/* Logo Upload */}
+            <div className="border-b border-slate-200 pb-4">
+              <h2 className="text-[15px] font-semibold text-slate-800 mb-3">Institution Logo</h2>
+              <div className="flex items-center gap-5">
+                <div className="relative flex h-28 w-44 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50">
+                  {logoPreviewUrl ? (
+                    <>
+                      <img
+                        src={logoPreviewUrl}
+                        alt="Institution logo preview"
+                        className="h-full w-full object-contain p-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveLogo}
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <Upload size={28} className="mx-auto mb-1" />
+                      <p className="text-[11px]">No logo</p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpg,image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <label
+                    htmlFor="logo-upload"
+                    className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-600 shadow-sm hover:bg-slate-50"
+                  >
+                    Choose Logo
+                  </label>
+                  <p className="mt-1 text-[11px] text-slate-400">Max 10MB. JPG, PNG, GIF, WebP</p>
+                </div>
+              </div>
+            </div>
 
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               <FormInput id="name" label="Institution Name" placeholder="e.g. Mago University" required error={errors.name?.message} {...register("name")} />
