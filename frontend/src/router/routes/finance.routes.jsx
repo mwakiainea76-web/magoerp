@@ -12,14 +12,11 @@ const InvoiceActionsPage = lazy(() => import("@/pages/finance/fee-invoices/Invoi
 const CohortBillingPage = lazy(() => import("@/pages/finance/fee-invoices/CohortBillingPage").then((m) => ({ default: m.CohortBillingPage })));
 const StudentsNotInvoicedPage = lazy(() => import("@/pages/finance/fee-invoices/StudentsNotInvoicedPage").then((m) => ({ default: m.StudentsNotInvoicedPage })));
 const FinanceActionsPage = lazy(() => import("@/pages/finance/payment/FinanceActionsPage").then((m) => ({ default: m.FinanceActionsPage })));
-const StudentAccountsPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountsPage").then((m) => ({ default: m.StudentAccountsPage })));
-const StudentAccountDetailPage = lazy(() => import("@/pages/finance/student-accounts/StudentAccountDetailPage").then((m) => ({ default: m.StudentAccountDetailPage })));
 const StudentFeeStatementPage = lazy(() => import("@/pages/finance/student-accounts/StudentFeeStatementPage").then((m) => ({ default: m.StudentFeeStatementPage })));
 const FinanceReportsPage = lazy(() => import("@/pages/finance/FinanceReportsPage").then((m) => ({ default: m.FinanceReportsPage })));
 const FinanceHealthPage = lazy(() => import("@/pages/finance/FinanceHealthPage").then((m) => ({ default: m.FinanceHealthPage })));
 const FinanceReadinessPage = lazy(() => import("@/pages/finance/FinanceReadinessPage").then((m) => ({ default: m.FinanceReadinessPage })));
 const FinanceSettingsPage = lazy(() => import("@/pages/finance/FinanceSettingsPage").then((m) => ({ default: m.FinanceSettingsPage })));
-const LedgerPage = lazy(() => import("@/pages/finance/LedgerPage").then((m) => ({ default: m.LedgerPage })));
 const FeeStructureItemsPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureItemsPage").then((m) => ({ default: m.FeeStructureItemsPage })));
 const FeeStructureAssignmentsPage = lazy(() => import("@/pages/finance/fee-structure/FeeStructureAssignmentsPage").then((m) => ({ default: m.FeeStructureAssignmentsPage })));
 
@@ -39,14 +36,11 @@ export const FinanceRoutes = (
     <Route path="/finance/cohort-billing" element={<CohortBillingPage />} />
     <Route path="/finance/students-not-invoiced" element={<StudentsNotInvoicedPage />} />
     <Route path="/finance/actions" element={<FinanceActionsPage />} />
-    <Route path="/finance/student-accounts" element={<StudentAccountsPage />} />
-    <Route path="/finance/student-accounts/:studentId" element={<StudentAccountDetailPage />} />
     <Route path="/finance/statement" element={<StudentFeeStatementPage role="finance" />} />
     <Route path="/finance/statement/:studentId" element={<StudentFeeStatementPage role="finance" />} />
     <Route path="/finance/reports" element={<FinanceReportsPage />} />
     <Route path="/finance/health" element={<FinanceHealthPage />} />
     <Route path="/finance/readiness" element={<FinanceReadinessPage />} />
     <Route path="/finance/settings" element={<FinanceSettingsPage />} />
-    <Route path="/finance/ledger" element={<LedgerPage />} />
   </>
 );

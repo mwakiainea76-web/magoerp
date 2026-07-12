@@ -27,19 +27,13 @@ export const financeNav = [
   },
   {
     label: "Payments",
+    to: "/finance/actions",
     icon: Wallet,
-    children: [
-      { label: "Record Payments", to: "/finance/actions" },
-    ],
   },
   {
-    label: "Accounts",
+    label: "Student Statement",
+    to: "/finance/statement",
     icon: Banknote,
-    children: [
-      { label: "Student Accounts", to: "/finance/student-accounts" },
-      { label: "Statement", to: "/finance/statement" },
-      { label: "Ledger", to: "/finance/ledger" },
-    ],
   },
   {
     label: "Reports",
