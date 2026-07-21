@@ -43,9 +43,9 @@ export function Sidebar({ role, links, onNavigate, className = "" }) {
         className="sidebar-nav min-h-0 flex-1 overflow-y-auto overscroll-contain"
       >
         <div>
-          {links.map((item) => (
+          {links.map((item, index) => (
             <SidebarNavItem
-              key={`${role}-${item.label}`}
+              key={`${item.to || item.label}-${index}`}
               item={item}
               onNavigate={onNavigate}
               openSection={openSection}

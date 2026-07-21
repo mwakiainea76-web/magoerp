@@ -62,4 +62,12 @@ export const useAuthStore = create((set, get) => ({
     writeStoredAuth(null, null);
     set({ token: null, user: null });
   },
+  can: (permission) => {
+    if (!permission) return true;
+    const user = get().user;
+    const perms = user?.permissions ?? [];
+    return Array.isArray(permission)
+      ? permission.some((p) => perms.includes(p))
+      : perms.includes(permission);
+  },
 }));

@@ -1,10 +1,10 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Navbar from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
 import { useAuthApi } from "@/hooks/useAuthApi";
-import { getFinanceSidebarLinks, getSidebarLinks } from "@/support/navigation";
+import { navLinks } from "@/support/navigation";
 import { useAuthStore } from "@/store/authStore";
 
 function ContentRouteLoader() {
@@ -34,9 +34,28 @@ export function AppLayout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const role = user?.role ?? "student";
-  const isFinancePath = location.pathname.startsWith("/finance");
-  const allLinks = role === "admin" && isFinancePath ? getFinanceSidebarLinks() : getSidebarLinks(role);
-  const links = allLinks.filter((item) => role === "admin" || item.label !== "Back to Admin");
+  const can = useAuthStore((state) => state.can);
+
+  const filterNavItems = useCallback(
+    (items) => {
+      return items.reduce((acc, item) => {
+        if (item.children) {
+          const filteredChildren = filterNavItems(item.children);
+          if (filteredChildren.length === 0) return acc;
+          acc.push({ ...item, children: filteredChildren });
+          return acc;
+        }
+
+        if (item.permission && !can(item.permission)) return acc;
+
+        acc.push(item);
+        return acc;
+      }, []);
+    },
+    [can],
+  );
+
+  const links = filterNavItems(navLinks);
 
   useEffect(() => {
     setIsNavbarOpen(false);
