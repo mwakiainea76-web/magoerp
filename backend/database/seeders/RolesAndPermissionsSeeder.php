@@ -75,6 +75,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'manage-student-financial-data',
                 'manage-course-changes',
                 'manage-cohorts',
+                'manage-exam-series',
             ],
             'finance' => [
                 'finance.view',
@@ -102,6 +103,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'students.view',
                 'operations.view',
                 'manage-attendance',
+                'manage-exam-series',
             ],
             'student' => [
                 'dashboard.view',

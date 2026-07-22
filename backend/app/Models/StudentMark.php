@@ -14,6 +14,7 @@ class StudentMark extends Model
     protected $fillable = [
         'academic_session_enrolment_id',
         'unit_id',
+        'exam_series_id',
         'assessment_type',
         'assessment_number',
         'score',
@@ -32,6 +33,11 @@ class StudentMark extends Model
     protected $keyType = 'string';
 
     public $incrementing = false;
+
+    public function examSeries(): BelongsTo
+    {
+        return $this->belongsTo(ExamSeries::class);
+    }
 
     public function academicSessionEnrolment(): BelongsTo
     {

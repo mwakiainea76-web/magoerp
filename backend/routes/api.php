@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminPasswordResetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CalendarController;
+use App\Http\Controllers\Api\ExamSeriesController;
 use App\Http\Controllers\Api\TrainerDashboardController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
 use App\Http\Controllers\Api\CertificationAuthorityGradesController;
@@ -270,11 +271,20 @@ Route::middleware([
 
         Route::get('/admin/dashboard', AdminDashboardController::class);
 
+        Route::get('/exam-series/options', [ExamSeriesController::class, 'options']);
+        Route::get('/exam-series/available-sessions', [ExamSeriesController::class, 'availableSessions']);
+        Route::get('/exam-series', [ExamSeriesController::class, 'index']);
+        Route::post('/exam-series', [ExamSeriesController::class, 'store']);
+        Route::get('/exam-series/{examSeries}', [ExamSeriesController::class, 'show']);
+        Route::put('/exam-series/{examSeries}', [ExamSeriesController::class, 'update']);
+        Route::delete('/exam-series/{examSeries}', [ExamSeriesController::class, 'destroy']);
+
         Route::post('/admin/reset-staff-password', [AdminPasswordResetController::class, 'resetStaffPassword']);
         Route::post('/admin/reset-student-password', [AdminPasswordResetController::class, 'resetStudentPassword']);
     });
 
     Route::middleware('role:admin|trainer')->group(function () {
+        Route::get('/exam-series/options', [ExamSeriesController::class, 'options']);
         Route::get('/units', [UnitsController::class, 'index']);
         Route::get('/units/{unit}', [UnitsController::class, 'show']);
         Route::get('/academic-sessions', [AcademicSessionsController::class, 'index']);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { CheckCircle2, XCircle } from "lucide-react";
 
@@ -8,23 +8,25 @@ import { LookupSelect } from "@/components/LookupSelect";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { useMarksApi } from "@/hooks/useMarksApi";
-import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
+import { useExamSeriesApi } from "@/hooks/useExamSeriesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
-const ASSESSMENT_TYPES = [
+const FALLBACK_TYPES = [
   "CAT 1", "CAT 2", "CAT 3", "PRAC 1", "PRAC 2", "PRAC 3",
 ];
 
 export function PublishMarksPage() {
   const marksApi = useMarksApi();
-  const sessionsApi = useAcademicSessionsApi();
+  const examSeriesApi = useExamSeriesApi();
 
   const [marks, setMarks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [publishingId, setPublishingId] = useState(null);
-  const [sessions, setSessions] = useState([]);
+  const [examSeriesOptions, setExamSeriesOptions] = useState([]);
 
+  const [filterExamSeries, setFilterExamSeries] = useState("");
+  const [filterExamSeriesOption, setFilterExamSeriesOption] = useState(null);
   const [filterSession, setFilterSession] = useState("");
   const [filterStudent, setFilterStudent] = useState("");
   const [filterStudentOption, setFilterStudentOption] = useState(null);
@@ -37,42 +39,51 @@ export function PublishMarksPage() {
   const [totalMarks, setTotalMarks] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  const loadSessions = useCallback(async () => {
-    try {
-      const res = await sessionsApi.list({ per_page: 50, sort_direction: "desc" });
-      setSessions(res.data ?? []);
-    } catch {
-      // silent
-    }
-  }, [sessionsApi]);
+  useEffect(() => {
+    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch(() => {});
+  }, [examSeriesApi]);
 
-  useEffect(() => { loadSessions(); }, [loadSessions]);
+  const selectedExamSeriesTypes = useMemo(() => {
+    if (!filterExamSeries) return null;
+    const found = examSeriesOptions.find((s) => s.id === filterExamSeries);
+    return found?.assessment_types ?? null;
+  }, [filterExamSeries, examSeriesOptions]);
+
+  const currentTypes = selectedExamSeriesTypes || FALLBACK_TYPES;
+
+  const fetchExamSeries = useCallback(async (query) => {
+    const q = (query ?? "").toLowerCase();
+    return examSeriesOptions
+      .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.short_name ?? "").toLowerCase().includes(q))
+      .map((s) => ({ id: s.id, label: `${s.name}${s.short_name ? ` (${s.short_name})` : ""}` }));
+  }, [examSeriesOptions]);
 
   const fetchStudents = useCallback(async (query) => {
-    if (!filterSession) return [];
-    const params = { q: query, academic_session_id: filterSession };
+    if (!filterExamSeries) return [];
+    const params = { q: query, exam_series_id: filterExamSeries };
     const res = await marksApi.availableStudents(params);
     return (res.data ?? []).map((s) => ({
       id: s.id,
       label: `${s.admission_number} - ${s.name}`,
     }));
-  }, [marksApi, filterSession]);
+  }, [marksApi, filterExamSeries]);
 
   const fetchUnits = useCallback(async (query) => {
-    if (!filterSession) return [];
-    const params = { q: query, academic_session_id: filterSession };
+    if (!filterExamSeries) return [];
+    const params = { q: query, exam_series_id: filterExamSeries };
     const res = await marksApi.availableUnits(params);
     return (res.data ?? []).map((u) => ({
       id: u.id,
       label: `${u.code} - ${u.name}`,
     }));
-  }, [marksApi, filterSession]);
+  }, [marksApi, filterExamSeries]);
 
   async function loadMarks() {
     setIsLoading(true);
     setError("");
     try {
       const params = { page, per_page: perPage };
+      if (filterExamSeries) params.exam_series_id = filterExamSeries;
       if (filterSession) params.academic_session_id = filterSession;
       if (filterStudent) params.student_id = filterStudent;
       if (filterUnit) params.unit_id = filterUnit;
@@ -88,7 +99,7 @@ export function PublishMarksPage() {
     }
   }
 
-  useEffect(() => { loadMarks(); }, [filterSession, filterStudent, filterUnit, filterType, page, perPage]);
+  useEffect(() => { loadMarks(); }, [filterExamSeries, filterSession, filterStudent, filterUnit, filterType, page, perPage]);
 
   async function handleTogglePublish(markId) {
     setPublishingId(markId);
@@ -114,6 +125,7 @@ export function PublishMarksPage() {
 
     try {
       const payload = { publish };
+      if (filterExamSeries) payload.exam_series_id = filterExamSeries;
       if (filterSession) payload.academic_session_id = filterSession;
       if (filterStudent) payload.student_id = filterStudent;
       if (filterUnit) payload.unit_id = filterUnit;
@@ -128,8 +140,8 @@ export function PublishMarksPage() {
   }
 
   async function handleBulkPublish(publish) {
-    if (!filterSession || !filterUnit || !filterType) {
-      toast.error("Please select session, unit, and assessment type first.");
+    if (!filterExamSeries || !filterUnit || !filterType) {
+      toast.error("Please select exam series, unit, and assessment type first.");
       return;
     }
 
@@ -144,6 +156,7 @@ export function PublishMarksPage() {
         unit_id: filterUnit,
         assessment_type: filterType,
         academic_session_id: filterSession,
+        exam_series_id: filterExamSeries || undefined,
         publish,
       });
     } catch (e) {
@@ -164,6 +177,28 @@ export function PublishMarksPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <LookupSelect
+              label="Exam Series"
+              value={filterExamSeries}
+              selectedOption={filterExamSeriesOption}
+              onChange={(nextValue, option) => {
+                setFilterExamSeries(nextValue);
+                setFilterExamSeriesOption(option);
+                const found = examSeriesOptions.find((s) => s.id === nextValue);
+                setFilterSession(found?.academic_session_id ?? "");
+                setFilterStudent("");
+                setFilterStudentOption(null);
+                setFilterUnit("");
+                setFilterUnitOption(null);
+                setFilterType("");
+              }}
+              fetchOptions={fetchExamSeries}
+              placeholder="Search exam series"
+              emptyMessage="No exam series found"
+              clearable
+            />
+          </div>
+          <div>
+            <LookupSelect
               label="Student (optional)"
               value={filterStudent}
               selectedOption={filterStudentOption}
@@ -172,25 +207,11 @@ export function PublishMarksPage() {
                 setFilterStudentOption(option);
               }}
               fetchOptions={fetchStudents}
-              placeholder={filterSession ? "Search student" : "Select session first"}
+              placeholder={filterExamSeries ? "Search student" : "Select exam series first"}
               emptyMessage="No students found"
-              disabled={!filterSession}
+              disabled={!filterExamSeries}
               clearable
             />
-          </div>
-          <div>
-            <label htmlFor="filterSession" className={`mb-2 block text-slate-600 ${labelClassName}`}>Academic Session</label>
-            <select
-              id="filterSession"
-              value={filterSession}
-              onChange={(e) => { setFilterSession(e.target.value); setFilterStudent(""); setFilterStudentOption(null); setFilterUnit(""); setFilterUnitOption(null); setFilterType(""); }}
-              className={`${selectClassName} w-full`}
-            >
-              <option value="">Select a session</option>
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
           </div>
           <div>
             <LookupSelect
@@ -202,9 +223,9 @@ export function PublishMarksPage() {
                 setFilterUnitOption(option);
               }}
               fetchOptions={fetchUnits}
-              placeholder={filterSession ? "Search unit" : "Select session first"}
+              placeholder={filterExamSeries ? "Search unit" : "Select exam series first"}
               emptyMessage="No units found"
-              disabled={!filterSession}
+              disabled={!filterExamSeries}
             />
           </div>
           <div>
@@ -217,13 +238,13 @@ export function PublishMarksPage() {
               disabled={!filterUnit}
             >
               <option value="">All Types</option>
-              {ASSESSMENT_TYPES.map((t) => (
+              {currentTypes.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
         </div>
-        {filterSession && filterUnit && filterType ? (
+        {filterExamSeries && filterUnit && filterType ? (
           <div className="mt-4 flex gap-2">
             <FormButton type="button" onClick={() => handleBulkPublish(true)}>
               Publish All for This Assessment

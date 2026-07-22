@@ -98,6 +98,10 @@ export function useMarksApi() {
         const response = await authClient.get("/my/session-enrolments", { params });
         return response.data;
       },
+      assessmentTypes: async (params = {}) => {
+        const response = await authClient.get("/marks/assessment-types", { params });
+        return response.data;
+      },
       adminMarksheet: async (params = {}) => {
         const response = await authClient.get("/marks/student-marksheet", { params });
         return response.data;

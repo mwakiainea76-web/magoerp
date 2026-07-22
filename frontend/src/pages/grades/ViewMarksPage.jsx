@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download } from "lucide-react";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useForm } from "react-hook-form";
@@ -13,27 +13,16 @@ import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { Table, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { useMarksApi } from "@/hooks/useMarksApi";
-import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
+import { useExamSeriesApi } from "@/hooks/useExamSeriesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
-const ASSESSMENT_TYPES = ["CAT 1", "CAT 2", "CAT 3", "PRAC 1", "PRAC 2", "PRAC 3"];
+const FALLBACK_TYPES = ["CAT 1", "CAT 2", "CAT 3", "PRAC 1", "PRAC 2", "PRAC 3"];
 const CAT_PREFIXES = ["CAT"];
 const PRAC_PREFIXES = ["PRAC"];
 
 const editSchema = yup.object({
   score: yup.number().typeError("Score must be a number").required("Score is required").min(0, "Minimum score is 0").max(100, "Maximum score is 100"),
 });
-
-const COLUMN_TYPES = [
-  { key: "CAT 1", label: "CAT 1", group: "CAT" },
-  { key: "CAT 2", label: "CAT 2", group: "CAT" },
-  { key: "CAT 3", label: "CAT 3", group: "CAT" },
-  { key: "AVG(CAT)", label: "AVG(CAT)", group: "CAT", isAvg: true },
-  { key: "PRAC 1", label: "PRAC 1", group: "PRAC" },
-  { key: "PRAC 2", label: "PRAC 2", group: "PRAC" },
-  { key: "PRAC 3", label: "PRAC 3", group: "PRAC" },
-  { key: "AVG(PRAC)", label: "AVG(PRAC)", group: "PRAC", isAvg: true },
-];
 
 function getGroupKey(type) {
   if (CAT_PREFIXES.some((p) => type.startsWith(p))) return "CAT";
@@ -49,16 +38,32 @@ function extractNumber(assessmentType) {
   return Number(assessmentType?.split(" ")[1] ?? 0);
 }
 
+function buildColumnTypes(types) {
+  const list = types || FALLBACK_TYPES;
+  const cols = [];
+  list.forEach((t) => {
+    const group = getGroupKey(t);
+    cols.push({ key: t, label: t, group, isAvg: false });
+  });
+  const cats = cols.filter((c) => c.group === "CAT" && c.key !== "AVG(CAT)");
+  const pracs = cols.filter((c) => c.group === "PRAC" && c.key !== "AVG(PRAC)");
+  if (cats.length > 1) cols.push({ key: "AVG(CAT)", label: "AVG(CAT)", group: "CAT", isAvg: true });
+  if (pracs.length > 1) cols.push({ key: "AVG(PRAC)", label: "AVG(PRAC)", group: "PRAC", isAvg: true });
+  return cols;
+}
+
 export function ViewMarksPage() {
   const marksApi = useMarksApi();
-  const sessionsApi = useAcademicSessionsApi();
+  const examSeriesApi = useExamSeriesApi();
 
   const [marks, setMarks] = useState([]);
   const [marksheetData, setMarksheetData] = useState(null);
-  const [sessions, setSessions] = useState([]);
+  const [examSeriesOptions, setExamSeriesOptions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [filterExamSeries, setFilterExamSeries] = useState("");
+  const [filterExamSeriesOption, setFilterExamSeriesOption] = useState(null);
   const [filterSession, setFilterSession] = useState("");
   const [filterStudent, setFilterStudent] = useState("");
   const [filterStudentOption, setFilterStudentOption] = useState(null);
@@ -88,16 +93,23 @@ export function ViewMarksPage() {
     resolver: yupResolver(editSchema),
   });
 
-  const loadSessions = useCallback(async () => {
-    try {
-      const res = await sessionsApi.list({ per_page: 50, sort_direction: "desc" });
-      setSessions(res.data ?? []);
-    } catch {
-      // silent
-    }
-  }, [sessionsApi]);
 
-  useEffect(() => { loadSessions(); }, [loadSessions]);
+
+  useEffect(() => {
+    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch(() => {});
+  }, [examSeriesApi]);
+
+  const selectedExamSeriesTypes = useMemo(() => {
+    if (!filterExamSeries) return null;
+    const found = examSeriesOptions.find((s) => s.id === filterExamSeries);
+    return found?.assessment_types ?? null;
+  }, [filterExamSeries, examSeriesOptions]);
+
+  const dynamicColumnTypes = useMemo(() => {
+    return buildColumnTypes(selectedExamSeriesTypes);
+  }, [selectedExamSeriesTypes]);
+
+  const currentTypes = selectedExamSeriesTypes || FALLBACK_TYPES;
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -110,25 +122,34 @@ export function ViewMarksPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const fetchExamSeries = useCallback(async (query) => {
+    const q = (query ?? "").toLowerCase();
+    return examSeriesOptions
+      .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.short_name ?? "").toLowerCase().includes(q))
+      .map((s) => ({ id: s.id, label: `${s.name}${s.short_name ? ` (${s.short_name})` : ""}` }));
+  }, [examSeriesOptions]);
+
   const fetchStudents = useCallback(async (query) => {
     if (!filterSession) return [];
     const params = { q: query, academic_session_id: filterSession };
+    if (filterExamSeries) params.exam_series_id = filterExamSeries;
     const res = await marksApi.availableStudents(params);
     return (res.data ?? []).map((s) => ({
       id: s.id,
       label: `${s.admission_number} - ${s.name}`,
     }));
-  }, [marksApi, filterSession]);
+  }, [marksApi, filterSession, filterExamSeries]);
 
   const fetchUnits = useCallback(async (query) => {
     const params = { q: query };
     if (filterSession) params.academic_session_id = filterSession;
+    if (filterExamSeries) params.exam_series_id = filterExamSeries;
     const res = await marksApi.availableUnits(params);
     return (res.data ?? []).map((u) => ({
       id: u.id,
       label: `${u.code} - ${u.name}`,
     }));
-  }, [marksApi, filterSession]);
+  }, [marksApi, filterSession, filterExamSeries]);
 
   const loadData = useCallback(async () => {
     if (!filterStudent && (!filterSession || !filterUnit)) {
@@ -141,16 +162,20 @@ export function ViewMarksPage() {
     setIsLoading(true);
     setError("");
 
+    const commonParams = {};
+    if (filterExamSeries) commonParams.exam_series_id = filterExamSeries;
+    if (filterSession) commonParams.academic_session_id = filterSession;
+
     try {
       if (filterUnit) {
         if (!filterType) {
-          const params = { academic_session_id: filterSession, unit_id: filterUnit };
+          const params = { ...commonParams, unit_id: filterUnit };
           if (filterStudent) params.student_id = filterStudent;
           const res = await marksApi.marksheet(params);
           setMarksheetData(res.data ?? null);
           setMarks([]);
         } else {
-          const params = { academic_session_id: filterSession, unit_id: filterUnit, assessment_type: filterType, page, per_page: perPage };
+          const params = { ...commonParams, unit_id: filterUnit, assessment_type: filterType, page, per_page: perPage };
           if (filterStudent) params.student_id = filterStudent;
           const res = await marksApi.list(params);
           setMarks(res.data ?? []);
@@ -159,8 +184,7 @@ export function ViewMarksPage() {
           setMarksheetData(null);
         }
       } else {
-        const params = { page, per_page: perPage };
-        if (filterSession) params.academic_session_id = filterSession;
+        const params = { page, per_page: perPage, ...commonParams };
         if (filterStudent) params.student_id = filterStudent;
         if (filterType) params.assessment_type = filterType;
         const res = await marksApi.list(params);
@@ -174,7 +198,7 @@ export function ViewMarksPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [marksApi, filterSession, filterUnit, filterType, filterStudent, page, perPage]);
+  }, [marksApi, filterSession, filterUnit, filterType, filterStudent, filterExamSeries, page, perPage]);
 
   useEffect(() => {
     loadData();
@@ -249,8 +273,8 @@ export function ViewMarksPage() {
   }
 
   async function handleExport(format) {
-    if (!filterSession || !filterUnit) {
-      toast.error("Select an academic session and unit before exporting.");
+    if (!filterExamSeries || !filterUnit) {
+      toast.error("Select an exam series and unit before exporting.");
       return;
     }
 
@@ -261,7 +285,7 @@ export function ViewMarksPage() {
     try {
       const params = {
         format,
-        academic_session_id: filterSession,
+        exam_series_id: filterExamSeries,
         unit_id: filterUnit,
       };
 
@@ -294,7 +318,7 @@ export function ViewMarksPage() {
   }
 
   const exportLabels = { csv: "CSV", xlsx: "Excel", pdf: "PDF" };
-  const canExport = Boolean(filterSession && filterUnit);
+  const canExport = Boolean(filterExamSeries && filterUnit);
 
   return (
     <section className="space-y-5">
@@ -362,6 +386,29 @@ export function ViewMarksPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <LookupSelect
+              label="Exam Series"
+              value={filterExamSeries}
+              selectedOption={filterExamSeriesOption}
+              onChange={(nextValue, option) => {
+                setFilterExamSeries(nextValue);
+                setFilterExamSeriesOption(option);
+                const found = examSeriesOptions.find((s) => s.id === nextValue);
+                setFilterSession(found?.academic_session_id ?? "");
+                setFilterStudent("");
+                setFilterStudentOption(null);
+                setFilterUnit("");
+                setFilterUnitOption(null);
+                setFilterType("");
+                setPage(1);
+              }}
+              fetchOptions={fetchExamSeries}
+              placeholder="Search exam series"
+              emptyMessage="No exam series found"
+              clearable
+            />
+          </div>
+          <div>
+            <LookupSelect
               label="Student (optional)"
               value={filterStudent}
               selectedOption={filterStudentOption}
@@ -371,25 +418,11 @@ export function ViewMarksPage() {
                 setPage(1);
               }}
               fetchOptions={fetchStudents}
-              placeholder={filterSession ? "Search student" : "Select session first"}
+              placeholder={filterExamSeries ? "Search student" : "Select exam series first"}
               emptyMessage="No students found"
-              disabled={!filterSession}
+              disabled={!filterExamSeries}
               clearable
             />
-          </div>
-          <div>
-            <label htmlFor="filterSession" className={`mb-2 block text-slate-600 ${labelClassName}`}>Academic Session</label>
-            <select
-              id="filterSession"
-              value={filterSession}
-              onChange={(e) => { setFilterSession(e.target.value); setFilterStudent(""); setFilterStudentOption(null); setFilterUnit(""); setFilterUnitOption(null); setFilterType(""); setPage(1); }}
-              className={`${selectClassName} w-full`}
-            >
-              <option value="">Select a session</option>
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
           </div>
           <div>
             <LookupSelect
@@ -402,9 +435,9 @@ export function ViewMarksPage() {
                 setPage(1);
               }}
               fetchOptions={fetchUnits}
-              placeholder={filterSession ? "Search unit" : "Select session first"}
+              placeholder={filterExamSeries ? "Search unit" : "Select exam series first"}
               emptyMessage="No units found"
-              disabled={!filterSession}
+              disabled={!filterExamSeries}
             />
           </div>
           <div>
@@ -417,7 +450,7 @@ export function ViewMarksPage() {
               disabled={!filterUnit}
             >
               <option value="">All Types</option>
-              {ASSESSMENT_TYPES.map((t) => (
+              {currentTypes.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
@@ -438,7 +471,7 @@ export function ViewMarksPage() {
                 <Th className="w-10 text-center">#</Th>
                 <Th>Admission</Th>
                 <Th>Student</Th>
-                {COLUMN_TYPES.map((col) => (
+                {dynamicColumnTypes.map((col) => (
                   <Th key={col.key} className={`text-center ${col.isAvg ? "!text-red-600 " : ""}`}>{col.label}</Th>
                 ))}
               </tr>
@@ -450,7 +483,7 @@ export function ViewMarksPage() {
                   <Td className="w-10 text-center text-slate-400">{(page - 1) * perPage + index + 1}</Td>
                   <Td className="text-slate-700">{student.student.admission_number}</Td>
                   <Td className="font-medium text-slate-800">{student.student.name}</Td>
-                  {COLUMN_TYPES.map((col) => {
+                  {dynamicColumnTypes.map((col) => {
                     const value = getMarksForStudent(student.student.id, col.key);
                     const markId = getMarkIdForStudent(student.student.id, col.key);
                     return (
@@ -553,9 +586,9 @@ export function ViewMarksPage() {
       ) : null}
 
       {/* Initial state (no filters) */}
-      {!isLoading && !filterSession && !filterUnit && !filterStudent && !error ? (
+      {!isLoading && !filterExamSeries && !filterUnit && !filterStudent && !error ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
-          Select a session and unit to view marks.
+          Select an exam series and unit to view marks.
         </div>
       ) : null}
 

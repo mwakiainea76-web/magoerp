@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { LookupSelect } from "@/components/LookupSelect";
 import { bodyTextClassName, labelTextClassName, selectClassName } from "@/lib/styles";
@@ -16,7 +16,7 @@ import {
 } from "@/components/DataTable";
 import { useMarksApi } from "@/hooks/useMarksApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
-import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
+import { useExamSeriesApi } from "@/hooks/useExamSeriesApi";
 import { useUnitsApi } from "@/hooks/useUnitsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
@@ -44,8 +44,8 @@ function getCellValue(entry, key) {
 export function MarksheetPage({ role = "admin" }) {
   const marksApi = useMarksApi();
   const lookupApi = useLookupApi();
-  const sessionsApi = useAcademicSessionsApi();
   const unitsApi = useUnitsApi();
+  const examSeriesApi = useExamSeriesApi();
 
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [enrolments, setEnrolments] = useState([]);
@@ -56,9 +56,10 @@ export function MarksheetPage({ role = "admin" }) {
   const [isLoadingEnrolments, setIsLoadingEnrolments] = useState(false);
   const [error, setError] = useState("");
 
-  const [sessions, setSessions] = useState([]);
   const [units, setUnits] = useState([]);
-  const [selectedAggSession, setSelectedAggSession] = useState("");
+  const [examSeriesOptions, setExamSeriesOptions] = useState([]);
+  const [selectedExamSeries, setSelectedExamSeries] = useState("");
+  const [selectedExamSeriesOption, setSelectedExamSeriesOption] = useState(null);
   const [selectedAggUnit, setSelectedAggUnit] = useState("");
 
   const [page, setPage] = useState(1);
@@ -70,16 +71,16 @@ export function MarksheetPage({ role = "admin" }) {
     if (role === "student") return;
     let mounted = true;
     Promise.all([
-      sessionsApi.list({ per_page: 100, sort_direction: "desc" }),
       unitsApi.list({ per_page: 200 }),
-    ]).then(([sessionsRes, unitsRes]) => {
+      examSeriesApi.options(),
+    ]).then(([unitsRes, examRes]) => {
       if (mounted) {
-        setSessions(sessionsRes.data ?? []);
         setUnits(unitsRes.data ?? []);
+        setExamSeriesOptions(examRes.data ?? []);
       }
     }).catch(() => {});
     return () => { mounted = false; };
-  }, [role === "student", sessionsApi, unitsApi]);
+  }, [role === "student", unitsApi, examSeriesApi]);
 
   useEffect(() => {
     setSelectedEnrolmentId("");
@@ -152,6 +153,9 @@ export function MarksheetPage({ role = "admin" }) {
     setError("");
 
     const params = {};
+    if (selectedExamSeries) {
+      params.exam_series_id = selectedExamSeries;
+    }
     if (selectedEnrolmentId) {
       params.session_enrolment_id = selectedEnrolmentId;
     }
@@ -175,7 +179,7 @@ export function MarksheetPage({ role = "admin" }) {
       });
 
     return () => { mounted = false; };
-  }, [studentId, selectedEnrolmentId, selectedModule, role === "student", marksApi]);
+  }, [studentId, selectedEnrolmentId, selectedModule, selectedExamSeries, role === "student", marksApi]);
 
   useEffect(() => {
     setPage(1);
@@ -185,6 +189,13 @@ export function MarksheetPage({ role = "admin" }) {
   const visibleRows = marksheetRows.slice((page - 1) * perPage, page * perPage);
   const student = marksheetData?.student;
 
+  const fetchExamSeries = useCallback(async (query) => {
+    const q = (query ?? "").toLowerCase();
+    return examSeriesOptions
+      .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.short_name ?? "").toLowerCase().includes(q))
+      .map((s) => ({ id: s.id, label: `${s.name}${s.short_name ? ` (${s.short_name})` : ""}` }));
+  }, [examSeriesOptions]);
+
   const fetchStudents = (query) =>
     lookupApi
       .search("students", { query, limit: 10 })
@@ -192,13 +203,13 @@ export function MarksheetPage({ role = "admin" }) {
       .catch(() => []);
 
   async function handleAggGenerate() {
-    if (!selectedAggSession || !selectedAggUnit) return;
+    if (!selectedExamSeries || !selectedAggUnit) return;
     setIsLoading(true);
     setError("");
     try {
       const res = await marksApi.marksheet({
-        academic_session_id: selectedAggSession,
         unit_id: selectedAggUnit,
+        exam_series_id: selectedExamSeries,
       });
       setMarksheetData(res.data ?? null);
     } catch (e) {
@@ -212,6 +223,20 @@ export function MarksheetPage({ role = "admin" }) {
     return (
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end">
         <div>
+          <LookupSelect
+            label="Exam Series"
+            value={selectedExamSeries}
+            selectedOption={selectedExamSeriesOption}
+            onChange={(nextValue, option) => {
+              setSelectedExamSeries(nextValue);
+              setSelectedExamSeriesOption(option);
+            }}
+            fetchOptions={fetchExamSeries}
+            placeholder="Search exam series"
+            emptyMessage="No exam series found"
+          />
+        </div>
+        <div>
           <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Unit</label>
           <select
             value={selectedAggUnit}
@@ -224,20 +249,7 @@ export function MarksheetPage({ role = "admin" }) {
             ))}
           </select>
         </div>
-        <div>
-          <label className={`mb-2 block text-slate-600 ${labelTextClassName}`}>Academic Session</label>
-          <select
-            value={selectedAggSession}
-            onChange={(e) => setSelectedAggSession(e.target.value)}
-            className={`${selectClassName} w-full`}
-          >
-            <option value="">Select session</option>
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-        <FormButton onClick={handleAggGenerate} disabled={!selectedAggSession || !selectedAggUnit || isLoading}>
+        <FormButton onClick={handleAggGenerate} disabled={!selectedExamSeries || !selectedAggUnit || isLoading}>
           {isLoading ? "Generating..." : "Generate Marksheet"}
         </FormButton>
       </div>

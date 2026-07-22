@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import logo from "@/assets/logo.PNG";
 import { LookupSelect } from "@/components/LookupSelect";
@@ -10,6 +10,7 @@ import {
 import { FormButton } from "@/components/FormButton";
 import { useMarksApi } from "@/hooks/useMarksApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
+import { useExamSeriesApi } from "@/hooks/useExamSeriesApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 function valueOrDash(value) {
@@ -19,10 +20,14 @@ function valueOrDash(value) {
 export function TranscriptPage({ role = "admin" }) {
   const marksApi = useMarksApi();
   const lookupApi = useLookupApi();
+  const examSeriesApi = useExamSeriesApi();
 
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [enrolments, setEnrolments] = useState([]);
   const [selectedEnrolmentId, setSelectedEnrolmentId] = useState("");
+  const [selectedExamSeries, setSelectedExamSeries] = useState("");
+  const [selectedExamSeriesOption, setSelectedExamSeriesOption] = useState(null);
+  const [examSeriesOptions, setExamSeriesOptions] = useState([]);
   const [transcriptType, setTranscriptType] = useState("progress");
   const [transcriptData, setTranscriptData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +36,10 @@ export function TranscriptPage({ role = "admin" }) {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const studentId = role === "student" ? null : (selectedStudent?.id ?? null);
+
+  useEffect(() => {
+    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch(() => {});
+  }, [examSeriesApi]);
 
   useEffect(() => {
     setSelectedEnrolmentId("");
@@ -102,6 +111,7 @@ export function TranscriptPage({ role = "admin" }) {
 
     const params = {
       session_enrolment_id: selectedEnrolmentId,
+      exam_series_id: selectedExamSeries || undefined,
       transcript_type: transcriptType,
     };
     const promise = role === "student"
@@ -123,7 +133,7 @@ export function TranscriptPage({ role = "admin" }) {
     return () => {
       mounted = false;
     };
-  }, [studentId, selectedEnrolmentId, transcriptType, role === "student", marksApi]);
+  }, [studentId, selectedEnrolmentId, selectedExamSeries, transcriptType, role === "student", marksApi]);
 
   const transcriptRows = transcriptData?.transcript ?? [];
   const student = transcriptData?.student;
@@ -170,6 +180,7 @@ export function TranscriptPage({ role = "admin" }) {
     try {
       const params = {
         session_enrolment_id: selectedEnrolmentId,
+        exam_series_id: selectedExamSeries || undefined,
         transcript_type: transcriptType,
       };
       const downloadParams = role === "student"
@@ -203,6 +214,13 @@ export function TranscriptPage({ role = "admin" }) {
       setIsDownloading(false);
     }
   }
+
+  const fetchExamSeries = useCallback(async (query) => {
+    const q = (query ?? "").toLowerCase();
+    return examSeriesOptions
+      .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.short_name ?? "").toLowerCase().includes(q))
+      .map((s) => ({ id: s.id, label: `${s.name}${s.short_name ? ` (${s.short_name})` : ""}` }));
+  }, [examSeriesOptions]);
 
   const fetchStudents = (query) =>
     lookupApi
@@ -238,7 +256,7 @@ export function TranscriptPage({ role = "admin" }) {
 
       <div className="rounded-xl border border-slate-200/80 bg-white p-5">
         {role === "student" || studentId ? (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,200px)_1fr_auto] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,200px)_minmax(0,200px)_1fr_auto] lg:items-end">
             <div>
               <label
                 className={`mb-2 block text-slate-600 ${labelTextClassName}`}
@@ -263,6 +281,22 @@ export function TranscriptPage({ role = "admin" }) {
                   ))
                 )}
               </select>
+            </div>
+
+            <div>
+              <LookupSelect
+                label="Exam Series"
+                value={selectedExamSeries}
+                selectedOption={selectedExamSeriesOption}
+                onChange={(nextValue, option) => {
+                  setSelectedExamSeries(nextValue);
+                  setSelectedExamSeriesOption(option);
+                }}
+                fetchOptions={fetchExamSeries}
+                placeholder="Search exam series"
+                emptyMessage="No exam series found"
+                clearable
+              />
             </div>
 
             <div>

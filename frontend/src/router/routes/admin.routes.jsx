@@ -42,6 +42,7 @@ const TranscriptPage = lazy(() => import("@/pages/grades/TranscriptPage").then((
 const MarksheetPage = lazy(() => import("@/pages/grades/MarksheetPage").then((module) => ({ default: module.MarksheetPage })));
 const PublishMarksPage = lazy(() => import("@/pages/grades/PublishMarksPage").then((module) => ({ default: module.PublishMarksPage })));
 const ViewMarksPage = lazy(() => import("@/pages/grades/ViewMarksPage").then((module) => ({ default: module.ViewMarksPage })));
+const ExamSeriesPage = lazy(() => import("@/pages/grades/ExamSeriesPage").then((module) => ({ default: module.ExamSeriesPage })));
 const LectureRoomFormPage = lazy(() => import("@/pages/lectureRooms/LectureRoomFormPage").then((module) => ({ default: module.LectureRoomFormPage })));
 const LectureRoomsPage = lazy(() => import("@/pages/lectureRooms/LectureRoomsPage").then((module) => ({ default: module.LectureRoomsPage })));
 const TimetableCreatePage = lazy(() => import("@/pages/timetables/TimetableCreatePage").then((module) => ({ default: module.TimetableCreatePage })));
@@ -116,6 +117,9 @@ export const AdminRoutes = (
     <Route path="/admin/assessments/publish" element={<PublishMarksPage />} />
     <Route path="/admin/assessments/marksheet" element={<MarksheetPage role="admin" />} />
     <Route path="/admin/assessments/transcript" element={<TranscriptPage role="admin" />} />
+    <Route path="/admin/exam-series" element={<ExamSeriesPage />} />
+    <Route path="/admin/exam-series/create" element={<ExamSeriesPage />} />
+    <Route path="/admin/exam-series/:seriesId/edit" element={<ExamSeriesPage />} />
     <Route path="/admin/timetables" element={<TimetablePage role="admin" />} />
     <Route path="/admin/timetables/create" element={<TimetableCreatePage />} />
     <Route path="/admin/timetables/:timetableId/edit" element={<TimetableCreatePage />} />

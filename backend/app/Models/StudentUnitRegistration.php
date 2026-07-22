@@ -14,6 +14,7 @@ class StudentUnitRegistration extends Model
     protected $fillable = [
         'academic_session_enrolment_id',
         'unit_id',
+        'exam_series_id',
     ];
 
     protected $keyType = 'string';
@@ -28,5 +29,10 @@ class StudentUnitRegistration extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    public function examSeries(): BelongsTo
+    {
+        return $this->belongsTo(ExamSeries::class);
     }
 }

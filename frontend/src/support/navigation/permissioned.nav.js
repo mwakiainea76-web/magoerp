@@ -101,6 +101,8 @@ export const navLinks = [
       { label: "Add Marks", to: "/admin/assessments/add", permission: "manage-assessments" },
       { label: "Publish Marks", to: "/admin/assessments/publish", permission: "manage-assessments" },
       { label: "Transcript", to: "/admin/assessments/transcript", permission: "manage-assessments" },
+      { label: "Marksheet", to: "/admin/assessments/marksheet", permission: "manage-assessments" },
+      { label: "Exam Series", to: "/admin/exam-series", permission: "manage-exam-series" },
     ],
   },
   {

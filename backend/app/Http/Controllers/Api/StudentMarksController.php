@@ -8,11 +8,11 @@ use App\Exports\StreamingPdfWriter;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\AcademicSessionEnrolment;
-use App\Models\CertificationAuthorityGrade;
 use App\Models\Student;
 use App\Models\StudentMark;
 use App\Models\StudentUnitRegistration;
 use App\Models\Unit;
+use App\Models\ExamSeries;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +23,32 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class StudentMarksController extends Controller
 {
     private const ASSESSMENT_TYPES = ['CAT 1', 'CAT 2', 'CAT 3', 'PRAC 1', 'PRAC 2', 'PRAC 3'];
+
+    private function getAssessmentTypesForRegistration(string $enrolmentId, string $unitId): array
+    {
+        $registration = StudentUnitRegistration::where('academic_session_enrolment_id', $enrolmentId)
+            ->where('unit_id', $unitId)
+            ->with('examSeries')
+            ->first();
+
+        if ($registration?->examSeries?->assessment_types) {
+            return $registration->examSeries->assessment_types;
+        }
+
+        return self::ASSESSMENT_TYPES;
+    }
+
+    private function getAssessmentTypes(?string $examSeriesId): array
+    {
+        if ($examSeriesId) {
+            $series = ExamSeries::find($examSeriesId);
+            if ($series && ! empty($series->assessment_types)) {
+                return $series->assessment_types;
+            }
+        }
+
+        return self::ASSESSMENT_TYPES;
+    }
 
     public function __construct(
         protected DataExportService $exportService,
@@ -39,6 +65,7 @@ class StudentMarksController extends Controller
             'unit_id' => 'nullable|string|exists:units,id',
             'assessment_type' => 'nullable|string|max:50',
             'student_id' => 'nullable|string|exists:students,id',
+            'exam_series_id' => 'nullable|string|exists:exam_series,id',
         ]);
 
         $query = StudentMark::query()
@@ -57,6 +84,9 @@ class StudentMarksController extends Controller
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
             $query->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $sessionId));
+        }
+        if ($examSeriesId = $validated['exam_series_id'] ?? null) {
+            $query->where('exam_series_id', $examSeriesId);
         }
         if ($unitId = $validated['unit_id'] ?? null) {
             $query->where('unit_id', $unitId);
@@ -112,7 +142,7 @@ class StudentMarksController extends Controller
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'required|string|exists:units,id',
             'student_admission_number' => 'required|string|exists:students,admission_number',
-            'assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
+            'assessment_type' => 'required|string|max:50',
             'score' => 'required|integer|min:0|max:100',
         ]);
 
@@ -141,10 +171,20 @@ class StudentMarksController extends Controller
 
         $registration = StudentUnitRegistration::where('academic_session_enrolment_id', $enrolment->id)
             ->where('unit_id', $validated['unit_id'])
+            ->with('examSeries')
             ->first();
 
         if (! $registration) {
             return response()->json(['message' => 'Student is not enrolled for this unit in the selected session.'], 422);
+        }
+
+        $allowedTypes = $this->getAssessmentTypesForRegistration($enrolment->id, $validated['unit_id']);
+
+        if (! in_array($validated['assessment_type'], $allowedTypes, true)) {
+            return response()->json([
+                'message' => 'Invalid assessment type for this unit registration.',
+                'errors' => ['assessment_type' => ['Allowed types: ' . implode(', ', $allowedTypes)]],
+            ], 422);
         }
 
         $user = $request->user();
@@ -166,6 +206,7 @@ class StudentMarksController extends Controller
         $mark = StudentMark::create([
             'academic_session_enrolment_id' => $enrolment->id,
             'unit_id' => $validated['unit_id'],
+            'exam_series_id' => $registration->exam_series_id,
             'assessment_type' => $assessmentType,
             'assessment_number' => $assessmentNumber,
             'score' => $validated['score'],
@@ -187,7 +228,7 @@ class StudentMarksController extends Controller
             'marks.*.academic_session_id' => 'required|string|exists:academic_sessions,id',
             'marks.*.unit_id' => 'required|string|exists:units,id',
             'marks.*.student_admission_number' => 'required|string|exists:students,admission_number',
-            'marks.*.assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
+            'marks.*.assessment_type' => 'required|string|max:50',
             'marks.*.score' => 'required|integer|min:0|max:100',
         ]);
 
@@ -205,7 +246,8 @@ class StudentMarksController extends Controller
             ->keyBy(fn ($e) => "{$e->academic_session_id}|{$e->student_id}");
 
         $enrolmentIds = $enrolments->pluck('id');
-        $registrations = StudentUnitRegistration::whereIn('academic_session_enrolment_id', $enrolmentIds)
+        $registrations = StudentUnitRegistration::with('examSeries')
+            ->whereIn('academic_session_enrolment_id', $enrolmentIds)
             ->whereIn('unit_id', $unitIds)
             ->get()
             ->keyBy(fn ($r) => "{$r->academic_session_enrolment_id}|{$r->unit_id}");
@@ -242,6 +284,14 @@ class StudentMarksController extends Controller
                     continue;
                 }
 
+                $allowedTypes = $reg->examSeries?->assessment_types ?? self::ASSESSMENT_TYPES;
+
+                if (! in_array($entry['assessment_type'], $allowedTypes, true)) {
+                    $errors[] = "Invalid assessment type '{$entry['assessment_type']}' for this unit registration.";
+
+                    continue;
+                }
+
                 [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($entry['assessment_type']);
 
                 $markKey = "{$enrol->id}|{$entry['unit_id']}|{$assessmentType}|{$assessmentNumber}";
@@ -254,6 +304,7 @@ class StudentMarksController extends Controller
                 $created[] = StudentMark::create([
                     'academic_session_enrolment_id' => $enrol->id,
                     'unit_id' => $entry['unit_id'],
+                    'exam_series_id' => $reg->exam_series_id,
                     'assessment_type' => $assessmentType,
                     'assessment_number' => $assessmentNumber,
                     'score' => $entry['score'],
@@ -348,21 +399,23 @@ class StudentMarksController extends Controller
             'unit_id' => 'required|string|exists:units,id',
             'assessment_type' => ['required', 'string', Rule::in(self::ASSESSMENT_TYPES)],
             'assessment_number' => 'nullable|integer|min:1',
-            'academic_session_id' => 'required|string|exists:academic_sessions,id',
+            'academic_session_id' => ['nullable', 'string', 'exists:academic_sessions,id'],
+            'exam_series_id' => ['nullable', 'string', 'exists:exam_series,id'],
             'publish' => 'required|boolean',
         ]);
 
         [$assessmentType, $assessmentNumber] = $this->parseAssessmentType($validated['assessment_type']);
 
-        $enrolmentIds = AcademicSessionEnrolment::where('academic_session_id', $validated['academic_session_id'])
-            ->pluck('id');
-
-        $query = StudentMark::whereIn('academic_session_enrolment_id', $enrolmentIds)
-            ->where([
+        $query = StudentMark::where([
                 'unit_id' => $validated['unit_id'],
                 'assessment_type' => $assessmentType,
                 'assessment_number' => $assessmentNumber,
-            ]);
+            ])
+            ->when($validated['exam_series_id'] ?? null, fn ($q, $id) => $q->where('exam_series_id', $id))
+            ->when($validated['academic_session_id'] ?? null, function ($q) use ($validated) {
+                $enrolmentIds = AcademicSessionEnrolment::where('academic_session_id', $validated['academic_session_id'])->pluck('id');
+                $q->whereIn('academic_session_enrolment_id', $enrolmentIds);
+            });
 
         $count = $query->update(['is_published' => $validated['publish']]);
 
@@ -383,6 +436,7 @@ class StudentMarksController extends Controller
             'unit_id' => 'nullable|string|exists:units,id',
             'assessment_type' => 'nullable|string|max:50',
             'student_id' => 'nullable|string|exists:students,id',
+            'exam_series_id' => 'nullable|string|exists:exam_series,id',
             'publish' => 'required|boolean',
         ]);
 
@@ -390,6 +444,9 @@ class StudentMarksController extends Controller
 
         if ($sessionId = $validated['academic_session_id'] ?? null) {
             $query->whereHas('academicSessionEnrolment', fn ($q) => $q->where('academic_session_id', $sessionId));
+        }
+        if ($examSeriesId = $validated['exam_series_id'] ?? null) {
+            $query->where('exam_series_id', $examSeriesId);
         }
         if ($unitId = $validated['unit_id'] ?? null) {
             $query->where('unit_id', $unitId);
@@ -423,6 +480,7 @@ class StudentMarksController extends Controller
 
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
+            'exam_series_id' => 'nullable|string|exists:exam_series,id',
         ]);
 
         $units = Unit::query()
@@ -433,6 +491,9 @@ class StudentMarksController extends Controller
                     ->whereColumn('student_unit_registrations.unit_id', 'units.id');
                 if (($validated['academic_session_id'] ?? null)) {
                     $q->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']);
+                }
+                if (($validated['exam_series_id'] ?? null)) {
+                    $q->where('student_unit_registrations.exam_series_id', $validated['exam_series_id']);
                 }
             })
             ->get(['id', 'code', 'name']);
@@ -448,6 +509,7 @@ class StudentMarksController extends Controller
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'nullable|string|exists:units,id',
+            'exam_series_id' => 'nullable|string|exists:exam_series,id',
         ]);
 
         $query = Student::query()
@@ -456,6 +518,7 @@ class StudentMarksController extends Controller
             ->join('academic_session_enrolments', 'academic_session_enrolments.student_id', '=', 'students.id')
             ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
             ->when($validated['academic_session_id'] ?? null, fn ($q) => $q->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id']))
+            ->when($validated['exam_series_id'] ?? null, fn ($q) => $q->where('student_unit_registrations.exam_series_id', $validated['exam_series_id']))
             ->when($authenticatedStudent, fn ($studentQuery, Student $student) => $studentQuery->where('students.id', $student->id));
 
         if ($unitId = $validated['unit_id'] ?? null) {
@@ -486,10 +549,18 @@ class StudentMarksController extends Controller
         $authenticatedStudent = $this->authenticatedStudent($request);
 
         $validated = $request->validate([
-            'academic_session_id' => 'required|string|exists:academic_sessions,id',
+            'academic_session_id' => ['nullable', 'string', 'exists:academic_sessions,id'],
             'unit_id' => 'required|string|exists:units,id',
             'student_id' => 'nullable|string|exists:students,id',
+            'exam_series_id' => ['nullable', 'string', 'exists:exam_series,id'],
         ]);
+
+        if (empty($validated['academic_session_id']) && ! empty($validated['exam_series_id'])) {
+            $series = ExamSeries::find($validated['exam_series_id']);
+            $validated['academic_session_id'] = $series?->academic_session_id;
+        }
+
+        abort_unless($validated['academic_session_id'] ?? null, 422, 'Academic session is required when no exam series is selected.');
 
         if ($authenticatedStudent) {
             $validated['student_id'] = $authenticatedStudent->id;
@@ -502,6 +573,7 @@ class StudentMarksController extends Controller
             ->join('student_unit_registrations', 'student_unit_registrations.academic_session_enrolment_id', '=', 'academic_session_enrolments.id')
             ->where('academic_session_enrolments.academic_session_id', $validated['academic_session_id'])
             ->where('student_unit_registrations.unit_id', $validated['unit_id'])
+            ->when($validated['exam_series_id'] ?? null, fn ($q) => $q->where('student_unit_registrations.exam_series_id', $validated['exam_series_id']))
             ->distinct();
 
         if ($studentId = $validated['student_id'] ?? null) {
@@ -592,10 +664,11 @@ class StudentMarksController extends Controller
 
         $validated = $request->validate([
             'format' => ['nullable', 'in:csv,xlsx,pdf'],
-            'academic_session_id' => ['required', 'string', 'exists:academic_sessions,id'],
+            'academic_session_id' => ['required_without:exam_series_id', 'nullable', 'string', 'exists:academic_sessions,id'],
             'unit_id' => ['required', 'string', 'exists:units,id'],
             'assessment_type' => ['nullable', 'string', Rule::in(self::ASSESSMENT_TYPES)],
             'student_id' => ['nullable', 'string', 'exists:students,id'],
+            'exam_series_id' => ['nullable', 'string', 'exists:exam_series,id'],
         ]);
 
         if ($authenticatedStudent) {
@@ -612,8 +685,12 @@ class StudentMarksController extends Controller
                 ->where('assessment_type', $assessmentType)
                 ->where('assessment_number', $assessmentNumber)
                 ->when($authenticatedStudent, fn ($markQuery) => $markQuery->where('is_published', true))
+                ->when($validated['exam_series_id'] ?? null, fn ($q, $id) => $q->where('exam_series_id', $id))
                 ->whereHas('academicSessionEnrolment', function ($query) use ($validated) {
-                    $query->where('academic_session_id', $validated['academic_session_id'])
+                    $query->when(
+                            $validated['academic_session_id'] ?? null,
+                            fn ($sq, $sessionId) => $sq->where('academic_session_id', $sessionId),
+                        )
                         ->when(
                             $validated['student_id'] ?? null,
                             fn ($studentQuery, string $studentId) => $studentQuery->where('student_id', $studentId),
@@ -872,6 +949,7 @@ class StudentMarksController extends Controller
         $transcriptType = $validated['transcript_type'] ?? 'progress';
         $selectedModule = $validated['module'] ?? null;
         $selectedYear = $validated['year_of_study'] ?? null;
+        $assessmentTypes = self::ASSESSMENT_TYPES;
 
         $sessionEnrolments = AcademicSessionEnrolment::query()
             ->with('academicSession:id,name,code')
@@ -978,12 +1056,12 @@ class StudentMarksController extends Controller
             ->filter(fn (StudentUnitRegistration $registration) => $marks->has($registration->unit_id))
             ->values();
 
-        $transcript = $registrations->map(function (StudentUnitRegistration $registration) use ($marks, $gradeBands) {
+        $transcript = $registrations->map(function (StudentUnitRegistration $registration) use ($marks, $gradeBands, $assessmentTypes) {
             $unit = $registration->unit;
             $unitMarks = $marks->get($registration->unit_id, collect());
 
             $scores = [];
-            foreach (self::ASSESSMENT_TYPES as $label) {
+            foreach ($assessmentTypes as $label) {
                 [$type, $number] = $this->parseAssessmentType($label);
                 $match = $unitMarks->first(fn (StudentMark $mark) => $mark->assessment_type === $type && (int) $mark->assessment_number === $number);
                 $scores[$label] = $match?->score;
@@ -1125,6 +1203,7 @@ class StudentMarksController extends Controller
         return [$type, (int) $number];
     }
 
+
     private function exportMark(AcademicSessionEnrolment $enrolment, string $type, int $number): int|string
     {
         return $enrolment->studentMarks
@@ -1173,8 +1252,10 @@ class StudentMarksController extends Controller
     {
         abort_unless($request->user()?->can('assessments.view'), 403);
 
+        $examSeriesId = $request->get('exam_series_id');
+
         return response()->json([
-            'data' => self::ASSESSMENT_TYPES,
+            'data' => $this->getAssessmentTypes($examSeriesId),
         ]);
     }
 
