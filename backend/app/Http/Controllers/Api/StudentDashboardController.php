@@ -69,7 +69,7 @@ class StudentDashboardController extends Controller
 
         $courseCurriculumId = $courseEnrolment?->course_curriculum_id;
         $priorSessionCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
-        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_academic_year', config('academic.sessions_per_academic_year', 3));
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_year_of_study', config('academic.sessions_per_year_of_study', 3));
         $nextModule = $priorSessionCount + 1;
         $nextYearLevel = (int) floor(($nextModule - 1) / $sessionsPerYear) + 1;
         $nextSessionNumber = (($nextModule - 1) % $sessionsPerYear) + 1;

@@ -98,6 +98,15 @@ export function SystemConfigurationsPage() {
                       label="Value"
                       className="w-24"
                     />
+                  ) : config.type === "select" ? (
+                    <select
+                      id={`config-${config.key}`}
+                      defaultValue={config.value}
+                      className="w-48 rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                    >
+                      <option value="per_session">Per Academic Session of Study</option>
+                      <option value="per_year">Per Academic Year of Study</option>
+                    </select>
                   ) : (
                     <FormInput
                       id={`config-${config.key}`}

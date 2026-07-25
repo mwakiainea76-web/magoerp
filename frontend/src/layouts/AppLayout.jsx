@@ -22,6 +22,33 @@ function ContentRouteLoader() {
   );
 }
 
+function itemAllowedForRole(item, role) {
+  if (item.roles?.length) {
+    return item.roles.includes(role);
+  }
+
+  if (!item.to) {
+    return true;
+  }
+
+  if (item.to.startsWith("/admin")) {
+    return role === "admin";
+  }
+
+  if (item.to.startsWith("/finance")) {
+    return role === "finance" || role === "admin";
+  }
+
+  if (item.to.startsWith("/trainer")) {
+    return role === "trainer";
+  }
+
+  if (item.to.startsWith("/student")) {
+    return role === "student";
+  }
+
+  return true;
+}
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -39,6 +66,8 @@ export function AppLayout() {
   const filterNavItems = useCallback(
     (items) => {
       return items.reduce((acc, item) => {
+        if (!itemAllowedForRole(item, role)) return acc;
+
         if (item.children) {
           const filteredChildren = filterNavItems(item.children);
           if (filteredChildren.length === 0) return acc;
@@ -52,7 +81,7 @@ export function AppLayout() {
         return acc;
       }, []);
     },
-    [can],
+    [can, role],
   );
 
   const links = filterNavItems(navLinks);

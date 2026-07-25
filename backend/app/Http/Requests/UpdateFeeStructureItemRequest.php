@@ -10,7 +10,7 @@ class UpdateFeeStructureItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('finance.update') ?? false;
+        return $this->user()?->can('finance.update') || $this->user()?->can('manage-fee-structures') ?? false;
     }
 
     public function rules(): array

@@ -23,10 +23,6 @@ const assignmentSchema = yup.object({
     is: "department", then: (s) => s.required("Department is required"), otherwise: (s) => s.nullable(),
   }),
   year_level: yup.string().required("Year level is required"),
-  issuance_type: yup.string().oneOf(["per_session", "per_year"]).required(),
-  session_number: yup.string().when("issuance_type", {
-    is: "per_session", then: (s) => s.required("Session number is required"), otherwise: (s) => s.nullable(),
-  }),
 });
 
 const defaultFormValues = {
@@ -35,8 +31,6 @@ const defaultFormValues = {
   course_curriculum_id: "",
   department_id: "",
   year_level: "",
-  issuance_type: "per_session",
-  session_number: "1",
   name: "",
   code: "",
   items: [{ name: "", amount: "", description: "" }],
@@ -111,7 +105,6 @@ export function CourseFeeAssignPage() {
       const values = form.getValues();
       const res = await feeStructureApi.preview({
         academic_session_id: values.academic_session_id,
-        issuance_type: values.issuance_type,
         items: structure?.items?.length
           ? structure.items.map((i) => ({ name: i.name, amount: i.amount }))
           : [{ name: structure?.name || "", amount: totalAmount }],
@@ -132,12 +125,10 @@ export function CourseFeeAssignPage() {
       const values = form.getValues();
       await assignmentsApi.create(templateId, {
         assignment_scope: values.assignment_scope,
-        issuance_type: values.issuance_type,
         course_curriculum_id: values.assignment_scope === "course" ? values.course_curriculum_id : null,
         department_id: values.assignment_scope === "department" ? values.department_id : null,
         year_level: Number(values.year_level),
-        session_number: values.issuance_type === "per_session" ? Number(values.session_number) : null,
-        academic_year_id: values.issuance_type === "per_year" ? values.academic_session_id : null,
+        academic_session_id: values.academic_session_id,
         split_ratios: null,
         is_approved: action === "publish",
       });
@@ -157,8 +148,7 @@ function AssignmentFormContent({ lookups, preview, loadingPreview, saving, error
     v.academic_session_id &&
     v.year_level !== "" &&
     (v.assignment_scope !== "course" || v.course_curriculum_id) &&
-    (v.assignment_scope !== "department" || v.department_id) &&
-    (v.issuance_type !== "per_session" || v.session_number)
+    (v.assignment_scope !== "department" || v.department_id)
   );
 
   return (
@@ -216,7 +206,7 @@ function AssignmentFormContent({ lookups, preview, loadingPreview, saving, error
   return (
     <section className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link to="/admin/finance/course-fee"
+        <Link to="/finance/course-fee"
           className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50">
           <ArrowLeft className="h-4 w-4" /> Back
         </Link>

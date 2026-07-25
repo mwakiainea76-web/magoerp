@@ -151,7 +151,7 @@ export function StudentsNotInvoicedPage() {
                     <Td className="text-center">{s.year_of_study ?? "—"}</Td>
                     <Td className="text-center">{s.session_number ?? "—"}</Td>
                     <Td className="text-center">
-                      <button type="button" onClick={() => navigate(`/admin/finance/student-accounts/${s.id}`)}
+                      <button type="button" onClick={() => navigate(`/finance/student-accounts/${s.id}`)}
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[12px] font-medium text-slate-600 hover:bg-slate-50">
                         <ExternalLink className="h-3 w-3" /> Open
                       </button>

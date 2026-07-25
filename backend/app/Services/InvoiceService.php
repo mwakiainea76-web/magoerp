@@ -15,6 +15,7 @@ use App\Models\InvoicePaymentAllocation;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\Student;
+use App\Models\SystemConfiguration;
 use App\Models\StudentAccountBalance;
 use App\Models\StudentLedgerEntry;
 use App\Services\Traits\FinanceHelpers;
@@ -69,17 +70,38 @@ class InvoiceService
             $billingYearLevel = $enrolment?->year_of_study ?? 1;
             $billingSessionNumber = $enrolment?->session_number ?? 1;
 
-            $idempotencyKey = "fees:{$student->id}:{$targetSession->id}";
+            $feeIssuanceType = SystemConfiguration::getValue('fee_issuance_type', config('academic.fee_issuance_type', 'per_session'));
+            $isPerYear = $feeIssuanceType === 'per_year';
 
-            $existingInvoice = Invoice::query()
-                ->where('idempotency_key', $idempotencyKey)
-                ->where('status', '!=', 'cancelled')
-                ->first();
+            if ($isPerYear) {
+                $idempotencyKey = "fees:{$student->id}:year:{$billingYearLevel}";
 
-            if ($existingInvoice) {
-                return $existingInvoice;
+                $existingInvoice = Invoice::query()
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->where('status', '!=', 'cancelled')
+                    ->first();
+
+                if ($existingInvoice) {
+                    return $existingInvoice;
+                }
+
+                if ($billingSessionNumber > 1) {
+                    return null;
+                }
+            } else {
+                $idempotencyKey = "fees:{$student->id}:{$targetSession->id}";
+
+                $existingInvoice = Invoice::query()
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->where('status', '!=', 'cancelled')
+                    ->first();
+
+                if ($existingInvoice) {
+                    return $existingInvoice;
+                }
             }
 
+            $sessionNumberMatch = $isPerYear ? 0 : $billingSessionNumber;
             $assignment = CurriculumFeeStructure::query()
                 ->when(
                     $invoiceTemplateId,
@@ -101,7 +123,7 @@ class InvoiceService
                             ->where('academic_year_id', $targetSession->academic_year_id));
                 })
                 ->whereIn('year_level', [$billingYearLevel, CurriculumFeeStructure::ALL_YEAR_LEVELS])
-                ->where('session_number', $billingSessionNumber)
+                ->where('session_number', $sessionNumberMatch)
                 ->where('is_approved', true)
                 ->with(['feeStructure.items' => fn ($q) => $q->where('is_active', true)->where('amount', '>', 0)])
                 ->orderByRaw('course_curriculum_id = ? desc', [$courseCurriculumId])

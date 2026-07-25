@@ -74,7 +74,7 @@ export function CourseFeeAssignmentPage() {
                     &middot; {structure.items_count} item{structure.items_count !== 1 ? "s" : ""}
                   </p>
                 </div>
-                <button type="button" onClick={() => navigate(`/admin/finance/course-fee/${structure.id}/assign`)}
+                <button type="button" onClick={() => navigate(`/finance/course-fee/${structure.id}/assign`)}
                   className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700 hover:bg-emerald-100">
                   Assign <ArrowRight className="h-3.5 w-3.5" />
                 </button>

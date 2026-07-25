@@ -91,7 +91,7 @@ export function FeeStructureListPage() {
           <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-slate-950">Fee Structures</h1>
           <p className="mt-1 text-[14px] text-slate-500">Manage fee templates, versions, and assignments.</p>
         </div>
-        <button type="button" onClick={() => navigate("/admin/finance/fee-structures/create")}
+        <button type="button" onClick={() => navigate("/finance/fee-structures/create")}
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700">
           <Plus className="size-4" /> Create Fee Structure
         </button>
@@ -152,11 +152,11 @@ export function FeeStructureListPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => navigate(`/admin/finance/fee-structures/${item.id}`)}
+                <button type="button" onClick={() => navigate(`/finance/fee-structures/${item.id}`)}
                   className="rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600" title="View">
                   <Eye className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={() => navigate(`/admin/finance/fee-structures/${item.id}/edit`)}
+                <button type="button" onClick={() => navigate(`/finance/fee-structures/${item.id}/edit`)}
                   className="rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600" title="Edit">
                   <Pencil className="h-4 w-4" />
                 </button>

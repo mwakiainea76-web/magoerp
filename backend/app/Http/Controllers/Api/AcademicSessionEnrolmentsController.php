@@ -177,7 +177,7 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
         $module = $priorCount + 1;
-        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_academic_year', config('academic.sessions_per_academic_year', 3));
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_year_of_study', config('academic.sessions_per_year_of_study', 3));
         $yearOfStudy = (int) floor(($module - 1) / $sessionsPerYear) + 1;
         $sessionNumber = (($module - 1) % $sessionsPerYear) + 1;
 
@@ -255,7 +255,7 @@ class AcademicSessionEnrolmentsController extends Controller
 
         $priorCount = AcademicSessionEnrolment::where('student_id', $student->id)->count();
         $module = $priorCount + 1;
-        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_academic_year', config('academic.sessions_per_academic_year', 3));
+        $sessionsPerYear = (int) SystemConfiguration::getValue('sessions_per_year_of_study', config('academic.sessions_per_year_of_study', 3));
         $yearOfStudy = (int) floor(($module - 1) / $sessionsPerYear) + 1;
         $sessionNumber = (($module - 1) % $sessionsPerYear) + 1;
 
@@ -404,8 +404,10 @@ class AcademicSessionEnrolmentsController extends Controller
         ];
     }
 
-    private function transformInvoice(Invoice $invoice): array
+    private function transformInvoice(?Invoice $invoice): ?array
     {
+        if (!$invoice) return null;
+
         $paidAmount = (float) $invoice->paymentAllocations()
             ->whereHas('payment', fn ($query) => $query->where('status', 'completed'))
             ->sum('amount');

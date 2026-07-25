@@ -66,7 +66,7 @@ export function FeeStructureDetailPage() {
     <section className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate("/admin/finance/fee-structures")}
+          <button type="button" onClick={() => navigate("/finance/fee-structures")}
             className="rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -78,7 +78,7 @@ export function FeeStructureDetailPage() {
             <p className="mt-0.5 text-[13px] text-slate-500">Code: {data.code}</p>
           </div>
         </div>
-        <button type="button" onClick={() => navigate(`/admin/finance/fee-structures/${templateId}/edit`)}
+        <button type="button" onClick={() => navigate(`/finance/fee-structures/${templateId}/edit`)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-[13px] font-medium text-white hover:bg-emerald-700">
           <Pencil className="h-3.5 w-3.5" /> Edit
         </button>

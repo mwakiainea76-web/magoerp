@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'api_token_cookie' => AuthenticateApiTokenCookie::class,
+            'debug.fee' => App\Http\Middleware\DebugFeeMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

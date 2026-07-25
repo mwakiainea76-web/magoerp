@@ -12,12 +12,23 @@ class SystemConfigurationSeeder extends Seeder
 
     public function run(): void
     {
+        SystemConfiguration::where('key', 'sessions_per_academic_year')->delete();
+
         SystemConfiguration::updateOrCreate(
-            ['key' => 'sessions_per_academic_year'],
+            ['key' => 'sessions_per_year_of_study'],
             [
-                'value' => (string) config('academic.sessions_per_academic_year', 3),
-                'label' => 'Sessions per Academic Year',
+                'value' => (string) config('academic.sessions_per_year_of_study', 3),
+                'label' => 'Sessions per Year of Study',
                 'type' => 'integer',
+            ]
+        );
+
+        SystemConfiguration::updateOrCreate(
+            ['key' => 'fee_issuance_type'],
+            [
+                'value' => config('academic.fee_issuance_type', 'per_session'),
+                'label' => 'Fee Issuance Type',
+                'type' => 'select',
             ]
         );
     }

@@ -9,6 +9,7 @@ use App\Models\CourseCurriculum;
 use App\Models\CurriculumFeeStructure;
 use App\Models\FeeStructure;
 use App\Models\FeeStructureItem;
+use App\Models\SystemConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +82,16 @@ class FeeStructureController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->can('finance.update'), 403);
+        $user = $request->user();
+        \Log::info('FeeStructureController@store called', [
+            'user_id' => $user?->id,
+            'has_user' => $user !== null,
+            'can_finance_create' => $user?->can('finance.create'),
+            'can_manage_fee_structures' => $user?->can('manage-fee-structures'),
+            'roles' => $user?->getRoleNames()?->toArray(),
+        ]);
+
+        abort_unless($user?->can('finance.create') || $user?->can('manage-fee-structures'), 403);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -186,7 +196,7 @@ class FeeStructureController extends Controller
      */
     public function clone(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->can('finance.update'), 403);
+        abort_unless($request->user()?->can('finance.update') || $request->user()?->can('manage-fee-structures'), 403);
 
         $validated = $request->validate([
             'source_fee_structure_id' => ['required', 'uuid', Rule::exists('fee_structures', 'id')],
@@ -321,10 +331,11 @@ class FeeStructureController extends Controller
 
         $validated = $request->validate([
             'academic_session_id' => ['required', 'uuid', Rule::exists('academic_sessions', 'id')],
-            'issuance_type' => ['required', Rule::in(['per_session', 'per_year'])],
             'items' => ['required', 'array', 'min:1'],
             'items.*.amount' => ['required', 'numeric', 'min:0.01'],
         ]);
+
+        $feeIssuanceType = SystemConfiguration::getValue('fee_issuance_type', config('academic.fee_issuance_type', 'per_session'));
 
         $session = AcademicSession::with('year')->findOrFail($validated['academic_session_id']);
         $totalAmount = array_sum(array_column($validated['items'], 'amount'));
@@ -333,27 +344,20 @@ class FeeStructureController extends Controller
             'total_amount' => round($totalAmount, 2),
             'academic_session' => $session->name,
             'academic_year' => $session->year?->name,
-            'issuance_type' => $validated['issuance_type'],
+            'issuance_type' => $feeIssuanceType,
             'generated_assignments' => [],
         ];
 
-        if ($validated['issuance_type'] === 'per_session') {
+        if ($feeIssuanceType === 'per_session') {
             $preview['generated_assignments'][] = [
                 'session' => $session->name,
                 'amount' => round($totalAmount, 2),
             ];
         } else {
-            $sessions = $session->year->sessions()->orderBy('start_date')->get();
-            $count = $sessions->count();
-            foreach ($sessions as $index => $s) {
-                $amount = $index === $count - 1
-                    ? round($totalAmount - (round($totalAmount / $count, 2) * ($count - 1)), 2)
-                    : round($totalAmount / $count, 2);
-                $preview['generated_assignments'][] = [
-                    'session' => $s->name,
-                    'amount' => $amount,
-                ];
-            }
+            $preview['generated_assignments'][] = [
+                'session' => 'Full Year',
+                'amount' => round($totalAmount, 2),
+            ];
         }
 
         return response()->json(['data' => $preview]);

@@ -106,7 +106,7 @@ export function AllFeeAssignmentsPage() {
           <h1 className="text-xl font-semibold text-slate-950">Fee Assignments</h1>
           <p className="mt-1 text-sm text-slate-500">All course fee assignments across fee structures.</p>
         </div>
-        <Link to="/admin/finance/fee-structures" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><FileText className="size-4" />Fee Structures</Link>
+        <Link to="/finance/fee-structures" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"><FileText className="size-4" />Fee Structures</Link>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -147,7 +147,7 @@ export function AllFeeAssignmentsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-slate-900">
-                        <Link to={`/admin/finance/fee-structures/${assignment.fee_structure_id}/assign`} className="hover:text-emerald-700">{assignment.fee_structure_name || "Unknown Structure"}</Link>
+                        <Link to={`/finance/fee-structures/${assignment.fee_structure_id}/assign`} className="hover:text-emerald-700">{assignment.fee_structure_name || "Unknown Structure"}</Link>
                         <span className="mx-1.5 text-slate-300">·</span>
                         {assignment.assignment_target_name}
                         <span className="mx-1.5 text-slate-300">·</span>

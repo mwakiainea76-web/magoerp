@@ -9,7 +9,7 @@ class StoreFeeStructureRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('finance.create') ?? false;
+        return $this->user()?->can('finance.create') || $this->user()?->can('manage-fee-structures') ?? false;
     }
 
     public function rules(): array

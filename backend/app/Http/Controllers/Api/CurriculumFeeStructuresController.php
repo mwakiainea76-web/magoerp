@@ -73,7 +73,7 @@ class CurriculumFeeStructuresController extends Controller
 
     public function store(Request $request, FeeStructure $fee_structure): JsonResponse
     {
-        abort_unless($request->user()?->can('finance.update'), 403);
+        abort_unless($request->user()?->can('finance.update') || $request->user()?->can('manage-fee-structures'), 403);
 
         if ($fee_structure->is_issued) {
             return response()->json([
@@ -156,15 +156,6 @@ class CurriculumFeeStructuresController extends Controller
 
     private function createPerYearAssignments(Request $request, FeeStructure $template, array $validated): JsonResponse
     {
-        $academicYear = AcademicYear::findOrFail($validated['academic_year_id']);
-        $sessions = $academicYear->sessions()->orderBy('start_date')->orderBy('code')->get();
-
-        if ($sessions->isEmpty()) {
-            return response()->json([
-                'message' => 'The selected academic year has no sessions to receive the yearly fee.',
-            ], 422);
-        }
-
         $existing = CurriculumFeeStructure::query()
             ->whereNull('parent_assignment_id')
             ->where('issuance_type', 'per_year')
@@ -174,12 +165,10 @@ class CurriculumFeeStructuresController extends Controller
                     : $query->where('course_curriculum_id', $validated['course_curriculum_id'])->whereNull('department_id');
             })
             ->where('year_level', $validated['year_level'])
-            ->whereHas('childAssignments.academicSession', fn ($query) => $query
-                ->where('academic_year_id', $academicYear->id))
             ->exists();
 
         if ($existing) {
-            return response()->json(['message' => 'A yearly fee assignment already exists for this course and academic year.'], 409);
+            return response()->json(['message' => 'A yearly fee assignment already exists for this course, year level, and academic year.'], 409);
         }
 
         $totalAmount = (float) $template->items()->where('is_active', true)->sum('amount');
@@ -187,73 +176,33 @@ class CurriculumFeeStructuresController extends Controller
             return response()->json(['message' => 'The fee structure must contain positive active fee items.'], 422);
         }
 
-        $hasCustomRatios = isset($validated['split_ratios']);
-        $ratios = $validated['split_ratios'] ?? $this->equalRatios($sessions->count());
-        if (count($ratios) !== $sessions->count() || abs(array_sum($ratios) - 100) > 0.01) {
-            return response()->json([
-                'message' => 'Split ratios must provide one value per session and total exactly 100%.',
-            ], 422);
+        $approved = $request->boolean('is_approved', true);
+        $assignment = CurriculumFeeStructure::create([
+            'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
+            'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
+            'fee_structure_id' => $template->id,
+            'academic_session_id' => null,
+            'issuance_type' => 'per_year',
+            'parent_assignment_id' => null,
+            'dormant' => false,
+            'split_amount' => $totalAmount,
+            'split_ratio' => 100,
+            'year_level' => $validated['year_level'],
+            'session_number' => 0,
+            'is_approved' => $approved,
+            'approved_by' => $approved ? $request->user()->id : null,
+            'approved_at' => $approved ? now() : null,
+            'created_by' => $request->user()->id,
+            'updated_by' => $request->user()->id,
+        ]);
+
+        if ($approved && !$template->is_issued) {
+            $template->update(['is_issued' => true]);
         }
 
-        $approved = $request->boolean('is_approved', true);
-        $parent = DB::transaction(function () use ($request, $template, $validated, $sessions, $ratios, $totalAmount, $approved, $hasCustomRatios) {
-            $parent = CurriculumFeeStructure::create([
-                'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
-                'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
-                'fee_structure_id' => $template->id,
-                'academic_session_id' => null,
-                'issuance_type' => 'per_year',
-                'parent_assignment_id' => null,
-                'dormant' => false,
-                'split_amount' => $totalAmount,
-                'split_ratio' => 100,
-                'year_level' => $validated['year_level'],
-                'session_number' => 0,
-                'is_approved' => $approved,
-                'approved_by' => $approved ? $request->user()->id : null,
-                'approved_at' => $approved ? now() : null,
-                'created_by' => $request->user()->id,
-                'updated_by' => $request->user()->id,
-            ]);
-
-            $allocated = 0.0;
-            foreach ($sessions as $index => $session) {
-                $amount = $index === $sessions->count() - 1
-                    ? round($totalAmount - $allocated, 2)
-                    : round($hasCustomRatios
-                        ? $totalAmount * (float) $ratios[$index] / 100
-                        : $totalAmount / $sessions->count(), 2);
-                $allocated += $amount;
-                $ratio = $hasCustomRatios
-                    ? (float) $ratios[$index]
-                    : round($amount / $totalAmount * 100, 2);
-
-                CurriculumFeeStructure::create([
-                    'course_curriculum_id' => $validated['assignment_scope'] === 'course' ? $validated['course_curriculum_id'] : null,
-                    'department_id' => $validated['assignment_scope'] === 'department' ? $validated['department_id'] : null,
-                    'fee_structure_id' => $template->id,
-                    'academic_session_id' => $session->id,
-                    'issuance_type' => 'per_year',
-                    'parent_assignment_id' => $parent->id,
-                    'dormant' => !$session->is_active,
-                    'split_amount' => $amount > 0 ? $amount : null,
-                    'split_ratio' => $ratio,
-                    'year_level' => $validated['year_level'],
-                    'session_number' => $index + 1,
-                    'is_approved' => $approved,
-                    'approved_by' => $approved ? $request->user()->id : null,
-                    'approved_at' => $approved ? now() : null,
-                    'created_by' => $request->user()->id,
-                    'updated_by' => $request->user()->id,
-                ]);
-            }
-
-            return $parent;
-        });
-
         return response()->json([
-            'message' => 'Yearly fee assignment created and split across '.$sessions->count().' sessions.',
-            'data' => $this->transform($parent->load($this->loadRelations())),
+            'message' => 'Yearly fee assignment created successfully.',
+            'data' => $this->transform($assignment->load($this->loadRelations())),
         ], 201);
     }
 

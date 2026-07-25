@@ -4,6 +4,8 @@ import { FormInput } from "@/components/FormInput";
 import { authClient, getApiErrorMessage } from "@/lib/api/authClient";
 import { textAreaClassName, labelClassName } from "@/lib/styles";
 
+const STEPS = ["Authority", "Levels", "Grades", "Review"];
+
 function CertificationWizardPage() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
