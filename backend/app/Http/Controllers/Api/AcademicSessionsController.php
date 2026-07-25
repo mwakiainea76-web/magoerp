@@ -66,6 +66,7 @@ class AcademicSessionsController extends Controller
 
     public function store(StoreAcademicSessionRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
         $userId = $request->user()?->id;
 
         $session = AcademicSession::create([
@@ -95,6 +96,7 @@ class AcademicSessionsController extends Controller
 
     public function update(UpdateAcademicSessionRequest $request, AcademicSession $academic_session): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $wasActivated = false;
 
         if ($request->boolean('is_active') && !$academic_session->is_active) {

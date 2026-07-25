@@ -9,7 +9,7 @@ const AttendanceMarkPage = lazy(() => import("@/pages/attendance/AttendanceMarkP
 export const TrainerRoutes = (
   <>
     <Route path="/trainer/dashboard" element={<TrainerDashboard />} />
-    <Route path="/trainer/attendance" element={<AttendanceIndexPage />} />
-    <Route path="/trainer/attendance/mark" element={<AttendanceMarkPage />} />
+    <Route path="/attendance" element={<AttendanceIndexPage />} />
+    <Route path="/attendance/mark" element={<AttendanceMarkPage />} />
   </>
 );

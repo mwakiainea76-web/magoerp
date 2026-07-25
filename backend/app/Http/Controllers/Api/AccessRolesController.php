@@ -55,6 +55,8 @@ class AccessRolesController extends Controller
 
     public function store(StoreAccessRoleRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-roles'), 403);
+
         $role = Role::create([
             'name' => $request->name,
             'guard_name' => $request->guard_name ?? 'web',
@@ -79,6 +81,8 @@ class AccessRolesController extends Controller
 
     public function update(UpdateAccessRoleRequest $request, Role $access_role): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-roles'), 403);
+
         $access_role->update([
             'name' => $request->name,
             'guard_name' => $request->guard_name ?? 'web',

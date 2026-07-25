@@ -15,6 +15,8 @@ class TrainerDashboardController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('dashboard.view'), 403);
+
         $user = $request->user();
         $staff = $user->staff;
 

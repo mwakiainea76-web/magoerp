@@ -14,6 +14,8 @@ class AdminPasswordResetController extends Controller
 {
     public function resetStaffPassword(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('staff.update'), 403);
+
         $request->validate(['employee_number' => 'required|string']);
 
         $staff = staffs::where('employee_number', $request->employee_number)->first();
@@ -34,6 +36,8 @@ class AdminPasswordResetController extends Controller
 
     public function resetStudentPassword(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('students.update'), 403);
+
         $request->validate(['admission_number' => 'required|string']);
 
         $student = Student::where('admission_number', $request->admission_number)->first();

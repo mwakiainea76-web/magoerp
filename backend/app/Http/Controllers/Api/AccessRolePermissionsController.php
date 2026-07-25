@@ -63,6 +63,8 @@ class AccessRolePermissionsController extends Controller
 
     public function sync(SyncRolePermissionsRequest $request, Role $access_role): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-roles'), 403);
+
         $access_role->syncPermissions($request->permission_ids);
 
         return response()->json([

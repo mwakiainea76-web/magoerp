@@ -25,8 +25,9 @@ class CalendarController extends Controller
     /**
      * Get the full calendar (events + computed weekends) for a session.
      */
-    public function index(AcademicSession $academicSession): JsonResponse
+    public function index(Request $request, AcademicSession $academicSession): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.view'), 403);
         $calendar = $this->calendarService->getCalendar($academicSession);
 
         return response()->json($calendar);
@@ -35,8 +36,9 @@ class CalendarController extends Controller
     /**
      * Get event types (lookup).
      */
-    public function eventTypes(): JsonResponse
+    public function eventTypes(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.view'), 403);
         return response()->json([
             'data' => $this->calendarService->getEventTypes(),
         ]);
@@ -45,8 +47,9 @@ class CalendarController extends Controller
     /**
      * Generate / regenerate system events for a session.
      */
-    public function generate(AcademicSession $academicSession): JsonResponse
+    public function generate(Request $request, AcademicSession $academicSession): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $events = $this->calendarService->generateCalendar(
             $academicSession,
             Auth::id()
@@ -63,6 +66,7 @@ class CalendarController extends Controller
      */
     public function store(StoreCalendarEventRequest $request, AcademicSession $academicSession): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $event = $this->calendarService->createManualEvent(
             ['academic_session_id' => $academicSession->id, ...$request->validated()],
             Auth::id()
@@ -79,6 +83,7 @@ class CalendarController extends Controller
      */
     public function update(UpdateCalendarEventRequest $request, AcademicSession $academicSession, CalendarEvent $calendarEvent): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $event = $this->calendarService->updateEvent(
             $calendarEvent,
             $request->validated(),
@@ -94,8 +99,9 @@ class CalendarController extends Controller
     /**
      * Delete an event.
      */
-    public function destroy(AcademicSession $academicSession, CalendarEvent $calendarEvent): JsonResponse
+    public function destroy(Request $request, AcademicSession $academicSession, CalendarEvent $calendarEvent): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.delete'), 403);
         $this->calendarService->deleteEvent($calendarEvent);
 
         return response()->json(['message' => 'Event deleted.']);
@@ -104,8 +110,9 @@ class CalendarController extends Controller
     /**
      * Get the full calendar aggregated across all sessions in an academic year.
      */
-    public function yearCalendar(AcademicYear $academicYear): JsonResponse
+    public function yearCalendar(Request $request, AcademicYear $academicYear): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.view'), 403);
         $calendar = $this->calendarService->getYearCalendar($academicYear);
 
         return response()->json($calendar);
@@ -116,6 +123,7 @@ class CalendarController extends Controller
      */
     public function syncHolidays(Request $request, AcademicSession $academicSession): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $request->validate(['year' => 'required|integer|min:2000|max:2100']);
 
         $events = $this->calendarService->syncHolidays(
@@ -132,8 +140,9 @@ class CalendarController extends Controller
     /**
      * Export calendar events as PDF for a session.
      */
-    public function exportSessionPdf(AcademicSession $academicSession): Response
+    public function exportSessionPdf(Request $request, AcademicSession $academicSession): Response
     {
+        abort_unless($request->user()?->can('institution.view'), 403);
         $calendar = $this->calendarService->getCalendar($academicSession);
 
         $events = collect($calendar['events'])
@@ -166,8 +175,9 @@ class CalendarController extends Controller
     /**
      * Export calendar events as PDF for an academic year.
      */
-    public function exportYearPdf(AcademicYear $academicYear): Response
+    public function exportYearPdf(Request $request, AcademicYear $academicYear): Response
     {
+        abort_unless($request->user()?->can('institution.view'), 403);
         $calendar = $this->calendarService->getYearCalendar($academicYear);
 
         $events = collect($calendar['events'])

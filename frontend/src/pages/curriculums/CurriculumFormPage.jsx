@@ -179,7 +179,7 @@ export function CurriculumFormPage() {
         </div>
 
         <Link
-          to="/admin/curriculums"
+          to="/curriculums"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -273,7 +273,7 @@ export function CurriculumFormPage() {
             </div>
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Link to="/admin/curriculums" className="sm:w-auto">
+              <Link to="/curriculums" className="sm:w-auto">
                 <FormButton
                   type="button"
                   variant="secondary"

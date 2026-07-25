@@ -144,11 +144,11 @@ export function CertificationAuthoritiesPage() {
   }
 
   function getViewLevelsUrl(authority) {
-    return `/admin/certification-levels?${getAuthorityParams(authority)}`;
+    return `/certification-levels?${getAuthorityParams(authority)}`;
   }
 
   function getViewGradesUrl(authority) {
-    return `/admin/certification-authorities/grades?${getAuthorityParams(authority)}`;
+    return `/certification-authorities/grades?${getAuthorityParams(authority)}`;
   }
 
   function openCreateAuthorityModal() {
@@ -193,7 +193,7 @@ export function CertificationAuthoritiesPage() {
           </div>
 
           <div className="flex gap-3">
-            <Link to="/admin/certification-levels">
+            <Link to="/certification-levels">
               <FormButton variant="secondary" className="sm:px-5">
                 View Levels
               </FormButton>

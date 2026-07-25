@@ -87,6 +87,7 @@ class DepartmentsController extends Controller
 
     public function store(StoredepartmentsRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
         $userId = $request->user()?->id;
 
         $department = departments::create([
@@ -116,6 +117,7 @@ class DepartmentsController extends Controller
 
     public function update(UpdatedepartmentsRequest $request, departments $department): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $department->update([
             ...$request->validated(),
             'updated_by' => $request->user()?->id,

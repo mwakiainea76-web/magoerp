@@ -70,6 +70,7 @@ class CertificationLevelsController extends Controller
 
     public function store(StoreCertificationLevelRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
         $level = CertificationLevel::create([
             ...$request->validated(),
             'created_by' => $request->user()->id,
@@ -97,6 +98,7 @@ class CertificationLevelsController extends Controller
 
     public function update(UpdateCertificationLevelRequest $request, CertificationLevel $certification_level): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $certification_level->update([
             ...$request->validated(),
             'updated_by' => $request->user()->id,

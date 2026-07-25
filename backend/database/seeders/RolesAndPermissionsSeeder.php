@@ -111,10 +111,11 @@ class RolesAndPermissionsSeeder extends Seeder
                 'timetables.view',
                 'assessments.view',
                 'analytics.view',
-                'finance.view',
                 'institution.view',
                 'view-financial-statements',
                 'manage-support-requests',
+                'my-units.view',
+                'my-hostel.view',
             ],
         ];
 

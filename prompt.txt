@@ -1,0 +1,11 @@
+On the bold weight:
+
+Category headings (Analytics, Assessments, Courses) look like they're at 600/700 weight. Drop to 500 (medium) — still distinguishes them from body text without shouting.
+If your font family only ships 400/700 (no 500), that's often why it looks heavy — check if you have a medium weight available; if not, keep 700 but reduce the font-size slightly instead of fighting the weight.
+
+Other small polish items I'd flag:
+
+The "N/N selected" counter and heading are sitting very close in weight/color right now — make sure the counter is clearly lighter (secondary/muted text color) so the eye goes to the heading first, count second.
+Selected checkbox rows all look identical in border weight to unselected ones would (once you have unchecked items to compare against) — worth confirming checked vs. unchecked states are visually distinct enough at a glance, not just via the checkbox fill.
+Section header row and the divider line above/below are very close in contrast — a touch more spacing (padding) between sections would help them read as separate groups rather than one continuous list.
+The chevron icon is quite light gray — fine, but make sure it's clearly clickable (cursor pointer + maybe a hover background on the whole header row).

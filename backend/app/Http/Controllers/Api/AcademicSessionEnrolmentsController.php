@@ -71,6 +71,8 @@ class AcademicSessionEnrolmentsController extends Controller
 
     public function unitEnrolments(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('enrolments.view'), 403);
+
         $validated = $request->validate([
             'academic_session_id' => ['required', 'string', 'exists:academic_sessions,id'],
             'unit_id' => ['required', 'string', 'exists:units,id'],
@@ -143,6 +145,8 @@ class AcademicSessionEnrolmentsController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('enrolments.create'), 403);
+
         $user = $request->user();
         $student = $user->student;
 

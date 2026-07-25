@@ -11,7 +11,7 @@ export function AttendanceIndexPage() {
   const attendanceApi = useAttendanceApi();
   const navigate = useNavigate();
   const role = useAuthStore((state) => state.user?.role);
-  const attendanceBasePath = role === "trainer" ? "/trainer/attendance" : "/admin/attendance";
+  const attendanceBasePath = "/attendance";
 
   const [units, setUnits] = useState([]);
   const [selectedUnitId, setSelectedUnitId] = useState("");

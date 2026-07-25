@@ -93,7 +93,7 @@ function TimetableGrid({ grid, onDelete }) {
                                 <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                                   <button
                                     type="button"
-                                    onClick={() => navigate(`/admin/timetables/${entry.id}/edit`)}
+                                    onClick={() => navigate(`/timetables/${entry.id}/edit`)}
                                     className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
                                     title="Edit"
                                   >

@@ -53,6 +53,7 @@ class SupportRequestsController extends Controller
 
     public function adminIndex(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-support-requests'), 403);
         $validated = $request->validate([
             'status' => 'nullable|string|in:pending,in_review,escalated,resolved',
             'per_page' => 'nullable|integer|min:1|max:100',
@@ -75,8 +76,9 @@ class SupportRequestsController extends Controller
         return response()->json(array_merge([], ($requests)->toArray()), 200);
     }
 
-    public function show(SupportRequest $support_request): JsonResponse
+    public function show(Request $request, SupportRequest $support_request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-support-requests'), 403);
         $support_request->load([
             'student.user:id,first_name,middle_name,last_name',
             'escalatedTo.user:id,first_name,last_name',
@@ -87,6 +89,7 @@ class SupportRequestsController extends Controller
 
     public function escalate(Request $request, SupportRequest $support_request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-support-requests'), 403);
         $validated = $request->validate([
             'escalated_to' => 'required|string|exists:staffs,id',
             'admin_notes' => 'nullable|string|max:5000',
@@ -106,6 +109,7 @@ class SupportRequestsController extends Controller
 
     public function resolve(Request $request, SupportRequest $support_request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-support-requests'), 403);
         $validated = $request->validate([
             'admin_notes' => 'nullable|string|max:5000',
         ]);
@@ -123,6 +127,7 @@ class SupportRequestsController extends Controller
 
     public function review(Request $request, SupportRequest $support_request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-support-requests'), 403);
         $validated = $request->validate([
             'admin_notes' => 'nullable|string|max:5000',
         ]);
@@ -139,6 +144,7 @@ class SupportRequestsController extends Controller
 
     public function staffList(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-support-requests'), 403);
         return response()->json([
             'data' => Staffs::query()
                 ->where('status', true)

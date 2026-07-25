@@ -178,7 +178,7 @@ export function DepartmentFormPage() {
         </div>
 
         <Link
-          to="/admin/departments"
+          to="/departments"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -260,7 +260,7 @@ export function DepartmentFormPage() {
             </div>
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Link to="/admin/departments" className="sm:w-auto">
+              <Link to="/departments" className="sm:w-auto">
                 <FormButton
                   type="button"
                   variant="secondary"

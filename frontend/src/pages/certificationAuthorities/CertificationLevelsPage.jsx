@@ -200,7 +200,7 @@ export function CertificationLevelsPage() {
           </div>
 
           <div className="flex gap-3">
-            <Link to="/admin/certification-authorities">
+            <Link to="/certification-authorities">
               <FormButton variant="secondary" className="sm:px-5">
                 View Authorities
               </FormButton>

@@ -3,8 +3,11 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Navbar from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
+import { ModuleNav } from "@/components/ModuleNav";
+import { allModuleGroups } from "@/support/navigation/moduleNavConfigs";
 import { useAuthApi } from "@/hooks/useAuthApi";
 import { navLinks } from "@/support/navigation";
+import { getDashboardPath } from "@/support/dashboardPaths";
 import { useAuthStore } from "@/store/authStore";
 
 function ContentRouteLoader() {
@@ -22,33 +25,6 @@ function ContentRouteLoader() {
   );
 }
 
-function itemAllowedForRole(item, role) {
-  if (item.roles?.length) {
-    return item.roles.includes(role);
-  }
-
-  if (!item.to) {
-    return true;
-  }
-
-  if (item.to.startsWith("/admin")) {
-    return role === "admin";
-  }
-
-  if (item.to.startsWith("/finance")) {
-    return role === "finance" || role === "admin";
-  }
-
-  if (item.to.startsWith("/trainer")) {
-    return role === "trainer";
-  }
-
-  if (item.to.startsWith("/student")) {
-    return role === "student";
-  }
-
-  return true;
-}
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -66,8 +42,6 @@ export function AppLayout() {
   const filterNavItems = useCallback(
     (items) => {
       return items.reduce((acc, item) => {
-        if (!itemAllowedForRole(item, role)) return acc;
-
         if (item.children) {
           const filteredChildren = filterNavItems(item.children);
           if (filteredChildren.length === 0) return acc;
@@ -81,10 +55,15 @@ export function AppLayout() {
         return acc;
       }, []);
     },
-    [can, role],
+    [can],
   );
 
-  const links = filterNavItems(navLinks);
+  const links = filterNavItems(navLinks).map((item) => {
+    if (item.label === "Dashboard") {
+      return { ...item, to: getDashboardPath(role) };
+    }
+    return item;
+  });
 
   useEffect(() => {
     setIsNavbarOpen(false);
@@ -166,6 +145,7 @@ export function AppLayout() {
 
         <main className="min-w-0 flex-1 px-5 py-5 sm:px-8">
           <section className="min-h-full" aria-label="Page content">
+            <ModuleNav groups={allModuleGroups} />
             <Suspense fallback={<ContentRouteLoader />}>
               <Outlet />
             </Suspense>

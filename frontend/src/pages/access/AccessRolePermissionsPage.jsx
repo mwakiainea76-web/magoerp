@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Search, ShieldCheck, X } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -7,7 +7,7 @@ import { FormButton } from "@/components/FormButton";
 import { useAccessRolesApi } from "@/hooks/useAccessRolesApi";
 import { useAccessRolePermissionsApi } from "@/hooks/useAccessRolePermissionsApi";
 import { AccessPermissionForm } from "@/pages/access/AccessPermissionForm";
-import { bodyTextClassName, inputClassName, labelTextClassName } from "@/lib/styles";
+import { bodyTextClassName, inputClassName } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 export function AccessRolePermissionsPage() {
@@ -22,8 +22,14 @@ export function AccessRolePermissionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [pageError, setPageError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedSections, setExpandedSections] = useState(new Set());
 
-  const hasChanges = [...assignedIds].sort().join(",") !== [...originalIds].sort().join(",");
+  const originalSorted = [...originalIds].sort().join(",");
+  const currentSorted = [...assignedIds].sort().join(",");
+  const hasChanges = originalSorted !== currentSorted;
+  const pendingCount = [...assignedIds].filter((id) => !originalIds.has(id)).length +
+    [...originalIds].filter((id) => !assignedIds.has(id)).length;
 
   useEffect(() => {
     let isMounted = true;
@@ -53,6 +59,14 @@ export function AccessRolePermissionsPage() {
         });
         setAssignedIds(new Set(ids));
         setOriginalIds(new Set(ids));
+
+        const initialExpanded = new Set();
+        groups.forEach((group) => {
+          if (group.permissions.some((p) => p.is_assigned)) {
+            initialExpanded.add(group.group);
+          }
+        });
+        setExpandedSections(initialExpanded);
       } catch (loadError) {
         if (isMounted) {
           setPageError(getApiErrorMessage(loadError, "Server error."));
@@ -83,16 +97,56 @@ export function AccessRolePermissionsPage() {
     });
   }, []);
 
-  async function handleSelectAll(permissions) {
-    const next = new Set(assignedIds);
-    permissions.forEach((p) => next.add(p.id));
-    setAssignedIds(next);
+  function handleToggleSection(groupKey) {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
   }
 
-  async function handleDeselectAll(permissions) {
-    const next = new Set(assignedIds);
-    permissions.forEach((p) => next.delete(p.id));
-    setAssignedIds(next);
+  function handleSearch(value) {
+    setSearchQuery(value);
+    if (!value) {
+      const initialExpanded = new Set();
+      groupedPermissions.forEach((group) => {
+        if (group.permissions.some((p) => originalIds.has(p.id))) {
+          initialExpanded.add(group.group);
+        }
+      });
+      setExpandedSections(initialExpanded);
+      return;
+    }
+    const matching = new Set();
+    groupedPermissions.forEach((group) => {
+      if (
+        group.permissions.some((p) =>
+          p.name.toLowerCase().includes(value.toLowerCase()),
+        )
+      ) {
+        matching.add(group.group);
+      }
+    });
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      matching.forEach((k) => next.add(k));
+      return next;
+    });
+  }
+
+  function handleDiscard() {
+    setAssignedIds(new Set(originalIds));
+    const initialExpanded = new Set();
+    groupedPermissions.forEach((group) => {
+      if (group.permissions.some((p) => originalIds.has(p.id))) {
+        initialExpanded.add(group.group);
+      }
+    });
+    setExpandedSections(initialExpanded);
   }
 
   async function handleSave() {
@@ -110,10 +164,8 @@ export function AccessRolePermissionsPage() {
     }
   }
 
-  const allPermIds = groupedPermissions.flatMap((g) => g.permissions.map((p) => p.id));
-
   return (
-    <section className="space-y-5">
+    <section className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-[18px] font-semibold tracking-[-0.01em] text-slate-950">
@@ -126,7 +178,7 @@ export function AccessRolePermissionsPage() {
         </div>
 
         <Link
-          to="/admin/access-roles"
+          to="/access-roles"
           className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -135,59 +187,78 @@ export function AccessRolePermissionsPage() {
       </div>
 
       {pageError ? (
-        <div className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}>
+        <div
+          className={`rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 ${bodyTextClassName}`}
+        >
           {pageError}
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-        {isLoading ? (
-          <div className={`text-slate-500 ${bodyTextClassName}`}>Loading permissions...</div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex gap-2">
-                {groupedPermissions.map((g) => (
-                  <button
-                    key={g.group}
-                    type="button"
-                    onClick={() => handleSelectAll(g.permissions)}
-                    className="rounded-lg border border-emerald-200 px-3 py-1.5 text-[12px] font-medium text-emerald-700 transition hover:bg-emerald-50"
-                  >
-                    Select all {g.group}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setAssignedIds(new Set())}
-                className="rounded-lg border border-red-200 px-3 py-1.5 text-[12px] font-medium text-red-600 transition hover:bg-red-50"
-              >
-                Clear all
-              </button>
-            </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          placeholder="Search permissions…"
+          className={`${inputClassName} pl-9 pr-9`}
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => handleSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
+      <div className="rounded-xl border border-slate-200/80 bg-white">
+        {isLoading ? (
+          <div className={`px-5 py-8 text-slate-500 ${bodyTextClassName}`}>
+            Loading permissions...
+          </div>
+        ) : (
+          <>
             <AccessPermissionForm
               groupedPermissions={groupedPermissions}
               assignedIds={assignedIds}
               onToggle={handleToggle}
               loading={isSaving}
+              searchQuery={searchQuery}
+              expandedSections={expandedSections}
+              onToggleSection={handleToggleSection}
             />
 
-            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-              <Link to="/admin/access-roles" className="sm:w-auto">
-                <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">Cancel</FormButton>
-              </Link>
-              <FormButton
-                type="button"
-                disabled={!hasChanges || isSaving}
-                onClick={handleSave}
-                className="sm:w-auto sm:px-5"
-              >
-                {isSaving ? "Saving..." : "Save Permissions"}
-              </FormButton>
-            </div>
-          </div>
+            {hasChanges && (
+              <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-slate-200/80 bg-white px-5 py-3">
+                <span className="text-[13px] text-slate-500">
+                  <span className="font-medium text-slate-700">
+                    {pendingCount}
+                  </span>{" "}
+                  change{pendingCount !== 1 ? "s" : ""} pending
+                </span>
+                <div className="flex items-center gap-2">
+                  <FormButton
+                    type="button"
+                    variant="secondary"
+                    onClick={handleDiscard}
+                    disabled={isSaving}
+                  >
+                    Discard
+                  </FormButton>
+                  <FormButton
+                    type="button"
+                    disabled={!hasChanges || isSaving}
+                    onClick={handleSave}
+                  >
+                    {isSaving ? "Saving…" : "Save changes"}
+                  </FormButton>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

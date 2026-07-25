@@ -14,6 +14,8 @@ class CourseCurriculaController extends Controller
 
     public function search(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
         $search = trim((string) $request->string('q', ''));
 
         $results = CourseCurriculum::query()

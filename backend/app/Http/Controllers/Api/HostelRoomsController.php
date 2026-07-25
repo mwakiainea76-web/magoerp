@@ -15,6 +15,7 @@ class HostelRoomsController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $hostelId = (string) $request->string('hostel_id', '');
         $search = trim((string) $request->string('q', ''));
         $perPage = max(1, min((int) $request->integer('per_page', 50), 200));
@@ -44,6 +45,7 @@ class HostelRoomsController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $validated = $request->validate([
             'hostel_id' => 'required|string|exists:hostels,id',
             'name' => 'required|string|max:255',
@@ -63,8 +65,9 @@ class HostelRoomsController extends Controller
         return response()->json(['data' => $this->transform($room)], 201);
     }
 
-    public function show(HostelRoom $hostelRoom): JsonResponse
+    public function show(Request $request, HostelRoom $hostelRoom): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $hostelRoom->load('hostel:id,name,code', 'beds');
 
         return response()->json(['data' => $this->transform($hostelRoom)]);
@@ -72,6 +75,7 @@ class HostelRoomsController extends Controller
 
     public function update(Request $request, HostelRoom $hostelRoom): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'code' => 'sometimes|string|max:100|unique:hostel_rooms,code,' . $hostelRoom->id,
@@ -92,8 +96,9 @@ class HostelRoomsController extends Controller
         return response()->json(['data' => $this->transform($hostelRoom)]);
     }
 
-    public function destroy(HostelRoom $hostelRoom): JsonResponse
+    public function destroy(Request $request, HostelRoom $hostelRoom): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         if ($hostelRoom->allocations()->where('status', 'active')->exists()) {
             return response()->json(['message' => 'Cannot delete room with active allocations.'], 409);
         }

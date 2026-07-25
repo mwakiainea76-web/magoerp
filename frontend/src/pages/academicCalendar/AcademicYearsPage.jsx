@@ -118,12 +118,12 @@ export function AcademicYearsPage() {
         </div>
 
         <div className="flex gap-3">
-          <Link to="/admin/academic-calendar/sessions">
+          <Link to="/academic-calendar/sessions">
             <FormButton variant="secondary" className="sm:px-5">
               View Sessions
             </FormButton>
           </Link>
-          <Link to="/admin/academic-calendar/years/create">
+          <Link to="/academic-calendar/years/create">
             <FormButton className="sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Academic Year
@@ -188,7 +188,7 @@ export function AcademicYearsPage() {
                   <Td className="whitespace-nowrap">{year.end_date ?? "-"}</Td>
                   <Td>
                     <Link
-                      to={`/admin/academic-calendar/sessions?yearId=${year.id}&yearName=${year.name}`}
+                      to={`/academic-calendar/sessions?yearId=${year.id}&yearName=${year.name}`}
                       className="font-medium text-emerald-600 hover:underline"
                     >
                       {year.sessions_count} session{year.sessions_count !== 1 ? "s" : ""}
@@ -206,7 +206,7 @@ export function AcademicYearsPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/admin/academic-calendar/years/${year.id}/edit`}
+                        to={`/academic-calendar/years/${year.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />

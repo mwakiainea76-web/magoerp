@@ -19,8 +19,9 @@ use Illuminate\Support\Facades\DB;
 
 class HostelsController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $hostels = Hostel::query()
             ->with(['rooms' => fn ($q) => $q->orderBy('name')])
             ->withCount(['rooms', 'allocations as active_allocations_count' => fn ($q) => $q->where('status', 'active')])
@@ -33,6 +34,7 @@ class HostelsController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:100|unique:hostels,code',
@@ -47,8 +49,9 @@ class HostelsController extends Controller
         return response()->json([ 'data' => $this->transformHostel($hostel)], 201);
     }
 
-    public function show(Hostel $hostel): JsonResponse
+    public function show(Request $request, Hostel $hostel): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $hostel->load(['rooms.beds' => fn ($q) => $q->orderBy('bed_number')]);
 
         return response()->json([ 'data' => $this->transformHostel($hostel, true)]);
@@ -56,6 +59,7 @@ class HostelsController extends Controller
 
     public function update(Request $request, Hostel $hostel): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'code' => 'sometimes|string|max:100|unique:hostels,code,' . $hostel->id,
@@ -71,8 +75,9 @@ class HostelsController extends Controller
         return response()->json([ 'data' => $this->transformHostel($hostel)]);
     }
 
-    public function destroy(Hostel $hostel): JsonResponse
+    public function destroy(Request $request, Hostel $hostel): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         if ($hostel->allocations()->exists()) {
             return response()->json([ 'message' => 'Cannot delete hostel with existing allocations.'], 409);
         }
@@ -88,8 +93,9 @@ class HostelsController extends Controller
         return response()->json([ 'message' => 'Hostel deleted.']);
     }
 
-    public function roomsByHostel(Hostel $hostel): JsonResponse
+    public function roomsByHostel(Request $request, Hostel $hostel): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $rooms = $hostel->rooms()
             ->withCount(['beds', 'beds as active_beds_count' => fn ($q) => $q->where('is_active', true)])
             ->orderBy('name')
@@ -98,8 +104,9 @@ class HostelsController extends Controller
         return response()->json([ 'data' => $rooms]);
     }
 
-    public function bedsByRoom(HostelRoom $hostelRoom): JsonResponse
+    public function bedsByRoom(Request $request, HostelRoom $hostelRoom): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostels'), 403);
         $beds = $hostelRoom->beds()
             ->orderBy('bed_number')
             ->get()
@@ -123,6 +130,7 @@ class HostelsController extends Controller
 
     public function allocations(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostel-allocations'), 403);
         $query = HostelAllocation::query()
             ->with([
                 'academicSessionEnrolment.student.user:id,first_name,middle_name,last_name',
@@ -151,6 +159,7 @@ class HostelsController extends Controller
 
     public function storeAllocation(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostel-allocations'), 403);
         $validated = $request->validate([
             'academic_session_enrolment_id' => 'required|string|exists:academic_session_enrolments,id',
             'hostel_id' => 'required|string|exists:hostels,id',
@@ -206,6 +215,7 @@ class HostelsController extends Controller
 
     public function vacateAllocation(Request $request, HostelAllocation $hostelAllocation): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-hostel-allocations'), 403);
         $hostelAllocation->update([
             'status' => 'vacated',
             'updated_by' => $request->user()?->id,

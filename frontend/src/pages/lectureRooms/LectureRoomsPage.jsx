@@ -111,7 +111,7 @@ export function LectureRoomsPage() {
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Lecture Rooms</h1>
           <p className="text-[13px] text-slate-500">Manage room inventory</p>
         </div>
-        <Link to="/admin/lecture-rooms/create">
+        <Link to="/lecture-rooms/create">
           <FormButton className="w-full sm:w-auto sm:px-5">
             <Plus className="mr-2 h-4 w-4" />
             Add Room
@@ -196,7 +196,7 @@ export function LectureRoomsPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/admin/lecture-rooms/${room.id}/edit`}
+                        to={`/lecture-rooms/${room.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />

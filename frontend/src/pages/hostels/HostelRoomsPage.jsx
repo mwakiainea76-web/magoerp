@@ -143,7 +143,7 @@ export function HostelRoomsPage() {
     return (
       <section className="space-y-5">
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>
-          No hostel selected. <Link to="/admin/hostels" className="text-emerald-600 underline">Go to hostels</Link>
+          No hostel selected. <Link to="/hostels" className="text-emerald-600 underline">Go to hostels</Link>
         </div>
       </section>
     );
@@ -153,7 +153,7 @@ export function HostelRoomsPage() {
     <section className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/admin/hostels" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+          <Link to="/hostels" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>

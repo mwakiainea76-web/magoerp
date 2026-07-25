@@ -61,6 +61,7 @@ class CertificationAuthoritiesController extends Controller
 
     public function store(StoreCertificationAuthorityRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
         $authority = CertificationAuthority::create([
             ...$request->validated(),
             'created_by' => $request->user()->id,
@@ -99,6 +100,7 @@ class CertificationAuthoritiesController extends Controller
 
     public function update(UpdateCertificationAuthorityRequest $request, CertificationAuthority $certification_authority): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $certification_authority->update([
             ...$request->validated(),
             'updated_by' => $request->user()->id,

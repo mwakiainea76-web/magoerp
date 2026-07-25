@@ -63,78 +63,78 @@ const UnitsPage = lazy(() => import("@/pages/units/UnitsPage").then((module) => 
 export const AdminRoutes = (
   <>
     <Route path="/admin/dashboard" element={<AdminDashboard />} />
-    <Route path="/admin/departments" element={<DepartmentsPage />} />
-    <Route path="/admin/departments/create" element={<DepartmentFormPage />} />
-    <Route path="/admin/departments/:departmentId/edit" element={<DepartmentFormPage />} />
-    <Route path="/admin/certification-authorities" element={<CertificationAuthoritiesPage />} />
-    <Route path="/admin/certification-authorities/create" element={<CertificationWizardPage />} />
-    <Route path="/admin/certification-authorities/:authorityId/edit" element={<CertificationAuthorityFormPage />} />
-    <Route path="/admin/certification-authorities/grades" element={<CertificationAuthorityGradesPage />} />
-    <Route path="/admin/certification-levels" element={<CertificationLevelsPage />} />
-    <Route path="/admin/certification-levels/create" element={<CertificationLevelFormPage />} />
-    <Route path="/admin/certification-levels/:levelId/edit" element={<CertificationLevelFormPage />} />
-    <Route path="/admin/courses" element={<CoursesPage />} />
-    <Route path="/admin/courses/create" element={<CourseFormPage />} />
-    <Route path="/admin/courses/:courseId/edit" element={<CourseFormPage />} />
-    <Route path="/admin/courses/enrolments" element={<CourseEnrolmentsPage />} />
-    <Route path="/admin/courses/course-change" element={<CourseChangePage />} />
-    <Route path="/admin/courses/transfers" element={<CourseTransfersPage />} />
-    <Route path="/admin/curriculums" element={<CurriculumsPage />} />
-    <Route path="/admin/curriculums/create" element={<CurriculumFormPage />} />
-    <Route path="/admin/curriculums/:curriculumId/edit" element={<CurriculumFormPage />} />
-    <Route path="/admin/curriculums/mappings" element={<CurriculumMappingsPage />} />
-    <Route path="/admin/units" element={<UnitsPage />} />
-    <Route path="/admin/units/create" element={<UnitFormPage />} />
-    <Route path="/admin/units/:unitId/edit" element={<UnitFormPage />} />
-    <Route path="/admin/lecture-rooms" element={<LectureRoomsPage />} />
-    <Route path="/admin/lecture-rooms/create" element={<LectureRoomFormPage />} />
-    <Route path="/admin/lecture-rooms/:roomId/edit" element={<LectureRoomFormPage />} />
-    <Route path="/admin/academic-calendar/years" element={<AcademicYearsPage />} />
-    <Route path="/admin/academic-calendar/years/create" element={<AcademicYearFormPage />} />
-    <Route path="/admin/academic-calendar/years/:yearId/edit" element={<AcademicYearFormPage />} />
-    <Route path="/admin/academic-calendar/sessions" element={<AcademicSessionsPage />} />
-    <Route path="/admin/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
-    <Route path="/admin/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
-    <Route path="/admin/staffs" element={<StaffsPage />} />
-    <Route path="/admin/staffs/create" element={<StaffFormPage />} />
-    <Route path="/admin/staffs/reset-password" element={<PasswordResetPage mode="staff" />} />
-    <Route path="/admin/staffs/status-logs" element={<StaffStatusLogsPage />} />
-    <Route path="/admin/staffs/:staffId/edit" element={<StaffFormPage />} />
-    <Route path="/admin/students" element={<StudentsPage />} />
-    <Route path="/admin/students/create" element={<StudentFormPage />} />
-    <Route path="/admin/students/reset-password" element={<PasswordResetPage mode="student" />} />
-    <Route path="/admin/students/status-logs" element={<StudentStatusLogsPage />} />
-    <Route path="/admin/students/:studentId/edit" element={<StudentFormPage />} />
-    <Route path="/admin/students/:studentId/admission-letter" element={<AdmissionLetterPage />} />
-    <Route path="/admin/access-roles" element={<AccessRolesPage />} />
-    <Route path="/admin/access-roles/create" element={<AccessRoleFormPage />} />
-    <Route path="/admin/access-roles/:roleId/edit" element={<AccessRoleFormPage />} />
-    <Route path="/admin/access-roles/:roleId/permissions" element={<AccessRolePermissionsPage />} />
-    <Route path="/admin/operations/enrollments" element={<SessionEnrolmentsPage />} />
-    <Route path="/admin/operations/status-logs" element={<StudentStatusLogsPage />} />
-    <Route path="/admin/assessments" element={<ViewMarksPage />} />
-    <Route path="/admin/assessments/add" element={<AddMarksPage />} />
-    <Route path="/admin/assessments/publish" element={<PublishMarksPage />} />
-    <Route path="/admin/assessments/marksheet" element={<MarksheetPage role="admin" />} />
-    <Route path="/admin/assessments/transcript" element={<TranscriptPage role="admin" />} />
-    <Route path="/admin/exam-series" element={<ExamSeriesPage />} />
-    <Route path="/admin/exam-series/create" element={<ExamSeriesPage />} />
-    <Route path="/admin/exam-series/:seriesId/edit" element={<ExamSeriesPage />} />
-    <Route path="/admin/timetables" element={<TimetablePage role="admin" />} />
-    <Route path="/admin/timetables/create" element={<TimetableCreatePage />} />
-    <Route path="/admin/timetables/:timetableId/edit" element={<TimetableCreatePage />} />
-    <Route path="/admin/academic-calendar/calendar" element={<CalendarPage />} />
-    <Route path="/admin/attendance" element={<AttendanceIndexPage />} />
-    <Route path="/admin/attendance/mark" element={<AttendanceMarkPage />} />
-    <Route path="/admin/support-requests" element={<AdminSupportRequestsPage />} />
-    <Route path="/admin/support-requests/:supportRequestId" element={<AdminSupportRequestDetailPage />} />
-    <Route path="/admin/hostels" element={<HostelsPage />} />
-    <Route path="/admin/hostels/create" element={<HostelFormPage />} />
-    <Route path="/admin/hostels/rooms" element={<HostelRoomsPage />} />
-    <Route path="/admin/hostels/:hostelId/edit" element={<HostelFormPage />} />
-    <Route path="/admin/hostel-allocations" element={<HostelAllocationsPage />} />
-    <Route path="/admin/system-configurations" element={<SystemConfigurationsPage />} />
-    <Route path="/admin/institution-details" element={<InstitutionDetailsPage />} />
+    <Route path="/departments" element={<DepartmentsPage />} />
+    <Route path="/departments/create" element={<DepartmentFormPage />} />
+    <Route path="/departments/:departmentId/edit" element={<DepartmentFormPage />} />
+    <Route path="/certification-authorities" element={<CertificationAuthoritiesPage />} />
+    <Route path="/certification-authorities/create" element={<CertificationWizardPage />} />
+    <Route path="/certification-authorities/:authorityId/edit" element={<CertificationAuthorityFormPage />} />
+    <Route path="/certification-authorities/grades" element={<CertificationAuthorityGradesPage />} />
+    <Route path="/certification-levels" element={<CertificationLevelsPage />} />
+    <Route path="/certification-levels/create" element={<CertificationLevelFormPage />} />
+    <Route path="/certification-levels/:levelId/edit" element={<CertificationLevelFormPage />} />
+    <Route path="/courses" element={<CoursesPage />} />
+    <Route path="/courses/create" element={<CourseFormPage />} />
+    <Route path="/courses/:courseId/edit" element={<CourseFormPage />} />
+    <Route path="/courses/enrolments" element={<CourseEnrolmentsPage />} />
+    <Route path="/courses/course-change" element={<CourseChangePage />} />
+    <Route path="/courses/transfers" element={<CourseTransfersPage />} />
+    <Route path="/curriculums" element={<CurriculumsPage />} />
+    <Route path="/curriculums/create" element={<CurriculumFormPage />} />
+    <Route path="/curriculums/:curriculumId/edit" element={<CurriculumFormPage />} />
+    <Route path="/curriculums/mappings" element={<CurriculumMappingsPage />} />
+    <Route path="/units" element={<UnitsPage />} />
+    <Route path="/units/create" element={<UnitFormPage />} />
+    <Route path="/units/:unitId/edit" element={<UnitFormPage />} />
+    <Route path="/lecture-rooms" element={<LectureRoomsPage />} />
+    <Route path="/lecture-rooms/create" element={<LectureRoomFormPage />} />
+    <Route path="/lecture-rooms/:roomId/edit" element={<LectureRoomFormPage />} />
+    <Route path="/academic-calendar/years" element={<AcademicYearsPage />} />
+    <Route path="/academic-calendar/years/create" element={<AcademicYearFormPage />} />
+    <Route path="/academic-calendar/years/:yearId/edit" element={<AcademicYearFormPage />} />
+    <Route path="/academic-calendar/sessions" element={<AcademicSessionsPage />} />
+    <Route path="/academic-calendar/sessions/create" element={<AcademicSessionFormPage />} />
+    <Route path="/academic-calendar/sessions/:sessionId/edit" element={<AcademicSessionFormPage />} />
+    <Route path="/staffs" element={<StaffsPage />} />
+    <Route path="/staffs/create" element={<StaffFormPage />} />
+    <Route path="/staffs/reset-password" element={<PasswordResetPage mode="staff" />} />
+    <Route path="/staffs/status-logs" element={<StaffStatusLogsPage />} />
+    <Route path="/staffs/:staffId/edit" element={<StaffFormPage />} />
+    <Route path="/students" element={<StudentsPage />} />
+    <Route path="/students/create" element={<StudentFormPage />} />
+    <Route path="/students/reset-password" element={<PasswordResetPage mode="student" />} />
+    <Route path="/students/status-logs" element={<StudentStatusLogsPage />} />
+    <Route path="/students/:studentId/edit" element={<StudentFormPage />} />
+    <Route path="/students/:studentId/admission-letter" element={<AdmissionLetterPage />} />
+    <Route path="/access-roles" element={<AccessRolesPage />} />
+    <Route path="/access-roles/create" element={<AccessRoleFormPage />} />
+    <Route path="/access-roles/:roleId/edit" element={<AccessRoleFormPage />} />
+    <Route path="/access-roles/:roleId/permissions" element={<AccessRolePermissionsPage />} />
+    <Route path="/operations/enrollments" element={<SessionEnrolmentsPage />} />
+    <Route path="/operations/status-logs" element={<StudentStatusLogsPage />} />
+    <Route path="/assessments" element={<ViewMarksPage />} />
+    <Route path="/assessments/add" element={<AddMarksPage />} />
+    <Route path="/assessments/publish" element={<PublishMarksPage />} />
+    <Route path="/assessments/marksheet" element={<MarksheetPage role="admin" />} />
+    <Route path="/assessments/transcript" element={<TranscriptPage role="admin" />} />
+    <Route path="/exam-series" element={<ExamSeriesPage />} />
+    <Route path="/exam-series/create" element={<ExamSeriesPage />} />
+    <Route path="/exam-series/:seriesId/edit" element={<ExamSeriesPage />} />
+    <Route path="/timetables" element={<TimetablePage role="admin" />} />
+    <Route path="/timetables/create" element={<TimetableCreatePage />} />
+    <Route path="/timetables/:timetableId/edit" element={<TimetableCreatePage />} />
+    <Route path="/academic-calendar/calendar" element={<CalendarPage />} />
+    <Route path="/attendance" element={<AttendanceIndexPage />} />
+    <Route path="/attendance/mark" element={<AttendanceMarkPage />} />
+    <Route path="/support-requests" element={<AdminSupportRequestsPage />} />
+    <Route path="/support-requests/:supportRequestId" element={<AdminSupportRequestDetailPage />} />
+    <Route path="/hostels" element={<HostelsPage />} />
+    <Route path="/hostels/create" element={<HostelFormPage />} />
+    <Route path="/hostels/rooms" element={<HostelRoomsPage />} />
+    <Route path="/hostels/:hostelId/edit" element={<HostelFormPage />} />
+    <Route path="/hostel-allocations" element={<HostelAllocationsPage />} />
+    <Route path="/system-configurations" element={<SystemConfigurationsPage />} />
+    <Route path="/institution-details" element={<InstitutionDetailsPage />} />
     {FinanceRoutes}
   </>
 );

@@ -204,7 +204,7 @@ export function CoursesPage() {
               </div>
             )}
           </div>
-          <Link to="/admin/courses/create">
+          <Link to="/courses/create">
             <FormButton className="sm:px-5"><Plus className="mr-2 h-4 w-4" />Add Course</FormButton>
           </Link>
         </div>
@@ -257,7 +257,7 @@ export function CoursesPage() {
                   <Td><StatusBadge active={course.is_active} /></Td>
                   <Td>
                     <div className="flex justify-end gap-2">
-                      <Link to={`/admin/courses/${course.id}/edit`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"><Pencil className="h-3.5 w-3.5" /></Link>
+                      <Link to={`/courses/${course.id}/edit`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"><Pencil className="h-3.5 w-3.5" /></Link>
                       <button type="button" onClick={() => handleDelete(course)} disabled={deletingId === course.id} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   </Td>

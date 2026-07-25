@@ -84,6 +84,8 @@ class CourseEnrolmentsController extends Controller
 
     public function updateStatus(UpdateCourseEnrolmentStatusRequest $request, CourseEnrolment $course_enrolment): JsonResponse
     {
+        abort_unless($request->user()?->can('enrolments.update'), 403);
+
         $oldStatus = $course_enrolment->status;
 
         if ($request->status === 'transferred' && $request->filled('course_id') && $request->course_id !== $course_enrolment->courseCurriculum?->course_id) {

@@ -25,7 +25,7 @@ function formatDate(dateStr) {
 export function AttendanceMarkPage() {
   const attendanceApi = useAttendanceApi();
   const role = useAuthStore((state) => state.user?.role);
-  const attendanceBasePath = role === "trainer" ? "/trainer/attendance" : "/admin/attendance";
+  const attendanceBasePath = "/attendance";
   const [searchParams] = useSearchParams();
   const unitId = searchParams.get("unit_id") ?? "";
   const sessionDate = searchParams.get("session_date") ?? "";

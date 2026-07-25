@@ -81,7 +81,7 @@ export function CreateSupportRequestPage() {
         </div>
 
         <div className="flex justify-end gap-3">
-          <FormButton type="button" variant="secondary" onClick={() => navigate("/student/support-requests")}>Cancel</FormButton>
+          <FormButton type="button" variant="secondary" onClick={() => navigate("/support-requests")}>Cancel</FormButton>
           <FormButton type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Submitting..." : "Submit Request"}
           </FormButton>

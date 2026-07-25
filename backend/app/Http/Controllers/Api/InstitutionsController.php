@@ -54,6 +54,8 @@ class InstitutionsController extends Controller
 
     public function store(StoreInstitutionRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
+
         $data = $request->validated();
 
         if ($request->hasFile('logo')) {
@@ -83,6 +85,8 @@ class InstitutionsController extends Controller
 
     public function update(UpdateInstitutionRequest $request, Institution $institution): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
+
         $data = $request->validated();
 
         if ($request->hasFile('logo')) {
@@ -140,6 +144,8 @@ class InstitutionsController extends Controller
 
     public function active(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.view'), 403);
+
         $institution = Institution::where('is_active', true)->first()
             ?? Institution::first();
 

@@ -61,6 +61,7 @@ class CertificationAuthorityGradesController extends Controller
 
     public function store(StoreCertificationAuthorityGradeRequest $request, CertificationAuthority $certification_authority): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
         $grade = CertificationAuthorityGrade::create([
             ...$request->validated(),
             'certification_authority_id' => $certification_authority->id,
@@ -85,6 +86,7 @@ class CertificationAuthorityGradesController extends Controller
 
     public function update(UpdateCertificationAuthorityGradeRequest $request, CertificationAuthority $certification_authority, CertificationAuthorityGrade $grade): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $grade->update([
             ...$request->validated(),
             'updated_by' => $request->user()->id,

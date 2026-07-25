@@ -114,7 +114,7 @@ export function AccessRolesPage() {
         </div>
 
         <div className="flex gap-3">
-          <Link to="/admin/access-roles/create">
+          <Link to="/access-roles/create">
             <FormButton className="sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Role
@@ -177,7 +177,7 @@ export function AccessRolesPage() {
                   <Td>{role.guard_name}</Td>
                   <Td>
                     <Link
-                      to={`/admin/access-roles/${role.id}/permissions`}
+                      to={`/access-roles/${role.id}/permissions`}
                       className="font-medium text-emerald-600 hover:underline"
                     >
                       {role.permissions_count} permission{role.permissions_count !== 1 ? "s" : ""}
@@ -186,7 +186,7 @@ export function AccessRolesPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/admin/access-roles/${role.id}/edit`}
+                        to={`/access-roles/${role.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />

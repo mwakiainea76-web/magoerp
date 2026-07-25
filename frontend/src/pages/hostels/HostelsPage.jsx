@@ -59,7 +59,7 @@ export function HostelsPage() {
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Hostels</h1>
           <p className="text-[13px] text-slate-500">Manage hostel accommodation facilities</p>
         </div>
-        <Link to="/admin/hostels/create">
+        <Link to="/hostels/create">
           <FormButton><Plus className="mr-2 h-4 w-4" />Add Hostel</FormButton>
         </Link>
       </div>
@@ -102,7 +102,7 @@ export function HostelsPage() {
                   <Td className="capitalize">{h.gender ?? "—"}</Td>
                   <Td>{Number(h.session_fee_amount).toLocaleString()}</Td>
                   <Td className="text-center">
-                    <Link to={`/admin/hostels/rooms?hostelId=${h.id}`} className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 hover:underline">
+                    <Link to={`/hostels/rooms?hostelId=${h.id}`} className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 hover:underline">
                       <DoorOpen className="h-3.5 w-3.5" />
                       {h.rooms_count}
                     </Link>
@@ -116,10 +116,10 @@ export function HostelsPage() {
                   </Td>
                   <Td>
                     <div className="flex justify-end gap-2">
-                      <Link to={`/admin/hostels/${h.id}`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+                      <Link to={`/hostels/${h.id}`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
                         <Eye className="h-3.5 w-3.5" />
                       </Link>
-                      <Link to={`/admin/hostels/${h.id}/edit`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+                      <Link to={`/hostels/${h.id}/edit`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
                       <button type="button" onClick={() => handleDelete(h)} disabled={deletingId === h.id}

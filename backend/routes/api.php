@@ -72,7 +72,7 @@ Route::middleware([
 
     Route::get('/lookups/{resource}', LookupController::class);
 
-    Route::middleware('role:admin')->group(function () {
+    // Admin routes (permission-based at controller level)
         Route::get('/departments/meta', [DepartmentsController::class, 'meta'])
             ->middleware('permission:institution.view');
         Route::get('/departments/export', [DepartmentsController::class, 'export']);
@@ -114,63 +114,6 @@ Route::middleware([
         Route::post('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'store']);
         Route::get('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'index']);
         Route::get('/academic-session-enrolments/{academic_session_enrolment}', [AcademicSessionEnrolmentsController::class, 'show']);
-
-        Route::get('/finance/dashboard', FinanceReportsDashboardController::class);
-        Route::get('/finance/reports', [FinanceReportsController::class, 'index']);
-        Route::get('/finance/reports/export', [FinanceReportsController::class, 'export'])->middleware('throttle:6,1');
-        Route::get('/finance/audit-logs', [FinanceAuditController::class, 'index'])->middleware('permission:finance.view');
-        Route::get('/finance/audit-logs/{financeAuditLog}', [FinanceAuditController::class, 'show'])->middleware('permission:finance.view');
-        Route::get('/finance/dashboard/export', [FinanceDataExportsController::class, 'dashboard'])->middleware('throttle:6,1');
-        Route::get('/invoices/export', [FinanceDataExportsController::class, 'invoices'])->middleware('throttle:6,1');
-        Route::get('/payments/export', [FinanceDataExportsController::class, 'payments'])->middleware('throttle:6,1');
-        Route::get('/ledger/export', [FinanceDataExportsController::class, 'ledger'])->middleware('throttle:6,1');
-
-
-        Route::apiResource('fee-structure-items', FeeStructureItemsController::class)
-            ->parameters(['fee-structure-items' => 'fee_structure_item']);
-
-
-
-        Route::get('/students/{student}/financial-statement/download', [InvoicesController::class, 'statementDownload']);
-        Route::post('/invoices', [InvoicesController::class, 'store']);
-        Route::get('/invoices', [InvoicesController::class, 'index']);
-        Route::post('/finance/reconcile', [InvoicesController::class, 'reconcile']);
-        Route::get('/finance/students-not-invoiced', [InvoicesController::class, 'studentsNotInvoiced']);
-        Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
-        Route::get('/invoices/{invoice}/reversal-preview', [InvoicesController::class, 'reversalPreview']);
-        Route::post('/invoices/{invoice}/reverse', [InvoicesController::class, 'reverse']);
-        Route::get('/students/{student}/fee-structures', [InvoicesController::class, 'availableTemplates']);
-        Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
-        Route::get('/students/{student}/financial-statement', [InvoicesController::class, 'studentStatement']);
-        Route::post('/payments', [PaymentsController::class, 'store']);
-        Route::get('/payments', [PaymentsController::class, 'index']);
-        Route::get('/payments/{payment}/reversal-preview', [PaymentsController::class, 'reversalPreview']);
-        Route::post('/payments/{payment}/reverse', [PaymentsController::class, 'reverse']);
-        Route::post('/students/{student}/payment-preview', [PaymentsController::class, 'fifoPreview']);
-        Route::post('/refunds', [RefundsController::class, 'store']);
-        Route::post('/invoice-charges', [InvoicesController::class, 'storeCharge']);
-        Route::get('/ledger', [StudentLedgerController::class, 'index']);
-
-        // Fee Structure Wizard
-        Route::get('/fee-structures', [FeeStructureController::class, 'index']);
-        Route::post('/fee-structures', [FeeStructureController::class, 'store']);
-        Route::get('/fee-structures/{fee_structure}', [FeeStructureController::class, 'show']);
-        Route::post('/fee-structures/clone', [FeeStructureController::class, 'clone']);
-        Route::post('/fee-structures/{fee_structure}/publish', [FeeStructureController::class, 'publish']);
-        Route::post('/fee-structures/{fee_structure}/archive', [FeeStructureController::class, 'archive']);
-        Route::post('/fee-structures/preview', [FeeStructureController::class, 'preview']);
-
-        // Student Accounts
-        Route::get('/student-accounts/search', [StudentAccountController::class, 'searchStudent']);
-        Route::get('/student-accounts/{student}', [StudentAccountController::class, 'overview']);
-
-        // Cohort Billing
-        Route::post('/cohort-billing/preview', [CohortBillingController::class, 'preview']);
-        Route::post('/cohort-billing/generate', [CohortBillingController::class, 'generate']);
-
-        // Finance Health
-        Route::get('/finance/health', FinanceHealthController::class);
-        Route::get('/finance/readiness', [FinanceHealthController::class, 'readiness']);
 
         Route::get('/timetables', [AcademicTimetablesController::class, 'index']);
         Route::get('/timetables/week-grid', [AcademicTimetablesController::class, 'weekGrid']);
@@ -262,7 +205,6 @@ Route::middleware([
 
         Route::get('/admin/dashboard', AdminDashboardController::class);
 
-        Route::get('/exam-series/options', [ExamSeriesController::class, 'options']);
         Route::get('/exam-series/available-sessions', [ExamSeriesController::class, 'availableSessions']);
         Route::get('/exam-series', [ExamSeriesController::class, 'index']);
         Route::post('/exam-series', [ExamSeriesController::class, 'store']);
@@ -272,9 +214,53 @@ Route::middleware([
 
         Route::post('/admin/reset-staff-password', [AdminPasswordResetController::class, 'resetStaffPassword']);
         Route::post('/admin/reset-student-password', [AdminPasswordResetController::class, 'resetStudentPassword']);
-    });
 
-    Route::middleware('role:admin|trainer')->group(function () {
+    // Finance — permission-based at controller level
+    Route::get('/finance/dashboard', FinanceReportsDashboardController::class);
+    Route::get('/finance/reports', [FinanceReportsController::class, 'index']);
+    Route::get('/finance/reports/export', [FinanceReportsController::class, 'export'])->middleware('throttle:6,1');
+    Route::get('/finance/audit-logs', [FinanceAuditController::class, 'index']);
+    Route::get('/finance/audit-logs/{financeAuditLog}', [FinanceAuditController::class, 'show']);
+    Route::get('/finance/dashboard/export', [FinanceDataExportsController::class, 'dashboard'])->middleware('throttle:6,1');
+    Route::get('/invoices/export', [FinanceDataExportsController::class, 'invoices'])->middleware('throttle:6,1');
+    Route::get('/payments/export', [FinanceDataExportsController::class, 'payments'])->middleware('throttle:6,1');
+    Route::get('/ledger/export', [FinanceDataExportsController::class, 'ledger'])->middleware('throttle:6,1');
+    Route::apiResource('fee-structure-items', FeeStructureItemsController::class)
+        ->parameters(['fee-structure-items' => 'fee_structure_item']);
+    Route::get('/students/{student}/financial-statement/download', [InvoicesController::class, 'statementDownload']);
+    Route::post('/invoices', [InvoicesController::class, 'store']);
+    Route::get('/invoices', [InvoicesController::class, 'index']);
+    Route::post('/finance/reconcile', [InvoicesController::class, 'reconcile']);
+    Route::get('/finance/students-not-invoiced', [InvoicesController::class, 'studentsNotInvoiced']);
+    Route::get('/invoices/{invoice}', [InvoicesController::class, 'show']);
+    Route::get('/invoices/{invoice}/reversal-preview', [InvoicesController::class, 'reversalPreview']);
+    Route::post('/invoices/{invoice}/reverse', [InvoicesController::class, 'reverse']);
+    Route::get('/students/{student}/fee-structures', [InvoicesController::class, 'availableTemplates']);
+    Route::get('/students/{student}/credit-balance', [InvoicesController::class, 'creditBalance']);
+    Route::get('/students/{student}/financial-statement', [InvoicesController::class, 'studentStatement']);
+    Route::post('/payments', [PaymentsController::class, 'store']);
+    Route::get('/payments', [PaymentsController::class, 'index']);
+    Route::get('/payments/{payment}/reversal-preview', [PaymentsController::class, 'reversalPreview']);
+    Route::post('/payments/{payment}/reverse', [PaymentsController::class, 'reverse']);
+    Route::post('/students/{student}/payment-preview', [PaymentsController::class, 'fifoPreview']);
+    Route::post('/refunds', [RefundsController::class, 'store']);
+    Route::post('/invoice-charges', [InvoicesController::class, 'storeCharge']);
+    Route::get('/ledger', [StudentLedgerController::class, 'index']);
+    Route::get('/fee-structures', [FeeStructureController::class, 'index']);
+    Route::post('/fee-structures', [FeeStructureController::class, 'store']);
+    Route::get('/fee-structures/{fee_structure}', [FeeStructureController::class, 'show']);
+    Route::post('/fee-structures/clone', [FeeStructureController::class, 'clone']);
+    Route::post('/fee-structures/{fee_structure}/publish', [FeeStructureController::class, 'publish']);
+    Route::post('/fee-structures/{fee_structure}/archive', [FeeStructureController::class, 'archive']);
+    Route::post('/fee-structures/preview', [FeeStructureController::class, 'preview']);
+    Route::get('/student-accounts/search', [StudentAccountController::class, 'searchStudent']);
+    Route::get('/student-accounts/{student}', [StudentAccountController::class, 'overview']);
+    Route::post('/cohort-billing/preview', [CohortBillingController::class, 'preview']);
+    Route::post('/cohort-billing/generate', [CohortBillingController::class, 'generate']);
+    Route::get('/finance/health', FinanceHealthController::class);
+    Route::get('/finance/readiness', [FinanceHealthController::class, 'readiness']);
+
+    // Admin/Trainer routes (permission-based at controller level)
         Route::get('/exam-series/options', [ExamSeriesController::class, 'options']);
         Route::get('/units', [UnitsController::class, 'index']);
         Route::get('/units/{unit}', [UnitsController::class, 'show']);
@@ -309,7 +295,6 @@ Route::middleware([
         Route::get('/trainer/dashboard', TrainerDashboardController::class);
 
         Route::get('/academic-session-enrolments/unit', [AcademicSessionEnrolmentsController::class, 'unitEnrolments']);
-    });
 
     Route::get('/student/dashboard', StudentDashboardController::class);
 

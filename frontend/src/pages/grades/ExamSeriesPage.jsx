@@ -120,11 +120,11 @@ export function ExamSeriesPage() {
       if (isEdit) {
         await api.update(seriesId, { name: data.name, is_active: data.is_active });
         toast.success("Exam series updated.");
-        navigate("/admin/exam-series");
+        navigate("/exam-series");
       } else {
         await api.create({ academic_session_id: data.academic_session_id, name: data.name });
         toast.success("Exam series created.");
-        navigate("/admin/exam-series");
+        navigate("/exam-series");
       }
     } catch (e) {
       const validationErrors = e?.response?.data?.errors;
@@ -163,7 +163,7 @@ export function ExamSeriesPage() {
             <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">{title}</h1>
             <p className="text-[13px] text-slate-500">{isEdit ? "Edit the exam series name." : "Create an exam series for an academic session."}</p>
           </div>
-          <Link to="/admin/exam-series" className="text-[14px] font-medium text-slate-500 hover:text-slate-900">
+          <Link to="/exam-series" className="text-[14px] font-medium text-slate-500 hover:text-slate-900">
             &larr; Back to exam series
           </Link>
         </div>
@@ -198,7 +198,7 @@ export function ExamSeriesPage() {
               </div>
 
               <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
-                <Link to="/admin/exam-series">
+                <Link to="/exam-series">
                   <FormButton type="button" variant="secondary" className="w-full sm:w-auto sm:px-5">Cancel</FormButton>
                 </Link>
                 <FormButton type="submit" disabled={isSaving} className="sm:px-5">
@@ -219,7 +219,7 @@ export function ExamSeriesPage() {
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">Exam Series</h1>
           <p className="text-[13px] text-slate-500">Exam series linked to academic sessions.</p>
         </div>
-        <Link to="/admin/exam-series/create">
+        <Link to="/exam-series/create">
           <FormButton className="sm:px-5">
             <Plus className="mr-2 h-4 w-4" />
             Add Exam Series
@@ -264,7 +264,7 @@ export function ExamSeriesPage() {
                   </Td>
                   <Td>
                     <div className="flex justify-end gap-2">
-                      <Link to={`/admin/exam-series/${s.id}/edit`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700">
+                      <Link to={`/exam-series/${s.id}/edit`} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700">
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
                       <button type="button" onClick={() => handleDelete(s)} disabled={deletingId === s.id} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60">

@@ -20,6 +20,8 @@ class AttendanceController extends Controller
      */
     public function assignedUnits(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-attendance'), 403);
+
         $user = $request->user();
         $staff = $user->staff;
 
@@ -65,6 +67,8 @@ class AttendanceController extends Controller
      */
     public function roster(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-attendance'), 403);
+
         $validated = $request->validate([
             'unit_id' => ['required', 'string', 'exists:units,id'],
             'session_date' => ['nullable', 'date', 'date_format:Y-m-d'],
@@ -101,6 +105,8 @@ class AttendanceController extends Controller
      */
     public function mark(MarkAttendanceRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-attendance'), 403);
+
         $user = $request->user();
         $staff = $user->staff;
         $validated = $request->validated();

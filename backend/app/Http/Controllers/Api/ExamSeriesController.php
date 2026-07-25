@@ -105,6 +105,8 @@ class ExamSeriesController extends Controller
 
     public function options(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('manage-exam-series'), 403);
+
         $series = ExamSeries::query()
             ->where('is_active', true)
             ->orderBy('name')

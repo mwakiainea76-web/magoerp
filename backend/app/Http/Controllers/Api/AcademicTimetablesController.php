@@ -20,6 +20,7 @@ class AcademicTimetablesController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.view'), 403);
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'nullable|string|exists:units,id',
@@ -69,6 +70,7 @@ class AcademicTimetablesController extends Controller
 
     public function weekGrid(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.view'), 403);
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'course_curriculum_id' => 'nullable|string|exists:course_curricula,id',
@@ -122,6 +124,7 @@ class AcademicTimetablesController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.create'), 403);
         $validated = $request->validate([
             'academic_session_id' => 'nullable|string|exists:academic_sessions,id',
             'unit_id' => 'required|string|exists:units,id',
@@ -160,8 +163,9 @@ class AcademicTimetablesController extends Controller
         return response()->json([ 'data' => $this->transform($timetable)], 201);
     }
 
-    public function show(AcademicTimetable $academicTimetable): JsonResponse
+    public function show(Request $request, AcademicTimetable $academicTimetable): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.view'), 403);
         $academicTimetable->load([
             'unit:id,code,name,course_curriculum_id',
             'unit.courseCurriculum.course:id,code,name,initials',
@@ -176,6 +180,7 @@ class AcademicTimetablesController extends Controller
 
     public function update(Request $request, AcademicTimetable $academicTimetable): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.create'), 403);
         $validated = $request->validate([
             'unit_id' => 'sometimes|string|exists:units,id',
             'trainer_staff_id' => 'nullable|string|exists:staffs,id',
@@ -201,8 +206,9 @@ class AcademicTimetablesController extends Controller
         return response()->json([ 'data' => $this->transform($academicTimetable)]);
     }
 
-    public function destroy(AcademicTimetable $academicTimetable): JsonResponse
+    public function destroy(Request $request, AcademicTimetable $academicTimetable): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.create'), 403);
         $academicTimetable->delete();
 
         return response()->json([ 'message' => 'Timetable entry deleted.']);
@@ -210,6 +216,7 @@ class AcademicTimetablesController extends Controller
 
     public function myTimetable(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.view'), 403);
         $user = $request->user();
 
         if ($user->student) {
@@ -223,8 +230,9 @@ class AcademicTimetablesController extends Controller
         return response()->json([ 'data' => [], 'message' => 'No timetable available.']);
     }
 
-    public function lectureRooms(Request $request): JsonResponse
+    public function lectureRooms(Request $request, AcademicSession $academicSession): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.view'), 403);
         $rooms = LectureRoom::query()
             ->where('is_active', true)
             ->get(['id', 'name', 'code', 'capacity', 'location']);
@@ -232,8 +240,9 @@ class AcademicTimetablesController extends Controller
         return response()->json([ 'data' => $rooms]);
     }
 
-    public function storeLectureRoom(Request $request): JsonResponse
+    public function storeLectureRoom(Request $request, AcademicSession $academicSession): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.create'), 403);
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:lecture_rooms,name',
             'code' => 'required|string|max:50|unique:lecture_rooms,code',
@@ -250,6 +259,7 @@ class AcademicTimetablesController extends Controller
 
     public function availableUnits(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.view'), 403);
         $validated = $request->validate([
             'course_curriculum_id' => 'required|string|exists:course_curricula,id',
         ]);
@@ -278,6 +288,7 @@ class AcademicTimetablesController extends Controller
 
     public function staffList(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('timetables.view'), 403);
         return response()->json([
             'data' => staffs::query()
                 ->select('staffs.id', 'users.first_name', 'users.middle_name', 'users.last_name', 'staffs.employee_number')

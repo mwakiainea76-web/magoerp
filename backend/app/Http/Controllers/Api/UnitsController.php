@@ -71,6 +71,7 @@ class UnitsController extends Controller
 
     public function store(StoreUnitRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
         $data = $this->resolveModuleProgress($request->validated());
 
         $unit = Unit::create([
@@ -100,6 +101,7 @@ class UnitsController extends Controller
 
     public function update(UpdateUnitRequest $request, Unit $unit): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $data = $this->resolveModuleProgress($request->validated());
 
         $unit->update([

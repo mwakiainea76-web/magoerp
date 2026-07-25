@@ -120,7 +120,7 @@ export function HostelFormPage() {
           <h1 className="text-[18px] font-semibold tracking-[-0.01em] text-slate-950">{isEditing ? "Edit Hostel" : "Add Hostel"}</h1>
           <p className="text-[13px] text-slate-500">{isEditing ? "Update hostel details" : "Register a new hostel facility"}</p>
         </div>
-        <Link to="/admin/hostels" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900">
+        <Link to="/hostels" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900">
           <ArrowLeft className="h-4 w-4" />
           Back to hostels
         </Link>
@@ -160,7 +160,7 @@ export function HostelFormPage() {
         </div>
 
         <div className="flex justify-end gap-3">
-          <FormButton type="button" variant="secondary" onClick={() => navigate("/admin/hostels")}>Cancel</FormButton>
+          <FormButton type="button" variant="secondary" onClick={() => navigate("/hostels")}>Cancel</FormButton>
           <FormButton type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : isEditing ? "Update Hostel" : "Create Hostel"}</FormButton>
         </div>
       </form>

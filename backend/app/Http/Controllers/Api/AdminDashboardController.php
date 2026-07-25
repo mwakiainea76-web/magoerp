@@ -19,6 +19,8 @@ class AdminDashboardController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->can('dashboard.view'), 403);
+
         $activeStudents = Student::where('status', 'active')->count();
         $departmentsCount = departments::count();
         $activeCourses = Course::where('is_active', true)->count();

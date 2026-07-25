@@ -299,7 +299,7 @@ export function StaffsPage() {
             )}
           </div>
 
-          <Link to="/admin/staffs/create">
+          <Link to="/staffs/create">
             <FormButton className="w-full sm:w-auto sm:px-5">
               <Plus className="mr-2 h-4 w-4" />
               Add Staff
@@ -372,7 +372,7 @@ export function StaffsPage() {
                   <Td>
                     <div className="flex justify-end gap-2">
                       <Link
-                        to={`/admin/staffs/${staff.id}/edit`}
+                        to={`/staffs/${staff.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                       >
                         <Pencil className="h-3.5 w-3.5" />

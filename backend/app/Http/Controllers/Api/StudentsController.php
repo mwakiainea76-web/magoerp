@@ -66,6 +66,7 @@ class StudentsController extends Controller
 
     public function store(StoreStudentRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('students.create'), 403);
         $student = DB::transaction(function () use ($request) {
             $courseCurriculum = CourseCurriculum::query()
                 ->with('course')
@@ -149,6 +150,7 @@ class StudentsController extends Controller
 
     public function update(UpdateStudentRequest $request, Student $student): JsonResponse
     {
+        abort_unless($request->user()?->can('students.update'), 403);
         $student = DB::transaction(function () use ($request, $student) {
             $user = $student->user;
 

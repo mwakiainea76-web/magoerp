@@ -58,6 +58,7 @@ class AcademicYearsController extends Controller
 
     public function store(StoreAcademicYearRequest $request): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.create'), 403);
         $userId = $request->user()?->id;
 
         $year = AcademicYear::create([
@@ -109,6 +110,7 @@ class AcademicYearsController extends Controller
 
     public function update(UpdateAcademicYearRequest $request, AcademicYear $academic_year): JsonResponse
     {
+        abort_unless($request->user()?->can('institution.update'), 403);
         $academic_year->update([
             ...$request->validated(),
             'updated_by' => $request->user()?->id,
