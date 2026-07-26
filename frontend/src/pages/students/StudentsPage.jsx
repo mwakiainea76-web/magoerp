@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import {
@@ -417,6 +417,13 @@ export function StudentsPage() {
                   <Td className="capitalize">{student.gender || "-"}</Td>
                   <Td>
                     <div className="flex justify-end gap-2">
+                      <Link
+                        to={`/students/${student.id}/admission-letter`}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+                        title="Admission Letter"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                      </Link>
                       <Link
                         to={`/students/${student.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"

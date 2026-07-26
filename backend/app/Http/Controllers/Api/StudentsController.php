@@ -12,6 +12,7 @@ use App\Models\AcademicYear;
 use App\Models\Course;
 use App\Models\CourseCurriculum;
 use App\Models\CourseEnrolment;
+use App\Models\Institution;
 use App\Models\Student;
 use App\Models\User;
 use App\Queries\StudentQuery;
@@ -214,22 +215,45 @@ class StudentsController extends Controller
         $student->load(['user']);
 
         $enrolment = CourseEnrolment::query()
-            ->with(['courseCurriculum.course.department', 'courseCurriculum.course.level', 'courseCurriculum.course.authority', 'courseCurriculum.curriculum', 'academicSession'])
+            ->with([
+                'courseCurriculum.course.department',
+                'courseCurriculum.course.level',
+                'courseCurriculum.course.authority',
+                'courseCurriculum.curriculum',
+                'academicSession.year',
+            ])
             ->where('student_id', $student->id)
             ->latest()
             ->first();
 
         $user = $student->user;
         $course = $enrolment?->courseCurriculum?->course;
+        $session = $enrolment?->academicSession;
+        $institution = Institution::query()->where('is_active', true)->first();
 
         return response()->json([
             'data' => [
-                'institution_name' => config('app.name'),
+                'institution_name' => $institution?->name ?? config('app.name'),
+                'institution_motto' => $institution?->motto,
+                'postal_address' => $institution?->postal_address,
+                'telephone' => $institution?->telephone,
+                'email' => $institution?->email,
+                'website' => $institution?->website,
+                'logo_url' => $institution?->logo
+                    ? $request->getSchemeAndHttpHost() . '/storage/' . $institution->logo
+                    : null,
+
                 'reference_number' => $student->admission_number,
                 'date' => now()->format('F d, Y'),
 
                 'student_name' => trim(collect([$user->first_name, $user->middle_name, $user->last_name])->filter()->implode(' ')),
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
                 'admission_number' => $student->admission_number,
+                'address' => $user?->address,
+                'city' => $user?->city,
+                'county' => $user?->county,
+                'postal_code' => $user?->postal_code,
                 'email' => $user?->email,
                 'phone' => $user?->phone_number,
                 'admission_date' => $enrolment?->enrolment_date?->format('F d, Y'),
@@ -238,16 +262,26 @@ class StudentsController extends Controller
 
                 'course_name' => $course?->name,
                 'course_code' => $course?->code,
+                'course_initials' => $course?->initials,
                 'department_name' => $course?->department?->name,
                 'certification_level' => $course?->level?->name,
                 'certification_authority' => $course?->authority?->name,
+                'certification_authority_name' => $course?->authority?->name,
+                'certification_level_name' => $course?->level?->name,
                 'curriculum_name' => $enrolment?->courseCurriculum?->curriculum?->name,
-                'academic_session' => $enrolment?->academicSession?->name,
-                'enrolment_status' => $enrolment?->status,
+                'duration_months' => $course?->duration_months,
                 'duration' => $course?->duration_label,
 
-                'portal_url' => url('/'),
+                'academic_session' => $session?->name,
+                'academic_session_name' => $session?->name,
+                'academic_year_name' => $session?->year?->name,
+                'session_start_date' => $session?->start_date?->format('F d, Y'),
+                'enrolment_status' => $enrolment?->status,
+
                 'login_id' => $user?->login_id,
+                'default_password' => $user?->phone_number,
+                'must_reset_password' => $user?->must_reset_password,
+                'portal_url' => url('/'),
             ],
         ]);
     }

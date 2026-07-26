@@ -1,7 +1,7 @@
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
@@ -329,13 +329,24 @@ export function StudentFormPage() {
           </p>
         </div>
 
-        <Link
-          to="/students"
-          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to students
-        </Link>
+        <div className="flex items-center gap-3">
+          {isEdit ? (
+            <Link
+              to={`/students/${studentId}/admission-letter`}
+              className="inline-flex items-center gap-1.5 text-[14px] font-medium text-emerald-600 transition hover:text-emerald-700"
+            >
+              <FileText className="h-4 w-4" />
+              Admission Letter
+            </Link>
+          ) : null}
+          <Link
+            to="/students"
+            className="inline-flex items-center gap-1.5 text-[14px] font-medium text-slate-500 transition hover:text-slate-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to students
+          </Link>
+        </div>
       </div>
 
       {pageError ? (
