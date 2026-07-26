@@ -2,7 +2,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import * as yup from "yup";
 
 import { FormButton } from "@/components/FormButton";
@@ -22,7 +22,6 @@ const loginSchema = yup.object({
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuthApi();
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
@@ -50,11 +49,12 @@ export function LoginPage() {
   });
 
   if (token && user) {
-    const nextPath = user.must_reset_password
-      ? "/reset-password"
-      : location.state?.from?.pathname ?? getDashboardPath(user.role);
-
-    return <Navigate to={nextPath} replace />;
+    return (
+      <Navigate
+        to={user.must_reset_password ? "/reset-password" : getDashboardPath(user.role)}
+        replace
+      />
+    );
   }
 
   async function onSubmit(data) {
@@ -74,7 +74,7 @@ export function LoginPage() {
       navigate(
         payload.user?.must_reset_password
           ? "/reset-password"
-          : location.state?.from?.pathname ?? getDashboardPath(payload.user?.role),
+          : getDashboardPath(payload.user?.role),
         { replace: true },
       );
     } catch (error) {

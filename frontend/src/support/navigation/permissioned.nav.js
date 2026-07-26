@@ -7,7 +7,7 @@ export const navLinks = [
     permission: "dashboard.view",
   },
   {
-    label: "People",
+    label: "Users",
     icon: Users,
     children: [
       { label: "Staff", to: "/staffs", permission: "manage-staff" },
