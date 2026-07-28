@@ -5,10 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\AuthenticateApiTokenCookie;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\VerifyOtpRequest;
+use App\Mail\LoginOtpMail;
+use App\Models\Otp;
+use App\Models\SystemConfiguration;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -38,6 +43,58 @@ class AuthController extends Controller
 
         RateLimiter::clear($this->throttleKey($request));
 
+        $mfaRoles = SystemConfiguration::getValue('mfa_required_roles', []);
+        $mfaRoles[] = 'admin';
+        $mfaRoles = array_values(array_unique($mfaRoles));
+
+        if ($user->hasAnyRole($mfaRoles)) {
+            $temporaryToken = $this->generateAndSendOtp($user);
+            return response()->json([
+                'requires_otp' => true,
+                'temporary_token' => $temporaryToken,
+            ]);
+        }
+
+        $user->last_login_at = now();
+        $user->save();
+
+        $user->tokens()->delete();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login successful.',
+            'token' => $token,
+            'user' => $this->transformUser($user),
+        ])->withCookie($this->authCookie($token));
+    }
+
+    public function verifyOtp(VerifyOtpRequest $request): JsonResponse
+    {
+        $this->ensureOtpNotRateLimited($request);
+
+        $otp = Otp::where('temporary_token', $request->input('temporary_token'))->first();
+
+        if (! $otp) {
+            return response()->json(['message' => 'Invalid verification request.'], 422);
+        }
+
+        if ($otp->used_at) {
+            return response()->json(['message' => 'OTP has already been used.'], 422);
+        }
+
+        if ($otp->expires_at->isPast()) {
+            return response()->json(['message' => 'OTP has expired. Please login again.'], 422);
+        }
+
+        if (! Hash::check($request->input('otp'), $otp->otp)) {
+            RateLimiter::hit($this->otpThrottleKey($request), 60);
+            return response()->json(['message' => 'Invalid OTP.'], 422);
+        }
+
+        $otp->update(['used_at' => now()]);
+
+        $user = $otp->user;
         $user->last_login_at = now();
         $user->save();
 
@@ -120,6 +177,47 @@ class AuthController extends Controller
         if (RateLimiter::tooManyAttempts($key, 5)) {
             $seconds = RateLimiter::availableIn($key);
             abort(429, "Too many login attempts. Please try again in {$seconds} seconds.");
+        }
+    }
+
+    private function generateAndSendOtp(User $user): string
+    {
+        Otp::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->delete();
+
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $temporaryToken = (string) Str::uuid();
+
+        Otp::create([
+            'user_id' => $user->id,
+            'otp' => Hash::make($code),
+            'temporary_token' => $temporaryToken,
+            'type' => 'login',
+            'expires_at' => now()->addMinutes(10),
+        ]);
+
+        $name = trim($user->first_name . ' ' . $user->last_name);
+
+        Mail::to($user->email)->send(new LoginOtpMail($code, $name));
+
+        return $temporaryToken;
+    }
+
+    private function otpThrottleKey(Request $request): string
+    {
+        return 'verify-otp|' . $request->input('temporary_token');
+    }
+
+    private function ensureOtpNotRateLimited(Request $request): void
+    {
+        $key = $this->otpThrottleKey($request);
+        [$maxAttempts, $decayMinutes] = config('security.rate_limits.otp', [5, 1]);
+
+        if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+            $seconds = RateLimiter::availableIn($key);
+            abort(429, "Too many OTP attempts. Please try again in {$seconds} seconds.");
         }
     }
 

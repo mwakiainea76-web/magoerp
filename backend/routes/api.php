@@ -61,6 +61,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['api.monitor'])->group(function () {
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::get('/institution/logo', [InstitutionsController::class, 'logo']);
 
 Route::middleware([

@@ -12,6 +12,10 @@ const LoginPage = lazy(() =>
   import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })),
 );
 
+const VerifyOtpPage = lazy(() =>
+  import("@/pages/auth/VerifyOtpPage").then((m) => ({ default: m.VerifyOtpPage })),
+);
+
 const ROUTE_LOADERS_BY_ROLE = {
   admin: () => import("@/router/routes/admin.routes").then((module) => module.AdminRoutes),
   finance: () => import("@/router/routes/finance.routes").then((module) => module.FinanceRoutes),
@@ -56,6 +60,7 @@ function App() {
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify-otp" element={<VerifyOtpPage />} />
         </Route>
 
         <Route element={<RequireAuth />}>

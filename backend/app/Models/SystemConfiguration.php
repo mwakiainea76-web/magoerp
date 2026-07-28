@@ -33,6 +33,7 @@ class SystemConfiguration extends Model
         return match ($config->type) {
             'integer' => (int) $value,
             'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+            'multi_select' => $value ? array_map('trim', explode(',', $value)) : [],
             default => $value,
         };
     }

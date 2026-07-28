@@ -106,6 +106,7 @@ export const navLinks = [
     children: [
       { label: "Operations", to: "/operations/enrollments", permission: "manage-enrollments" },
       { label: "Configurations", to: "/system-configurations", permission: "manage-system-configurations" },
+      { label: "MFA Roles", to: "/system-configurations#mfa_required_roles", permission: "manage-system-configurations" },
       { label: "Institution", to: "/institution-details", permission: "manage-institution-details" },
       { label: "Roles", to: "/access-roles", permission: "manage-roles" },
     ],

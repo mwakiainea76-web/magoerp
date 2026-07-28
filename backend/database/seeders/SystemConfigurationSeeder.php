@@ -31,5 +31,14 @@ class SystemConfigurationSeeder extends Seeder
                 'type' => 'select',
             ]
         );
+
+        SystemConfiguration::updateOrCreate(
+            ['key' => 'mfa_required_roles'],
+            [
+                'value' => 'finance',
+                'label' => 'Roles Requiring MFA on Login',
+                'type' => 'multi_select',
+            ]
+        );
     }
 }

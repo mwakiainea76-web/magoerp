@@ -35,7 +35,7 @@ return [
     |
     | When your application is in debug mode, detailed error messages with
     | stack traces will be shown on every error that occurs within your
-    | application. If disabled, a simple generic error page is shown.
+    | application. If disabled, a simple generic error message is shown.
     |
     */
 
@@ -46,9 +46,9 @@ return [
     | Application URL
     |--------------------------------------------------------------------------
     |
-    | This URL is used by the console to properly generate URLs when using
-    | the Artisan command line tool. You should set this to the root of
-    | the application so that it's available within Artisan commands.
+    | This URL is used by the Artisan command line tool to properly generate
+    | URLs when using the Artisan command line tool. You should set this to
+    | the root of the application so that it's available within Artisan.
     |
     */
 

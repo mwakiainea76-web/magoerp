@@ -23,6 +23,13 @@ export function useAuthApi() {
 
         return response.data;
       },
+      verifyOtp: async ({ temporaryToken, otp }) => {
+        const response = await authClient.post("/login/verify-otp", {
+          temporary_token: temporaryToken,
+          otp,
+        });
+        return response.data;
+      },
       changePassword: async ({ currentPassword, password, passwordConfirmation }) => {
         const response = await authClient.post("/change-password", {
           current_password: currentPassword,

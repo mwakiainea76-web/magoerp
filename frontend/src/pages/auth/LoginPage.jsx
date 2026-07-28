@@ -67,6 +67,11 @@ export function LoginPage() {
         password: data.password,
       });
 
+      if (payload.requires_otp) {
+        navigate("/verify-otp", { state: { temporary_token: payload.temporary_token }, replace: true });
+        return;
+      }
+
       setAuth({
         token: payload.token,
         user: payload.user,
