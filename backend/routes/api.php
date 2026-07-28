@@ -48,8 +48,17 @@ use App\Http\Controllers\Api\StudentsController;
 use App\Http\Controllers\Api\SystemConfigurationsController;
 use App\Http\Controllers\Api\Trainer\AttendanceController as TrainerAttendanceController;
 use App\Http\Controllers\Api\UnitsController;
+use App\Http\Controllers\Api\Security\SecurityDashboardController;
+use App\Http\Controllers\Api\Security\SecurityDevicesController;
+use App\Http\Controllers\Api\Security\SecurityEventsController;
+use App\Http\Controllers\Api\Security\SecuritySessionsController;
+use App\Http\Controllers\Api\Security\SecurityBlockedController;
+use App\Http\Controllers\Api\Security\SecurityUserProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Wrap all API routes with monitoring (track performance & catch errors)
+Route::middleware(['api.monitor'])->group(function () {
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/institution/logo', [InstitutionsController::class, 'logo']);
@@ -58,6 +67,10 @@ Route::middleware([
     'api_token_cookie',
     'auth:sanctum',
     \App\Http\Middleware\EnsurePasswordResetComplete::class,
+    'security.track-device',
+    'security.track-session',
+    'security.assess',
+    'security.analyze',
 ])->group(function () {
     Route::get('/user', function (Request $request) {
         return response()->json([
@@ -113,6 +126,7 @@ Route::middleware([
 
         Route::post('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'store']);
         Route::get('/academic-session-enrolments', [AcademicSessionEnrolmentsController::class, 'index']);
+        Route::get('/academic-session-enrolments/unit', [AcademicSessionEnrolmentsController::class, 'unitEnrolments']);
         Route::get('/academic-session-enrolments/{academic_session_enrolment}', [AcademicSessionEnrolmentsController::class, 'show']);
 
         Route::get('/timetables', [AcademicTimetablesController::class, 'index']);
@@ -140,11 +154,11 @@ Route::middleware([
         Route::get('/academic-years/{academic_year}/calendar/export-pdf', [CalendarController::class, 'exportYearPdf'])->name('calendar.export.year');
 
         Route::get('/support-requests', [SupportRequestsController::class, 'adminIndex']);
+        Route::get('/support-requests/staff-list', [SupportRequestsController::class, 'staffList']);
         Route::get('/support-requests/{support_request}', [SupportRequestsController::class, 'show']);
         Route::post('/support-requests/{support_request}/escalate', [SupportRequestsController::class, 'escalate']);
         Route::post('/support-requests/{support_request}/resolve', [SupportRequestsController::class, 'resolve']);
         Route::post('/support-requests/{support_request}/review', [SupportRequestsController::class, 'review']);
-        Route::get('/support-requests/staff-list', [SupportRequestsController::class, 'staffList']);
 
         Route::apiResource('hostels', HostelsController::class)
             ->parameters(['hostels' => 'hostel']);
@@ -206,6 +220,7 @@ Route::middleware([
         Route::get('/admin/dashboard', AdminDashboardController::class);
 
         Route::get('/exam-series/available-sessions', [ExamSeriesController::class, 'availableSessions']);
+        Route::get('/exam-series/options', [ExamSeriesController::class, 'options']);
         Route::get('/exam-series', [ExamSeriesController::class, 'index']);
         Route::post('/exam-series', [ExamSeriesController::class, 'store']);
         Route::get('/exam-series/{examSeries}', [ExamSeriesController::class, 'show']);
@@ -261,7 +276,6 @@ Route::middleware([
     Route::get('/finance/readiness', [FinanceHealthController::class, 'readiness']);
 
     // Admin/Trainer routes (permission-based at controller level)
-        Route::get('/exam-series/options', [ExamSeriesController::class, 'options']);
         Route::get('/units', [UnitsController::class, 'index']);
         Route::get('/units/{unit}', [UnitsController::class, 'show']);
         Route::get('/academic-sessions', [AcademicSessionsController::class, 'index']);
@@ -293,8 +307,6 @@ Route::middleware([
         });
 
         Route::get('/trainer/dashboard', TrainerDashboardController::class);
-
-        Route::get('/academic-session-enrolments/unit', [AcademicSessionEnrolmentsController::class, 'unitEnrolments']);
 
     Route::get('/student/dashboard', StudentDashboardController::class);
 
@@ -328,4 +340,53 @@ Route::middleware([
     Route::get('/my/support-requests', [SupportRequestsController::class, 'myRequests']);
     Route::post('/support-requests', [SupportRequestsController::class, 'store']);
 
-});
+    // ---- API Monitoring ----
+    Route::prefix('monitoring')->group(function () {
+        Route::get('/logs', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'index']);
+        Route::get('/logs/stats', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'stats']);
+        Route::get('/logs/{apiEndpointError}', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'show']);
+        Route::post('/logs/{apiEndpointError}/escalate', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'escalate']);
+        Route::post('/logs/{apiEndpointError}/resolve', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'resolve']);
+        Route::delete('/logs/clear', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'clearResolved']);
+    });
+
+    // ---- Security Module ----
+    Route::prefix('security')->group(function () {
+        Route::get('/dashboard', [SecurityDashboardController::class, 'index']);
+
+        Route::get('/events', [SecurityEventsController::class, 'index']);
+        Route::get('/events/{securityEvent}', [SecurityEventsController::class, 'show']);
+        Route::post('/events/{securityEvent}/resolve', [SecurityEventsController::class, 'resolve']);
+
+        Route::get('/devices', [SecurityDevicesController::class, 'index']);
+        Route::get('/devices/{securityDevice}', [SecurityDevicesController::class, 'show']);
+        Route::delete('/devices/{securityDevice}', [SecurityDevicesController::class, 'destroy']);
+
+        Route::get('/sessions', [SecuritySessionsController::class, 'index']);
+        Route::delete('/sessions/others', [SecuritySessionsController::class, 'destroyOthers']);
+        Route::get('/sessions/{securityUserSession}', [SecuritySessionsController::class, 'show']);
+        Route::delete('/sessions/{securityUserSession}', [SecuritySessionsController::class, 'destroy']);
+
+        Route::get('/blocked/ips', [SecurityBlockedController::class, 'indexIps']);
+        Route::post('/blocked/ips', [SecurityBlockedController::class, 'storeIp']);
+        Route::delete('/blocked/ips/{securityBlockedIp}', [SecurityBlockedController::class, 'destroyIp']);
+
+        Route::get('/blocked/devices', [SecurityBlockedController::class, 'indexDevices']);
+        Route::post('/blocked/devices', [SecurityBlockedController::class, 'storeDevice']);
+        Route::delete('/blocked/devices/{securityBlockedDevice}', [SecurityBlockedController::class, 'destroyDevice']);
+
+        Route::get('/blocked/users', [SecurityBlockedController::class, 'indexUsers']);
+        Route::post('/blocked/users', [SecurityBlockedController::class, 'storeUser']);
+        Route::delete('/blocked/users/{securityBlockedUser}', [SecurityBlockedController::class, 'destroyUser']);
+
+        Route::get('/blocked/sessions', [SecurityBlockedController::class, 'indexSessions']);
+        Route::post('/blocked/sessions', [SecurityBlockedController::class, 'storeSession']);
+        Route::delete('/blocked/sessions/{securityBlockedSession}', [SecurityBlockedController::class, 'destroySession']);
+
+        Route::get('/users/{userId}', [SecurityUserProfileController::class, 'show']);
+        Route::post('/users/{userId}/trust-device', [SecurityUserProfileController::class, 'trustDevice']);
+    });
+
+}); // end auth group
+
+}); // end api.monitor group

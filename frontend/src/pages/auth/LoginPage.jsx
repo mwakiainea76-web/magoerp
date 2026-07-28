@@ -35,7 +35,8 @@ export function LoginPage() {
     authClient.get("/institution/logo").then((res) => {
       const url = res?.data?.logo_url;
       if (url) setLogoUrl(url);
-    }).catch(() => {});
+      setLogoLoaded(true);
+    }).catch(() => setLogoLoaded(true));
   }, []);
 
   const {

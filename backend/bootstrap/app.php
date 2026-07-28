@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\Security\SecurityException;
 use App\Http\Middleware\AuthenticateApiTokenCookie;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -30,6 +31,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'api_token_cookie' => AuthenticateApiTokenCookie::class,
             'debug.fee' => App\Http\Middleware\DebugFeeMiddleware::class,
+            'api.monitor' => App\Http\Middleware\ApiMonitor::class,
+            'security.track-device' => App\Http\Middleware\Security\TrackDevice::class,
+            'security.track-session' => App\Http\Middleware\Security\TrackSession::class,
+            'security.analyze' => App\Http\Middleware\Security\AnalyzeBehavior::class,
+            'security.assess' => App\Http\Middleware\Security\SecurityAssessment::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -102,6 +108,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $exception->getMessage(),
                 'errors' => $exception->errors(),
             ], 422);
+        });
+
+        $exceptions->render(function (SecurityException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            report($exception);
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], $exception->getCode() ?: 403);
         });
 
         $exceptions->render(function (Throwable $exception, Request $request) {

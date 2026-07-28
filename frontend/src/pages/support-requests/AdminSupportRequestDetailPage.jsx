@@ -186,36 +186,32 @@ export function AdminSupportRequestDetailPage() {
               </div>
             ) : null}
 
-            {supportRequest.status !== "resolved" ? (
-              <div className="space-y-3 rounded-lg border border-slate-100 p-4">
-                <h3 className="text-[13px] font-medium text-slate-700">Escalate Request</h3>
-                <div className="flex gap-3">
-                  <select
-                    value={escalateTo}
-                    onChange={(e) => setEscalateTo(e.target.value)}
-                    className={`${selectClassName} flex-1`}
-                  >
-                    <option value="">Select staff member...</option>
-                    {staffList.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.employee_number})</option>
-                    ))}
-                  </select>
-                  <FormButton onClick={handleEscalate} disabled={isUpdating || !escalateTo} variant="secondary">
-                    <ArrowUpCircle className="mr-1.5 h-4 w-4" />
-                    Escalate
-                  </FormButton>
-                </div>
-              </div>
-            ) : null}
-
-            {supportRequest.status !== "resolved" ? (
-              <div className="flex justify-end">
-                <FormButton onClick={handleResolve} disabled={isUpdating} variant="danger">
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                  Resolve Request
+            <div className="space-y-3 rounded-lg border border-slate-100 p-4">
+              <h3 className="text-[13px] font-medium text-slate-700">Escalate Request</h3>
+              <div className="flex gap-3">
+                <select
+                  value={escalateTo}
+                  onChange={(e) => setEscalateTo(e.target.value)}
+                  className={`${selectClassName} flex-1`}
+                >
+                  <option value="">Select staff member...</option>
+                  {staffList.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.employee_number})</option>
+                  ))}
+                </select>
+                <FormButton onClick={handleEscalate} disabled={isUpdating || !escalateTo} variant="secondary">
+                  <ArrowUpCircle className="mr-1.5 h-4 w-4" />
+                  Escalate
                 </FormButton>
               </div>
-            ) : null}
+            </div>
+
+            <div className="flex justify-end">
+              <FormButton onClick={handleResolve} disabled={isUpdating} variant="danger">
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                Resolve Request
+              </FormButton>
+            </div>
           </div>
         </div>
       ) : null}

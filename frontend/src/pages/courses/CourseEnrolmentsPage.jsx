@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { Controller, useForm } from "react-hook-form";
-import { Download, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
@@ -22,7 +22,7 @@ import { FilterPanel } from "@/components/FilterPanel";
 import { LookupSelect } from "@/components/LookupSelect";
 import { useCourseEnrolmentsApi } from "@/hooks/useCourseEnrolmentsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
-import { bodyTextClassName, labelClassName, selectClassName, inputClassName, initialMeta } from "@/lib/styles";
+import { bodyTextClassName, initialMeta } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const statusOptions = ["enrolled", "deferred", "expelled", "transferred", "completed", "withdrawn"];

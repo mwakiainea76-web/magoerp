@@ -26,7 +26,7 @@ const modes = {
 };
 
 export function PasswordResetPage({ mode = "staff" }) {
-  const config = modes[mode];
+  const config = modes[mode] ?? modes.staff;
   const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);

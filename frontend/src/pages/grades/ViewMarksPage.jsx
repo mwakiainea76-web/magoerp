@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
-import { bodyTextClassName, inputClassName, labelClassName, selectClassName } from "@/lib/styles";
+import { bodyTextClassName, labelClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
@@ -96,7 +96,7 @@ export function ViewMarksPage() {
 
 
   useEffect(() => {
-    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch(() => {});
+    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch((err) => console.error("Failed to load exam series:", err));
   }, [examSeriesApi]);
 
   const selectedExamSeriesTypes = useMemo(() => {

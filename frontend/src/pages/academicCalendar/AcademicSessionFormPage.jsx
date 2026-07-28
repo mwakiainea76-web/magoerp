@@ -2,7 +2,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
@@ -46,7 +46,6 @@ function buildInitialValues(session, yearIdFromQuery) {
 export function AcademicSessionFormPage() {
   const { sessionId } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const sessionsApi = useAcademicSessionsApi();
   const lookupApi = useLookupApi();
   const isEdit = Boolean(sessionId);

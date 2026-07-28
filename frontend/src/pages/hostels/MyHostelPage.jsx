@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Building2, Bed, DoorOpen, ArrowRight, Wallet } from "lucide-react";
 

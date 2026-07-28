@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import logo from "@/assets/logo.PNG";
 import { LookupSelect } from "@/components/LookupSelect";
@@ -38,7 +38,7 @@ export function TranscriptPage({ role = "admin" }) {
   const studentId = role === "student" ? null : (selectedStudent?.id ?? null);
 
   useEffect(() => {
-    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch(() => {});
+    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch((err) => console.error("Failed to load exam series:", err));
   }, [examSeriesApi]);
 
   useEffect(() => {

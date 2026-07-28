@@ -176,6 +176,23 @@ export const systemGroups = [
   },
 ];
 
+export const securityGroups = [
+  {
+    permission: "security.view",
+    base: "/security",
+    links: [
+      { label: "Dashboard", to: "/security" },
+      { label: "Security Events", to: "/security/events" },
+      { label: "Devices", to: "/security/devices" },
+      { label: "Active Sessions", to: "/security/sessions" },
+      { label: "Blocked IPs", to: "/security/blocked/ips" },
+      { label: "Blocked Devices", to: "/security/blocked/devices" },
+      { label: "Blocked Users", to: "/security/blocked/users" },
+      { label: "API Monitoring", to: "/security/monitoring" },
+    ],
+  },
+];
+
 export const allModuleGroups = [
   ...peopleGroups,
   ...academicGroups,
@@ -184,4 +201,5 @@ export const allModuleGroups = [
   ...facilityGroups,
   ...supportGroups,
   ...systemGroups,
+  ...securityGroups,
 ];

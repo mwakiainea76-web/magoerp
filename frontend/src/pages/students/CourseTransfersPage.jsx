@@ -8,14 +8,11 @@ import {
   Th,
   Tbody,
   Td,
-  TableFooter,
 } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormInput } from "@/components/FormInput";
 import {
   bodyTextClassName,
-  labelTextClassName,
-  selectClassName,
   initialMeta,
 } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";

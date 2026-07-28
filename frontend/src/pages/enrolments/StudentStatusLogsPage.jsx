@@ -4,7 +4,7 @@ import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } f
 import { FormButton } from "@/components/FormButton";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import {
-  Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter,
+  Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td,
 } from "@/components/DataTable";
 import { useCourseEnrolmentsApi } from "@/hooks/useCourseEnrolmentsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";

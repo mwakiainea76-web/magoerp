@@ -1,5 +1,5 @@
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -81,7 +81,6 @@ export function AcademicSessionsPage() {
     register,
     handleSubmit,
     watch,
-    reset,
     setError: setFormFieldError,
     formState: { errors },
   } = useForm({

@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { Frown, LoaderCircle, Search } from "lucide-react";
+import { Frown, LoaderCircle } from "lucide-react";
 
-import { bodyTextClassName, inputClassName, selectClassName } from "@/lib/styles";
+import { bodyTextClassName, selectClassName } from "@/lib/styles";
 import { LookupSelect } from "@/components/LookupSelect";
 import { Table, TableWrapper, Thead, Th, Tbody, Td } from "@/components/DataTable";
 import { useAcademicSessionsApi } from "@/hooks/useAcademicSessionsApi";
-import { useAcademicSessionEnrolmentsApi } from "@/hooks/useAcademicSessionEnrolmentsApi";
 import { authClient } from "@/lib/api/authClient";
 
 export function TrainerUnitEnrolmentsPage() {
   const sessionsApi = useAcademicSessionsApi();
-  const enrolmentsApi = useAcademicSessionEnrolmentsApi();
 
   const [sessions, setSessions] = useState([]);
   const [filterSession, setFilterSession] = useState("");
@@ -24,13 +22,13 @@ export function TrainerUnitEnrolmentsPage() {
   useEffect(() => {
     sessionsApi.list({ per_page: 50, sort_direction: "desc" }).then((res) => {
       setSessions(res.data ?? []);
-    }).catch(() => {});
+    }).catch((err) => console.error(err));
   }, [sessionsApi]);
 
   useEffect(() => {
     authClient.get("/attendance/assigned-units").then((res) => {
       setAssignedUnits(res.data?.data ?? []);
-    }).catch(() => {}).finally(() => setUnitsLoaded(true));
+    }).catch((err) => console.error(err)).finally(() => setUnitsLoaded(true));
   }, []);
 
   const fetchUnits = useCallback(async (query) => {
@@ -52,7 +50,8 @@ export function TrainerUnitEnrolmentsPage() {
       params: { academic_session_id: filterSession, unit_id: filterUnit },
     }).then((res) => {
       setStudents(res.data?.data ?? []);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error(err);
       setStudents([]);
     }).finally(() => setLoading(false));
   }, [filterSession, filterUnit]);

@@ -97,7 +97,8 @@ export function ResetPasswordPage() {
 
     try {
       await logout();
-    } catch {
+    } catch (err) {
+      console.error(err);
     } finally {
       useAuthStore.getState().clearAuth();
       navigate("/login", { replace: true });

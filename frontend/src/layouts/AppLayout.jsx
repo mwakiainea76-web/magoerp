@@ -95,7 +95,8 @@ export function AppLayout() {
 
     try {
       await logout();
-    } catch {
+    } catch (err) {
+      console.error(err);
     } finally {
       clearAuth();
       setIsLoggingOut(false);

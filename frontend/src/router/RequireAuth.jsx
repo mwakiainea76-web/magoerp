@@ -12,6 +12,10 @@ export function RequireAuth({ children }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  if (!user) {
+    return null;
+  }
+
   if (user?.must_reset_password && location.pathname !== "/reset-password") {
     return <Navigate to="/reset-password" replace state={{ from: location }} />;
   }

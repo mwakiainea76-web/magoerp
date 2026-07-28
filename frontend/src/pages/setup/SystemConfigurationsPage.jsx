@@ -20,8 +20,8 @@ export function SystemConfigurationsPage() {
     try {
       const response = await api.list();
       setConfigs(response.data ?? []);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error("Failed to load configs:", err);
     } finally {
       setLoading(false);
     }

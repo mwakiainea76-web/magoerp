@@ -2,7 +2,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
@@ -57,7 +57,6 @@ function normalizePayload(values) {
 
 export function AcademicYearFormPage() {
   const { yearId } = useParams();
-  const navigate = useNavigate();
   const yearsApi = useAcademicYearsApi();
   const isEdit = Boolean(yearId);
 

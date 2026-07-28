@@ -2,7 +2,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
@@ -99,7 +99,7 @@ function normalizePayload(values) {
     job_title: values.job_title.trim(),
     employment_type: values.employment_type,
     date_joined: values.date_joined || null,
-    contract_end_date: values.contract_end_date,
+    contract_end_date: values.contract_end_date || null,
     basic_salary: values.basic_salary,
     kra_pin: values.kra_pin.trim(),
     nhif_number: values.nhif_number.trim(),
@@ -122,7 +122,6 @@ function normalizePayload(values) {
 
 export function StaffFormPage() {
   const { staffId } = useParams();
-  const navigate = useNavigate();
   const staffsApi = useStaffsApi();
   const lookupApi = useLookupApi();
   const isEdit = Boolean(staffId);
@@ -252,9 +251,6 @@ export function StaffFormPage() {
               status: s.status ?? true,
             });
 
-            setValue("kra_pin", s.kra_pin ?? "");
-            setValue("nhif_number", s.nhif_number ?? "");
-            setValue("nssf_number", s.nssf_number ?? "");
             setNextEmployeeNumber(s.employee_number);
 
             if (s.department_id) {
@@ -466,7 +462,7 @@ export function StaffFormPage() {
 
         {/* Section 3: Employment Details */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-5">
-          <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 4: Employment Details</h2>
+          <h2 className="mb-4 text-[1.0625rem] font-semibold text-slate-900">Section 3: Employment Details</h2>
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                         <Controller
               name="department_id"

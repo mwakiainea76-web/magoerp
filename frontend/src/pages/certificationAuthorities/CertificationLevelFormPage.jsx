@@ -4,19 +4,19 @@ import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
 import {
   Link,
-  useNavigate,
   useParams,
   useSearchParams,
 } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
+import { getApiErrorMessage } from "@/lib/api/authClient";
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
 import { useCertificationLevelsApi } from "@/hooks/useCertificationLevelsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
-import { bodyTextClassName, labelClassName, inputTextClassName, textAreaClassName } from "@/lib/styles";
+import { bodyTextClassName, labelClassName, textAreaClassName } from "@/lib/styles";
 
 const levelSchema = yup.object({
   certification_authority_id: yup
@@ -55,7 +55,6 @@ function normalizePayload(values) {
 export function CertificationLevelFormPage() {
   const { levelId } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const levelsApi = useCertificationLevelsApi();
   const lookupApi = useLookupApi();
   const isEdit = Boolean(levelId);

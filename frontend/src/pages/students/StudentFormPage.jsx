@@ -117,7 +117,6 @@ export function StudentFormPage() {
     handleSubmit,
     reset,
     setError,
-    setValue,
     clearErrors,
     watch,
     formState: { errors },
@@ -259,7 +258,8 @@ export function StudentFormPage() {
           setAdmissionNumber(response?.next_admission_number ?? "Unavailable");
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error(err);
         if (isMounted) {
           setAdmissionNumber("Unavailable");
         }

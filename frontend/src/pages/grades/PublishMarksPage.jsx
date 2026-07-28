@@ -40,7 +40,7 @@ export function PublishMarksPage() {
   const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
-    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch(() => {});
+    examSeriesApi.options().then((res) => setExamSeriesOptions(res.data ?? [])).catch((err) => console.error("Failed to load exam series options:", err));
   }, [examSeriesApi]);
 
   const selectedExamSeriesTypes = useMemo(() => {
@@ -161,6 +161,7 @@ export function PublishMarksPage() {
       });
     } catch (e) {
       toast.error(`Failed to ${label} ${filterType}`);
+      return;
     }
     toast.success(`All scores ${label}ed.`);
     await loadMarks();

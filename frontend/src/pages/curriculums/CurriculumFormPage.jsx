@@ -2,7 +2,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
@@ -12,7 +12,7 @@ import { LookupSelect } from "@/components/LookupSelect";
 import { useCurriculumsApi } from "@/hooks/useCurriculumsApi";
 import { useLookupApi } from "@/hooks/useLookupApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
-import { bodyTextClassName, labelClassName, inputTextClassName, fieldClassName, textAreaClassName } from "@/lib/styles";
+import { bodyTextClassName, labelClassName, textAreaClassName } from "@/lib/styles";
 
 const curriculumSchema = yup.object({
   certification_authority_id: yup
@@ -45,7 +45,6 @@ function normalizePayload(values) {
 
 export function CurriculumFormPage() {
   const { curriculumId } = useParams();
-  const navigate = useNavigate();
   const curriculumsApi = useCurriculumsApi();
   const lookupApi = useLookupApi();
   const isEdit = Boolean(curriculumId);

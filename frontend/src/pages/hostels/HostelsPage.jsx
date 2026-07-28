@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Pencil, Plus, Trash2, Eye, DoorOpen } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { bodyTextClassName, initialMeta } from "@/lib/styles";
+import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";

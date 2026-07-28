@@ -2,17 +2,17 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ArrowLeft, Layers3 } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
+import { getApiErrorMessage } from "@/lib/api/authClient";
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { useCertificationAuthoritiesApi } from "@/hooks/useCertificationAuthoritiesApi";
 import {
   bodyTextClassName,
   labelClassName,
-  inputTextClassName,
   textAreaClassName,
 } from "@/lib/styles";
 
@@ -43,7 +43,6 @@ function normalizePayload(values) {
 
 export function CertificationAuthorityFormPage() {
   const { authorityId } = useParams();
-  const navigate = useNavigate();
   const authoritiesApi = useCertificationAuthoritiesApi();
   const isEdit = Boolean(authorityId);
 

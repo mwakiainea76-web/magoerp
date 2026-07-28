@@ -76,6 +76,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'manage-course-changes',
                 'manage-cohorts',
                 'manage-exam-series',
+                'security.view',
+                'security.manage',
+                'api.monitoring.view',
+                'api.monitoring.manage',
             ],
             'finance' => [
                 'finance.view',

@@ -118,7 +118,6 @@ export function AdminDashboard() {
 
   const {
     stats = [],
-    counts = {},
     monthly_registrations = [],
     top_courses = [],
     active_sessions = [],

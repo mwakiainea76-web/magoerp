@@ -1,4 +1,4 @@
-import { ArrowRightLeft, BookOpen, Building2, CalendarClock, ClipboardCheck, Coins, Landmark, LayoutDashboard, Settings2, Users } from "lucide-react";
+import { ArrowRightLeft, BookOpen, Building2, CalendarClock, ClipboardCheck, Coins, Landmark, LayoutDashboard, Settings2, Shield, Users } from "lucide-react";
 
 export const navLinks = [
   {
@@ -84,6 +84,20 @@ export const navLinks = [
     children: [
       { label: "Support Requests", to: "/support-requests", permission: "manage-support-requests" },
       { label: "Submit Request", to: "/support-requests/create", permission: "manage-support-requests" },
+    ],
+  },
+  {
+    label: "Security",
+    icon: Shield,
+    children: [
+      { label: "Dashboard", to: "/security", permission: "security.view" },
+      { label: "Security Events", to: "/security/events", permission: "security.view" },
+      { label: "Devices", to: "/security/devices", permission: "security.view" },
+      { label: "Active Sessions", to: "/security/sessions", permission: "security.view" },
+      { label: "Blocked IPs", to: "/security/blocked/ips", permission: "security.view" },
+      { label: "Blocked Devices", to: "/security/blocked/devices", permission: "security.view" },
+      { label: "Blocked Users", to: "/security/blocked/users", permission: "security.view" },
+      { label: "API Monitoring", to: "/security/monitoring", permission: "api.monitoring.view" },
     ],
   },
   {

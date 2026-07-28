@@ -10,7 +10,7 @@ import { useAuthStore } from "@/store/authStore";
 export function AttendanceIndexPage() {
   const attendanceApi = useAttendanceApi();
   const navigate = useNavigate();
-  const role = useAuthStore((state) => state.user?.role);
+
   const attendanceBasePath = "/attendance";
 
   const [units, setUnits] = useState([]);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import toast from "react-hot-toast";
 import { ArrowLeftRight, Search, UserCheck } from "lucide-react";
 
@@ -42,8 +42,12 @@ export function CourseChangePage() {
       const found = res.data;
       setStudent(found);
 
-      const mappingsRes = await api.availableMappings(found.id);
-      setMappings(mappingsRes.data ?? {});
+      try {
+        const mappingsRes = await api.availableMappings(found.id);
+        setMappings(mappingsRes.data ?? {});
+      } catch (e) {
+        setLookupError(getApiErrorMessage(e, "Failed to load course mappings."));
+      }
     } catch (e) {
       setLookupError(getApiErrorMessage(e, "Student not found."));
     } finally {

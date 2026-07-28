@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, RefreshCw, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { FormInput } from "@/components/FormInput";

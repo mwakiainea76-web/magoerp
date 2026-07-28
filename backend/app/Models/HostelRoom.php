@@ -40,4 +40,9 @@ class HostelRoom extends Model
     {
         return $this->hasMany(HostelBed::class);
     }
+
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(HostelAllocation::class, 'hostel_room_id');
+    }
 }

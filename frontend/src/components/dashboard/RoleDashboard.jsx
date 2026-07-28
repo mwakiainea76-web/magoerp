@@ -107,7 +107,6 @@ export function RoleDashboard({ role }) {
                 </div>
                 <p className="text-3xl font-semibold text-slate-950">{metric.value}</p>
                 <Progress progress={Number.parseInt(metric.value, 10)} color="cyan" size="lg" />
-                <div className={`h-1.5 rounded-full ${toneClasses[metric.tone]}`} />
               </div>
             </Card>
           ))}

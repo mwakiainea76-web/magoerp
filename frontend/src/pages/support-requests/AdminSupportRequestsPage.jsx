@@ -4,7 +4,7 @@ import { Eye } from "lucide-react";
 
 import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
 import { PaginationFooter } from "@/components/PaginationFooter";
-import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
+import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td } from "@/components/DataTable";
 import { useSupportRequestsApi } from "@/hooks/useSupportRequestsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 

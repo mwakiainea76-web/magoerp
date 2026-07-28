@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Pencil, Plus, Trash2, ArrowLeft, Settings2 } from "lucide-react";
+import { Pencil, Plus, Trash2, ArrowLeft } from "lucide-react";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useForm } from "react-hook-form";
 
-import { bodyTextClassName, initialMeta } from "@/lib/styles";
+import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
-import { FormInput } from "@/components/FormInput";
 import { Modal, ModalBody, ModalFooter } from "@/components/Modal";
 import { Table, TableHeader, TableWrapper, Thead, Th, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
@@ -110,6 +109,7 @@ export function HostelRoomsPage() {
         toast.success("Room created.");
       }
       await loadRooms();
+      closeModal();
     } catch (e) {
       const serverErrors = e?.response?.data?.errors;
       if (serverErrors) {

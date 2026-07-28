@@ -24,7 +24,6 @@ function formatDate(dateStr) {
 
 export function AttendanceMarkPage() {
   const attendanceApi = useAttendanceApi();
-  const role = useAuthStore((state) => state.user?.role);
   const attendanceBasePath = "/attendance";
   const [searchParams] = useSearchParams();
   const unitId = searchParams.get("unit_id") ?? "";

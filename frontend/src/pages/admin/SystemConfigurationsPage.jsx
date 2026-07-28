@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 import { FormInput } from "@/components/FormInput";
-import { bodyTextClassName, selectClassName } from "@/lib/styles";
+import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useSystemConfigurationsApi } from "@/hooks/useSystemConfigurationsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";

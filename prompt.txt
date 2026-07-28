@@ -1,11 +1,447 @@
-On the bold weight:
 
-Category headings (Analytics, Assessments, Courses) look like they're at 600/700 weight. Drop to 500 (medium) — still distinguishes them from body text without shouting.
-If your font family only ships 400/700 (no 500), that's often why it looks heavy — check if you have a medium weight available; if not, keep 700 but reduce the font-size slightly instead of fighting the weight.
 
-Other small polish items I'd flag:
+Software documentation is the collection of documents that explain:
 
-The "N/N selected" counter and heading are sitting very close in weight/color right now — make sure the counter is clearly lighter (secondary/muted text color) so the eye goes to the heading first, count second.
-Selected checkbox rows all look identical in border weight to unselected ones would (once you have unchecked items to compare against) — worth confirming checked vs. unchecked states are visually distinct enough at a glance, not just via the checkbox fill.
-Section header row and the divider line above/below are very close in contrast — a touch more spacing (padding) between sections would help them read as separate groups rather than one continuous list.
-The chevron icon is quite light gray — fine, but make sure it's clearly clickable (cursor pointer + maybe a hover background on the whole header row).
+* Why the system exists
+* How it works
+* How it is designed
+* How to install it
+* How to use it
+* How to maintain it
+* How to extend it
+* How to troubleshoot it
+
+Think of it as the "manual" for developers, administrators, testers, and future maintainers.
+
+---
+
+# Types of Documentation
+
+## 1. Project Documentation
+
+Explains the project itself.
+
+Example
+
+```
+School ERP
+
+Purpose
+
+Goals
+
+Technology stack
+
+Architecture
+
+Features
+
+Roadmap
+```
+
+---
+
+## 2. Architecture Documentation
+
+This is the most important document.
+
+It explains
+
+* overall architecture
+* backend
+* frontend
+* APIs
+* database
+* authentication
+* caching
+* queues
+* security
+* deployment
+
+Example
+
+```
+React SPA
+
+↓
+
+Laravel API
+
+↓
+
+PostgreSQL
+
+↓
+
+Redis (future)
+
+↓
+
+Cloudflare (future)
+```
+
+---
+
+## 3. Database Documentation
+
+Every table should be documented.
+
+Example
+
+```
+users
+
+Purpose
+
+Relationships
+
+Indexes
+
+Constraints
+
+Used by
+
+Related APIs
+```
+
+Also include
+
+* ER diagrams
+* relationship explanations
+* indexing strategy
+* migration history
+
+---
+
+## 4. API Documentation
+
+Every endpoint should have
+
+```
+URL
+
+Method
+
+Description
+
+Authentication
+
+Permissions
+
+Request
+
+Response
+
+Validation
+
+Errors
+
+Examples
+```
+
+Example
+
+```
+POST /api/login
+```
+
+Should explain everything.
+
+---
+
+## 5. Module Documentation
+
+Every module gets its own document.
+
+Example
+
+```
+Students
+
+Admissions
+
+Finance
+
+Academics
+
+HR
+
+Security
+
+Reports
+
+Inventory
+
+Transport
+
+Hostels
+
+Library
+```
+
+Each explains
+
+* responsibilities
+* services
+* APIs
+* database
+* workflows
+
+---
+
+## 6. Security Documentation
+
+Document
+
+* authentication
+* authorization
+* middleware
+* audit logs
+* security events
+* rate limiting
+* risk engine
+* session management
+* device management
+
+---
+
+## 7. Frontend Documentation
+
+Explain
+
+```
+Pages
+
+Layouts
+
+Components
+
+Hooks
+
+Contexts
+
+State
+
+API integration
+
+Navigation
+
+Protected routes
+```
+
+---
+
+## 8. Coding Standards
+
+Explain
+
+Naming
+
+Folder structure
+
+Conventions
+
+Service layer
+
+Repositories
+
+Validation
+
+Policies
+
+Testing
+
+Formatting
+
+---
+
+## 9. Deployment Documentation
+
+Explain
+
+```
+Development
+
+Testing
+
+Production
+
+CI/CD
+
+Environment variables
+
+Backups
+
+Monitoring
+```
+
+---
+
+## 10. User Documentation
+
+Administrator Guide
+
+Teacher Guide
+
+Student Guide
+
+Parent Guide
+
+Finance Guide
+
+---
+
+## 11. Maintenance Documentation
+
+Explain
+
+How to
+
+Upgrade
+
+Backup
+
+Restore
+
+Debug
+
+Monitor
+
+Scale
+
+---
+
+## 12. Troubleshooting Guide
+
+Common errors
+
+Solutions
+
+Logs
+
+Recovery
+
+---
+
+# Folder Structure
+
+I would keep all documentation inside
+
+```
+docs/
+
+    README.md
+
+    architecture/
+
+        overview.md
+
+        backend.md
+
+        frontend.md
+
+        deployment.md
+
+        security.md
+
+    database/
+
+        erd.md
+
+        tables.md
+
+        migrations.md
+
+    api/
+
+        authentication.md
+
+        students.md
+
+        finance.md
+
+        security.md
+
+    modules/
+
+        students.md
+
+        finance.md
+
+        academics.md
+
+        security.md
+
+    frontend/
+
+        routing.md
+
+        components.md
+
+        hooks.md
+
+    operations/
+
+        backup.md
+
+        restore.md
+
+        monitoring.md
+
+    decisions/
+
+        ADR-001-authentication.md
+
+        ADR-002-security.md
+
+        ADR-003-database.md
+
+    diagrams/
+
+```
+
+---
+
+
+
+Instead of only generating code, it should also generate documentation.
+
+Whenever it creates
+
+* a migration
+* a service
+* an API
+* middleware
+* a React page
+* a component
+* a module
+
+it should automatically update the relevant documentation.
+
+Documentation should never become outdated.
+
+---
+
+
+
+This is the instruction i want you to  follow to create  a agreat documentation:
+
+> You are the project's Software Architect and Technical Writer. Every feature you design or implement must also be documented. Documentation is a first-class deliverable, not an afterthought.
+>
+> Maintain a `/docs` directory at the root of the repository. Whenever you create, modify, or remove a feature, update the relevant documentation in the same task.
+>
+> Document the system at multiple levels: project overview, architecture, database schema, REST APIs, backend modules, frontend modules, security, deployment, testing, coding standards, and operations.
+>
+> Every REST endpoint must include its purpose, authentication requirements, permissions, request schema, response schema, validation rules, error responses, and usage examples.
+>
+> Every database table must include its purpose, relationships, indexes, constraints, and the modules that use it.
+>
+> Every module must document its responsibilities, workflows, services, events, middleware, dependencies, and extension points.
+>
+> Maintain Architecture Decision Records (ADRs) for significant technical decisions so future developers understand why important choices were made.
+>
+> Use Markdown for all documentation. Keep documentation synchronized with the codebase so it always reflects the current implementation.
+>
+> Documentation quality should be suitable for onboarding a senior developer with no prior knowledge of the project. It should be detailed, accurate, searchable, and easy to maintain.
+
+For a project the size of your School ERP, this approach turns your documentation into a living knowledge base instead of a collection of notes that quickly become outdated.

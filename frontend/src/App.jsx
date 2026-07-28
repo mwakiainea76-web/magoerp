@@ -29,7 +29,7 @@ function useRoleRoutes(role) {
     let active = true;
     loadRoutes().then((routes) => {
       if (active) setLoadedRoutes({ role, routes });
-    });
+    }).catch((err) => console.error("Failed to load routes:", err));
 
     return () => {
       active = false;

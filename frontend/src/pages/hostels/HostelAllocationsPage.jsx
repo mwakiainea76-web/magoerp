@@ -54,7 +54,7 @@ export function HostelAllocationsPage() {
     }
     load();
     return () => { mounted = false; };
-  }, [page, filterStatus, filterHostel]);
+  }, [page, perPage, filterStatus, filterHostel]);
 
   async function handleVacate(allocation) {
     if (!window.confirm(`Vacate ${allocation.student_name} from ${allocation.hostel_name}?`)) return;

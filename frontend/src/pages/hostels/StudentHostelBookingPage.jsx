@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { ArrowLeft, Building2, Bed, DoorOpen, MapPin, Users } from "lucide-react";
 
-import { bodyTextClassName, labelTextClassName, inputClassName } from "@/lib/styles";
+import { bodyTextClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { useHostelsApi } from "@/hooks/useHostelsApi";
 import { getApiErrorMessage } from "@/lib/api/authClient";

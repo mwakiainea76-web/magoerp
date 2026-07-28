@@ -4,7 +4,7 @@ import { Controller, useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
-import { bodyTextClassName, labelClassName, selectClassName } from "@/lib/styles";
+import { labelClassName, selectClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";

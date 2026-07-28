@@ -412,7 +412,7 @@ export function MarksheetPage({ role = "admin" }) {
         </Table>
       ) : null}
 
-      {!isLoading && role !== "student" && !studentId ? null : null}
+          {null}
 
       {!isLoading && role !== "student" && studentId && marksheetData === null && isLoadingEnrolments ? (
         <div className={`rounded-xl border border-slate-200/80 bg-white px-5 py-10 text-center text-slate-500 ${bodyTextClassName}`}>Loading enrolments...</div>

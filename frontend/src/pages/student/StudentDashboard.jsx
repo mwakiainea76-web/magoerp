@@ -8,7 +8,6 @@ import {
   CreditCard,
   GraduationCap,
   LogIn,
-  ShieldCheck,
   Wallet,
   X,
 } from "lucide-react";
@@ -184,10 +183,9 @@ export function StudentDashboard() {
     ? last_session_enrolment.session_name
     : enrolment?.academic_session?.name;
 
-  const accountBalance = Number(
-    finance?.net_balance
-      ?? (Number(finance?.outstanding_balance ?? 0) - Number(finance?.unallocated_credit ?? 0)),
-  );
+  const accountBalance = finance?.net_balance != null
+    ? Number(finance.net_balance)
+    : (Number(finance?.outstanding_balance ?? 0) - Number(finance?.unallocated_credit ?? 0));
 
   const statsCards = [
     {
@@ -513,28 +511,7 @@ export function StudentDashboard() {
                 </div>
               ) : null}
 
-              <div className="hidden">
-                <p className="text-zinc-500">Progress</p>
-                <p className="mt-1 font-semibold text-zinc-900">
-                  {progress?.total_sessions > 0
-                    ? `Year ${progress.current_year} — Module ${progress.current_module}`
-                    : "Not started"}
-                </p>
-                {progress?.total_sessions > 0 ? (
-                  <div className="mt-2">
-                    <div className="flex h-1.5 overflow-hidden rounded-full bg-zinc-200">
-                      <div
-                        className="rounded-full bg-emerald-500 transition-all"
-                        style={{ width: `${(progress.current_module / progress.modules_per_year) * 100}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-zinc-400">
-                      Module {progress.current_module} of {progress.modules_per_year}
-                      {progress.total_sessions > 0 ? ` · ${progress.total_sessions} total` : ""}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
+
             </div>
           </div>
         </div>

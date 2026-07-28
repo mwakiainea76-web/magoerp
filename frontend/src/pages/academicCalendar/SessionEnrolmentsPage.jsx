@@ -9,14 +9,13 @@ import {
   Th,
   Tbody,
   Td,
-  TableFooter,
 } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
 import { useAcademicSessionEnrolmentsApi } from "@/hooks/useAcademicSessionEnrolmentsApi";
 import { useAuthStore } from "@/store/authStore";
 import { FormInput } from "@/components/FormInput";
-import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
+import { bodyTextClassName, initialMeta } from "@/lib/styles";
 import { getApiErrorMessage } from "@/lib/api/authClient";
 
 const statusColors = {
@@ -56,8 +55,8 @@ export function SessionEnrolmentsPage() {
       ]);
       setMyEnrolments(enrolmentsRes.data ?? []);
       setAvailableSessions(sessionsRes.data ?? []);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error("Failed to load student enrolment data:", err);
     } finally {
       setMyLoading(false);
     }

@@ -2,11 +2,11 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 
-import { bodyTextClassName, labelClassName, fieldClassName, textAreaClassName } from "@/lib/styles";
+import { bodyTextClassName, labelClassName, textAreaClassName } from "@/lib/styles";
 import { FormButton } from "@/components/FormButton";
 import { FormInput } from "@/components/FormInput";
 import { LookupSelect } from "@/components/LookupSelect";
@@ -64,7 +64,6 @@ function normalizePayload(values) {
 
 export function UnitFormPage() {
   const { unitId } = useParams();
-  const navigate = useNavigate();
   const unitsApi = useUnitsApi();
   const lookupApi = useLookupApi();
   const isEdit = Boolean(unitId);

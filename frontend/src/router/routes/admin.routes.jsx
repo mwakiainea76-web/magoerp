@@ -2,6 +2,7 @@
 import { lazy } from "react";
 import { Route } from "react-router";
 import { FinanceRoutes } from "./finance.routes";
+import { SecurityRoutes } from "./security.routes";
 
 const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AccessRoleFormPage = lazy(() => import("@/pages/access/AccessRoleFormPage").then((module) => ({ default: module.AccessRoleFormPage })));
@@ -135,6 +136,7 @@ export const AdminRoutes = (
     <Route path="/hostel-allocations" element={<HostelAllocationsPage />} />
     <Route path="/system-configurations" element={<SystemConfigurationsPage />} />
     <Route path="/institution-details" element={<InstitutionDetailsPage />} />
+    {SecurityRoutes}
     {FinanceRoutes}
   </>
 );

@@ -4,7 +4,7 @@ import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { FormInput } from "@/components/FormInput";
-import { bodyTextClassName, labelTextClassName, selectClassName, initialMeta } from "@/lib/styles";
+import { bodyTextClassName, initialMeta } from "@/lib/styles";
 import { Table, TableHeader, TableWrapper, Thead, Th, SortableTh, Tbody, Td, TableFooter } from "@/components/DataTable";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { FormButton } from "@/components/FormButton";
