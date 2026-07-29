@@ -30,6 +30,12 @@ export function useAuthApi() {
         });
         return response.data;
       },
+      resendOtp: async ({ temporaryToken }) => {
+        const response = await authClient.post("/login/resend-otp", {
+          temporary_token: temporaryToken,
+        });
+        return response.data;
+      },
       changePassword: async ({ currentPassword, password, passwordConfirmation }) => {
         const response = await authClient.post("/change-password", {
           current_password: currentPassword,

@@ -1,59 +1,59 @@
 <?php
 
-use App\Http\Controllers\Api\FinanceAuditController;
-use App\Http\Controllers\Api\InstitutionsController;
-use App\Http\Controllers\Api\AccessRolePermissionsController;
-use App\Http\Controllers\Api\AccessRolesController;
 use App\Http\Controllers\Api\AcademicSessionEnrolmentsController;
 use App\Http\Controllers\Api\AcademicSessionsController;
 use App\Http\Controllers\Api\AcademicTimetablesController;
 use App\Http\Controllers\Api\AcademicYearsController;
+use App\Http\Controllers\Api\AccessRolePermissionsController;
+use App\Http\Controllers\Api\AccessRolesController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminPasswordResetController;
+use App\Http\Controllers\Api\ApiMonitoringController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CalendarController;
-use App\Http\Controllers\Api\ExamSeriesController;
-use App\Http\Controllers\Api\TrainerDashboardController;
 use App\Http\Controllers\Api\CertificationAuthoritiesController;
 use App\Http\Controllers\Api\CertificationAuthorityGradesController;
-use App\Http\Controllers\Api\CourseChangeController;
-use App\Http\Controllers\Api\SupportRequestsController;
 use App\Http\Controllers\Api\CertificationLevelsController;
-use App\Http\Controllers\Api\CourseEnrolmentsController;
+use App\Http\Controllers\Api\CohortBillingController;
+use App\Http\Controllers\Api\CourseChangeController;
 use App\Http\Controllers\Api\CourseCurriculaController;
+use App\Http\Controllers\Api\CourseEnrolmentsController;
 use App\Http\Controllers\Api\CoursesController;
 use App\Http\Controllers\Api\CurriculaController;
 use App\Http\Controllers\Api\DepartmentsController;
+use App\Http\Controllers\Api\ExamSeriesController;
 use App\Http\Controllers\Api\FeeStructureController;
-use App\Http\Controllers\Api\StudentAccountController;
-use App\Http\Controllers\Api\CohortBillingController;
-use App\Http\Controllers\Api\FinanceHealthController;
-use App\Http\Controllers\Api\HostelsController;
-use App\Http\Controllers\Api\HostelRoomsController;
-use App\Http\Controllers\Api\LectureRoomsController;
 use App\Http\Controllers\Api\FeeStructureItemsController;
-
-use App\Http\Controllers\Api\InvoicesController;
-use App\Http\Controllers\Api\StudentLedgerController;
-use App\Http\Controllers\Api\FinanceReportsDashboardController;
-use App\Http\Controllers\Api\FinanceReportsController;
+use App\Http\Controllers\Api\FinanceAuditController;
 use App\Http\Controllers\Api\FinanceDataExportsController;
+use App\Http\Controllers\Api\FinanceHealthController;
+use App\Http\Controllers\Api\FinanceReportsController;
+use App\Http\Controllers\Api\FinanceReportsDashboardController;
+use App\Http\Controllers\Api\HostelRoomsController;
+use App\Http\Controllers\Api\HostelsController;
+use App\Http\Controllers\Api\InstitutionsController;
+use App\Http\Controllers\Api\InvoicesController;
+use App\Http\Controllers\Api\LectureRoomsController;
+use App\Http\Controllers\Api\LookupController;
 use App\Http\Controllers\Api\PaymentsController;
 use App\Http\Controllers\Api\RefundsController;
-use App\Http\Controllers\Api\LookupController;
-use App\Http\Controllers\Api\StaffsController;
-use App\Http\Controllers\Api\StudentDashboardController;
-use App\Http\Controllers\Api\StudentMarksController;
-use App\Http\Controllers\Api\StudentsController;
-use App\Http\Controllers\Api\SystemConfigurationsController;
-use App\Http\Controllers\Api\Trainer\AttendanceController as TrainerAttendanceController;
-use App\Http\Controllers\Api\UnitsController;
+use App\Http\Controllers\Api\Security\SecurityBlockedController;
 use App\Http\Controllers\Api\Security\SecurityDashboardController;
 use App\Http\Controllers\Api\Security\SecurityDevicesController;
 use App\Http\Controllers\Api\Security\SecurityEventsController;
 use App\Http\Controllers\Api\Security\SecuritySessionsController;
-use App\Http\Controllers\Api\Security\SecurityBlockedController;
 use App\Http\Controllers\Api\Security\SecurityUserProfileController;
+use App\Http\Controllers\Api\StaffsController;
+use App\Http\Controllers\Api\StudentAccountController;
+use App\Http\Controllers\Api\StudentDashboardController;
+use App\Http\Controllers\Api\StudentLedgerController;
+use App\Http\Controllers\Api\StudentMarksController;
+use App\Http\Controllers\Api\StudentsController;
+use App\Http\Controllers\Api\SupportRequestsController;
+use App\Http\Controllers\Api\SystemConfigurationsController;
+use App\Http\Controllers\Api\Trainer\AttendanceController as TrainerAttendanceController;
+use App\Http\Controllers\Api\TrainerDashboardController;
+use App\Http\Controllers\Api\UnitsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -62,6 +62,7 @@ Route::middleware(['api.monitor'])->group(function () {
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/login/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::post('/login/resend-otp', [AuthController::class, 'resendOtp']);
 Route::get('/institution/logo', [InstitutionsController::class, 'logo']);
 
 Route::middleware([
@@ -343,12 +344,12 @@ Route::middleware([
 
     // ---- API Monitoring ----
     Route::prefix('monitoring')->group(function () {
-        Route::get('/logs', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'index']);
-        Route::get('/logs/stats', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'stats']);
-        Route::get('/logs/{apiEndpointError}', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'show']);
-        Route::post('/logs/{apiEndpointError}/escalate', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'escalate']);
-        Route::post('/logs/{apiEndpointError}/resolve', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'resolve']);
-        Route::delete('/logs/clear', [\App\Http\Controllers\Api\ApiMonitoringController::class, 'clearResolved']);
+        Route::get('/logs', [ApiMonitoringController::class, 'index']);
+        Route::get('/logs/stats', [ApiMonitoringController::class, 'stats']);
+        Route::get('/logs/{apiEndpointError}', [ApiMonitoringController::class, 'show']);
+        Route::post('/logs/{apiEndpointError}/escalate', [ApiMonitoringController::class, 'escalate']);
+        Route::post('/logs/{apiEndpointError}/resolve', [ApiMonitoringController::class, 'resolve']);
+        Route::delete('/logs/clear', [ApiMonitoringController::class, 'clearResolved']);
     });
 
     // ---- Security Module ----

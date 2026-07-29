@@ -32,11 +32,14 @@ export function LoginPage() {
   const [logoLoaded, setLogoLoaded] = useState(false);
 
   useEffect(() => {
-    authClient.get("/institution/logo").then((res) => {
-      const url = res?.data?.logo_url;
-      if (url) setLogoUrl(url);
-      setLogoLoaded(true);
-    }).catch(() => setLogoLoaded(true));
+    authClient
+      .get("/institution/logo")
+      .then((res) => {
+        const url = res?.data?.logo_url;
+        if (url) setLogoUrl(url);
+        setLogoLoaded(true);
+      })
+      .catch(() => setLogoLoaded(true));
   }, []);
 
   const {
@@ -52,7 +55,11 @@ export function LoginPage() {
   if (token && user) {
     return (
       <Navigate
-        to={user.must_reset_password ? "/reset-password" : getDashboardPath(user.role)}
+        to={
+          user.must_reset_password
+            ? "/reset-password"
+            : getDashboardPath(user.role)
+        }
         replace
       />
     );
@@ -68,7 +75,13 @@ export function LoginPage() {
       });
 
       if (payload.requires_otp) {
-        navigate("/verify-otp", { state: { temporary_token: payload.temporary_token }, replace: true });
+        navigate("/verify-otp", {
+          state: {
+            temporary_token: payload.temporary_token,
+            expires_at: payload.expires_at,
+          },
+          replace: true,
+        });
         return;
       }
 
@@ -89,7 +102,7 @@ export function LoginPage() {
         statusCode === 403
           ? "Your account is disabled. Contact administrator."
           : statusCode
-            ? error?.response?.data?.message ?? "Invalid credentials."
+            ? (error?.response?.data?.message ?? "Invalid credentials.")
             : "Server error.";
 
       setError("root", {
@@ -101,28 +114,14 @@ export function LoginPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-md overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+    <section className="mx-auto w-sm overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
       <div className="px-6 py-7 sm:px-8 sm:py-8">
         <div className="mb-6 text-center">
-          <div className="relative mx-auto h-12 w-44">
-            {!logoLoaded && (
-              <div className="h-full w-full animate-pulse rounded bg-slate-200" />
-            )}
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Institution logo"
-                className={`mx-auto h-full object-contain ${logoLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity`}
-                onLoad={() => setLogoLoaded(true)}
-                onError={() => setLogoLoaded(true)}
-              />
-            )}
-          </div>
           <h1 className="mt-3 text-2xl font-semibold text-slate-800">
             Welcome Back
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Sign in with your login ID to continue
+            Sign in with your username to continue
           </p>
         </div>
 

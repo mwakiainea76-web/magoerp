@@ -5,7 +5,7 @@ namespace App\Http\Requests\Auth;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class VerifyOtpRequest extends FormRequest
+class ResendOtpRequest extends FormRequest
 {
     public function rules(): array
     {
@@ -15,7 +15,6 @@ class VerifyOtpRequest extends FormRequest
                 'string',
                 Rule::exists('otps', 'temporary_token')->whereNull('used_at'),
             ],
-            'otp' => ['required', 'string', 'size:6'],
         ];
     }
 }

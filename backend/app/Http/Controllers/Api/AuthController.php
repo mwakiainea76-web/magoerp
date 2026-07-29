@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\AuthenticateApiTokenCookie;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\ResendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Mail\LoginOtpMail;
 use App\Models\Otp;
@@ -45,13 +46,14 @@ class AuthController extends Controller
 
         $mfaRoles = SystemConfiguration::getValue('mfa_required_roles', []);
         $mfaRoles[] = 'admin';
-        $mfaRoles = array_values(array_unique($mfaRoles));
+        $mfaRoles = array_unique($mfaRoles);
 
         if ($user->hasAnyRole($mfaRoles)) {
             $temporaryToken = $this->generateAndSendOtp($user);
             return response()->json([
                 'requires_otp' => true,
                 'temporary_token' => $temporaryToken,
+                'expires_at' => now()->addMinutes(10)->toIso8601String(),
             ]);
         }
 
@@ -107,6 +109,27 @@ class AuthController extends Controller
             'token' => $token,
             'user' => $this->transformUser($user),
         ])->withCookie($this->authCookie($token));
+    }
+
+    public function resendOtp(ResendOtpRequest $request): JsonResponse
+    {
+        $otp = Otp::where('temporary_token', $request->input('temporary_token'))->first();
+
+        if (! $otp) {
+            return response()->json(['message' => 'Invalid request.'], 422);
+        }
+
+        if ($otp->expires_at->isPast()) {
+            return response()->json(['message' => 'OTP has expired. Please login again.'], 422);
+        }
+
+        $newToken = $this->generateAndSendOtp($otp->user);
+
+        return response()->json([
+            'message' => 'A new OTP has been sent to your email.',
+            'temporary_token' => $newToken,
+            'expires_at' => now()->addMinutes(10)->toIso8601String(),
+        ]);
     }
 
     public function logout(Request $request): JsonResponse
